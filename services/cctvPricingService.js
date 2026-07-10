@@ -34,11 +34,97 @@ async function calculateCctvPrice(input = {}) {
   const Material = require('../models/Material');
   const slugify = (val = '') => String(val).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-  const [config, category, subcategory] = await Promise.all([
-    getActivePricingConfig(),
-    input.categoryId ? CctvCategory.findById(input.categoryId).lean() : null,
-    input.subcategoryId ? CctvSubcategory.findById(input.subcategoryId).lean() : null,
-  ]);
+  const config = await getActivePricingConfig();
+  
+  let subcategory = null;
+  if (input.subcategoryId) {
+    subcategory = await CctvSubcategory.findById(input.subcategoryId).lean();
+  }
+  if (!subcategory && input.subcategorySlug) {
+    subcategory = await CctvSubcategory.findOne({ slug: input.subcategorySlug }).lean();
+  }
+
+  let category = null;
+  if (input.categoryId) {
+    category = await CctvCategory.findById(input.categoryId).lean();
+  }
+  if (!category && subcategory && subcategory.categoryId) {
+    const CctvCategory = require('../models/CctvCategory');
+    category = await CctvCategory.findById(subcategory.categoryId).lean();
+  }
+
+  // Handle custom dynamic pricing for Install New CCTV
+  if (subcategory && subcategory.slug === 'install-new-cctv') {
+    const propertyType = input.propertyType || '';
+    const cameraTypes = Array.isArray(input.cameraTypes) ? input.cameraTypes : [];
+    const installationType = input.installationType || '';
+    const wiringRequired = input.wiringRequired === true || input.wiringRequired === 'Yes' || String(input.wiringRequired).toLowerCase() === 'true';
+    const cableLength = Math.max(Number(input.cableLength) || 0, 0);
+    const existingCable = input.existingCable === true || input.existingCable === 'Yes' || String(input.existingCable).toLowerCase() === 'true' || !wiringRequired;
+    const dvrRequired = input.dvrRequired === true || input.dvrRequired === 'Yes' || String(input.dvrRequired).toLowerCase() === 'true';
+    const dvrChannels = Number(input.dvrChannels) || 0;
+    const networkRack = input.networkRack === true || input.networkRack === 'Yes' || String(input.networkRack).toLowerCase() === 'true';
+    const monitorMounting = input.monitorMounting === true || input.monitorMounting === 'Yes' || String(input.monitorMounting).toLowerCase() === 'true';
+
+    // 1. Camera Installation Charge: ₹400 * total cameras
+    const totalCameras = cameraTypes.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const cameraInstallation = totalCameras * 400;
+
+    // 2. Cabling Charge: ₹60/m for new, ₹25/m for existing
+    let cableCharge = 0;
+    if (wiringRequired) {
+      cableCharge = cableLength * 60;
+    } else if (existingCable) {
+      cableCharge = cableLength * 25;
+    }
+
+    // 3. DVR/NVR Charge: Up to 16 ch = 1000, Above = 2500
+    let dvrCharge = 0;
+    if (dvrRequired) {
+      dvrCharge = dvrChannels <= 16 ? 1000 : 2500;
+    }
+
+    // 4. Rack charge: +500
+    const rackCharge = networkRack ? 500 : 0;
+
+    // 5. Monitor mounting: +350
+    const monitorCharge = monitorMounting ? 350 : 0;
+
+    const subtotal = cameraInstallation + cableCharge + dvrCharge + rackCharge + monitorCharge;
+
+    // Discount
+    const discountPct = (input.couponCode === 'WELCOME10' || input.couponCode === 'TECHBES10' || input.discountPercent === 10) ? 10 : 0;
+    const discount = Math.round(subtotal * (discountPct / 100));
+
+    const totalBeforeTax = subtotal - discount;
+    const gst = Math.round(totalBeforeTax * 0.18);
+    const grandTotal = totalBeforeTax + gst;
+
+    return {
+      category: category ? { id: category._id, name: category.name, slug: category.slug } : undefined,
+      subcategory: { id: subcategory._id, name: subcategory.name, slug: subcategory.slug },
+      propertyType,
+      cameraTypes,
+      installationType,
+      wiringRequired,
+      cableLength,
+      existingCable,
+      dvrRequired,
+      dvrChannels,
+      networkRack,
+      monitorMounting,
+      priceBreakdown: {
+        cameraInstallation,
+        cableCharge,
+        dvrCharge,
+        rackCharge,
+        monitorCharge,
+        gst,
+        discount,
+        grandTotal
+      }
+    };
+  }
 
   let cameraType = null;
   let selectedServiceType = null;
