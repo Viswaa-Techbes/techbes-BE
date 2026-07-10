@@ -148,6 +148,16 @@ const jobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    products: [
+      {
+        product: { type: String, trim: true },
+        variant: { type: String, trim: true },
+        quantity: { type: Number, min: 1 },
+        unitPrice: { type: Number, min: 0 },
+        total: { type: Number, min: 0 },
+        _id: false
+      }
+    ],
     bookingAnswers: [
       {
         question: { type: String, default: '' },
@@ -223,6 +233,16 @@ const jobSchema = new mongoose.Schema(
         taxTotal: { type: Number, default: 0, min: 0 },
         grandTotal: { type: Number, default: 0, min: 0 },
       },
+      products: [
+        {
+          product: { type: String, trim: true },
+          variant: { type: String, trim: true },
+          quantity: { type: Number, min: 1 },
+          unitPrice: { type: Number, min: 0 },
+          total: { type: Number, min: 0 },
+          _id: false
+        }
+      ],
       notes: { type: String, default: '', trim: true },
     },
     additionalChargesStatus: {

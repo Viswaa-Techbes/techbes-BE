@@ -6,6 +6,12 @@ const cctvProductSchema = new mongoose.Schema(
     slug: { type: String, required: true, unique: true, trim: true, lowercase: true },
     type: { type: String, trim: true, default: 'product' },
     price: { type: Number, required: true, min: 0 },
+    variants: [
+      {
+        name: { type: String, required: true },
+        price: { type: Number, required: true }
+      }
+    ],
     image: { type: String, default: '' },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     sortOrder: { type: Number, default: 0 },

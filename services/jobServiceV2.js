@@ -21,6 +21,7 @@ async function createBookingV2(bookingData) {
     addressId,
     googleMapsLink,
     googleMapLink,
+    products,
   } = bookingData;
   const grandTotal = Number(
     cctvDetails?.priceBreakdown?.grandTotal ?? bookingData.totalAmount ?? bookingData.priceValue ?? 0
@@ -66,7 +67,11 @@ async function createBookingV2(bookingData) {
     amount: grandTotal,
     advanceAmount: Math.round(grandTotal / 2),
     remainingAmount: Math.max(grandTotal - Math.round(grandTotal / 2), 0),
-    cctvDetails: cctvDetails || undefined,
+    products: products || cctvDetails?.products || undefined,
+    cctvDetails: cctvDetails ? {
+      ...cctvDetails,
+      products: cctvDetails.products || products || undefined
+    } : undefined,
     v2Metadata: {
       lat: String(lat || ''),
       lng: String(lng || ''),

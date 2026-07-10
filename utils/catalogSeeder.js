@@ -3,6 +3,122 @@ const SubCategory = require('../models/SubCategory');
 
 async function runSeed() {
   try {
+    // Seed CCTV Products with Technical Variants
+    const CctvProduct = require('../models/CctvProduct');
+    const productsData = [
+      {
+        name: 'Camera',
+        price: 1200,
+        type: 'camera',
+        variants: [
+          { name: 'Dome Camera', price: 1200 },
+          { name: 'Bullet Camera', price: 1400 },
+          { name: 'PTZ Camera', price: 4800 },
+          { name: 'IP Camera', price: 2000 },
+          { name: 'Wireless Camera', price: 1800 }
+        ],
+        sortOrder: 1
+      },
+      {
+        name: 'DVR',
+        price: 2800,
+        type: 'recorder',
+        variants: [
+          { name: '4 Channel DVR', price: 2800 },
+          { name: '8 Channel DVR', price: 4500 },
+          { name: '16 Channel DVR', price: 8500 }
+        ],
+        sortOrder: 2
+      },
+      {
+        name: 'NVR',
+        price: 4800,
+        type: 'recorder',
+        variants: [
+          { name: '4 Channel NVR', price: 4800 },
+          { name: '8 Channel NVR', price: 7500 },
+          { name: '16 Channel NVR', price: 12000 }
+        ],
+        sortOrder: 3
+      },
+      {
+        name: 'Hard Disk',
+        price: 3800,
+        type: 'storage',
+        variants: [
+          { name: '1 TB HDD', price: 3800 },
+          { name: '2 TB HDD', price: 5500 },
+          { name: '4 TB HDD', price: 8500 },
+          { name: '8 TB HDD', price: 14000 }
+        ],
+        sortOrder: 4
+      },
+      {
+        name: 'Cable',
+        price: 1800,
+        type: 'cable',
+        variants: [
+          { name: 'Coaxial Cable (per meter)', price: 35 },
+          { name: 'Cat6 Cable (per meter)', price: 45 },
+          { name: 'Cable Roll (90m)', price: 1800 }
+        ],
+        sortOrder: 5
+      },
+      {
+        name: 'Connector',
+        price: 150,
+        type: 'accessory',
+        variants: [
+          { name: 'BNC Connector', price: 50 },
+          { name: 'DC Pin', price: 30 },
+          { name: 'RJ45 Connector', price: 20 },
+          { name: 'Connector Kit', price: 150 }
+        ],
+        sortOrder: 6
+      },
+      {
+        name: 'Power Supply',
+        price: 650,
+        type: 'power',
+        variants: [
+          { name: '4 Channel Power Supply', price: 650 },
+          { name: '8 Channel Power Supply', price: 1200 },
+          { name: 'SMPS', price: 650 }
+        ],
+        sortOrder: 7
+      },
+      {
+        name: 'Accessories',
+        price: 150,
+        type: 'accessory',
+        variants: [
+          { name: 'Junction Box', price: 150 },
+          { name: 'PVC Pipe (per meter)', price: 60 },
+          { name: 'HDMI Cable (3m)', price: 450 }
+        ],
+        sortOrder: 8
+      },
+      {
+        name: 'Complete CCTV Kit',
+        price: 15000,
+        type: 'product',
+        variants: [
+          { name: '4 Camera Setup Kit', price: 15000 },
+          { name: '8 Camera Setup Kit', price: 28000 }
+        ],
+        sortOrder: 9
+      }
+    ];
+
+    for (const p of productsData) {
+      await CctvProduct.findOneAndUpdate(
+        { slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') },
+        { $set: { ...p, slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), status: 'active' } },
+        { upsert: true, new: true }
+      );
+    }
+    console.log("🌱 Auto-seeded CCTV Products and technical variants successfully!");
+
     // ─── CCTV Category & Subcategory Redesign Migration ────────────────────────
     let cctvCategory = await Category.findOne({ slug: 'cctv' });
     if (!cctvCategory) {
