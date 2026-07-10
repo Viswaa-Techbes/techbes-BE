@@ -47,6 +47,20 @@ async function createBookingV2(bookingData) {
     googleMapsLink: derivedMapsLink,
     latitude: Number(bookingData.latitude || lat || null),
     longitude: Number(bookingData.longitude || lng || null),
+    addressDetails: {
+      houseNumber: bookingData.houseNumber || '',
+      street: bookingData.street || '',
+      area: bookingData.area || '',
+      landmark: bookingData.landmark || '',
+      city: bookingData.city || '',
+      district: bookingData.district || '',
+      state: bookingData.state || '',
+      pincode: bookingData.pincode || '',
+      country: bookingData.country || '',
+      manualNotes: bookingData.manualNotes || '',
+      formattedAddress: bookingData.formattedAddress || address || '',
+      addressType: bookingData.addressType || 'home',
+    },
     // Pricing fields
     price: grandTotal,
     amount: grandTotal,
@@ -61,6 +75,14 @@ async function createBookingV2(bookingData) {
       city: String(bookingData.city || ''),
       state: String(bookingData.state || ''),
       pincode: String(bookingData.pincode || ''),
+      houseNumber: String(bookingData.houseNumber || ''),
+      street: String(bookingData.street || ''),
+      area: String(bookingData.area || ''),
+      landmark: String(bookingData.landmark || ''),
+      district: String(bookingData.district || ''),
+      country: String(bookingData.country || ''),
+      manualNotes: String(bookingData.manualNotes || ''),
+      formattedAddress: String(bookingData.formattedAddress || address || ''),
     }
   });
 

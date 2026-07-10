@@ -167,6 +167,12 @@ const jobSchema = new mongoose.Schema(
       district: { type: String, default: '' },
       state: { type: String, default: '' },
       addressType: { type: String, default: 'home' },
+      houseNumber: { type: String, default: '' },
+      street: { type: String, default: '' },
+      landmark: { type: String, default: '' },
+      country: { type: String, default: '' },
+      manualNotes: { type: String, default: '' },
+      formattedAddress: { type: String, default: '' },
     },
     cctvDetails: {
       category: {
@@ -433,6 +439,12 @@ jobSchema.pre('validate', async function(next) {
     if (meta.longitude || meta.lng) {
       this.longitude = Number(meta.longitude || meta.lng) || null;
     }
+  }
+
+  if (this.latitude || this.longitude) {
+    if (!this.geoLocation) this.geoLocation = { lat: null, lng: null };
+    this.geoLocation.lat = this.latitude;
+    this.geoLocation.lng = this.longitude;
   }
 
   next();
