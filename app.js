@@ -58,7 +58,10 @@ const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '
 // Explicitly add all production frontend domains
 const productionDomains = [
   'https://techbes.co.in',
-  'https://www.techbes.co.in'
+  'https://www.techbes.co.in',
+  'https://members.techbes.co.in',
+  'https://admin.techbes.co.in',
+  'https://skills.techbes.co.in'
 ];
 productionDomains.forEach((domain) => {
   if (!allowedOrigins.includes(domain)) {

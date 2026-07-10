@@ -5,7 +5,7 @@ const { uploadToCloudinary } = require('../../utils/cloudinary');
 const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
-router.use(authenticate, requireRoles('technician', 'manager', 'admin'));
+router.use(authenticate, requireRoles('client', 'technician', 'manager', 'admin'));
 
 // Use memory storage for Cloudinary uploads
 const storage = multer.memoryStorage();

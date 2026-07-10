@@ -13,4 +13,7 @@ router.post('/verify-payment', walletController.verifyPayment);
 router.get('/', walletController.getWallet);
 router.get('/transactions', walletController.getTransactions);
 
+// Pay Booking from Wallet Balance
+router.post('/pay-booking', walletController.payBooking);
+
 module.exports = router;

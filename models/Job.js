@@ -219,6 +219,15 @@ const jobSchema = new mongoose.Schema(
       },
       notes: { type: String, default: '', trim: true },
     },
+    additionalChargesStatus: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none',
+    },
+    additionalCharges: {
+      type: Number,
+      default: 0,
+    },
     appId: {
       type: String,
       default: 'technician-v1',
