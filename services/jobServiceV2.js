@@ -23,6 +23,40 @@ async function createBookingV2(bookingData) {
     googleMapLink,
     products,
   } = bookingData;
+
+  // 1. Date Validation (Check for past dates)
+  if (date) {
+    const bookingDateObj = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    bookingDateObj.setHours(0, 0, 0, 0);
+    if (bookingDateObj < today) {
+      const err = new Error('Booking date cannot be in the past');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  // 2. Time Slot Validation (Check if already booked)
+  if (date && timeSlot) {
+    const existingBooking = await Job.findOne({
+      bookingDate: date,
+      timeSlot: timeSlot,
+      status: { $ne: 'Cancelled' }
+    });
+    if (existingBooking) {
+      const err = new Error('The selected time slot is already booked. Please choose another slot.');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  // 3. Remove Cash on Delivery Validation
+  if (bookingData.paymentMethod === 'cod') {
+    const err = new Error('Cash on Delivery is no longer accepted. Please pay online or via Wallet.');
+    err.statusCode = 400;
+    throw err;
+  }
   const grandTotal = Number(
     cctvDetails?.priceBreakdown?.grandTotal ?? bookingData.totalAmount ?? bookingData.priceValue ?? 0
   ) || 0;
