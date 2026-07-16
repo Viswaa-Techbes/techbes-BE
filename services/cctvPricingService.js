@@ -34,97 +34,11 @@ async function calculateCctvPrice(input = {}) {
   const Material = require('../models/Material');
   const slugify = (val = '') => String(val).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-  const config = await getActivePricingConfig();
-  
-  let subcategory = null;
-  if (input.subcategoryId) {
-    subcategory = await CctvSubcategory.findById(input.subcategoryId).lean();
-  }
-  if (!subcategory && input.subcategorySlug) {
-    subcategory = await CctvSubcategory.findOne({ slug: input.subcategorySlug }).lean();
-  }
-
-  let category = null;
-  if (input.categoryId) {
-    category = await CctvCategory.findById(input.categoryId).lean();
-  }
-  if (!category && subcategory && subcategory.categoryId) {
-    const CctvCategory = require('../models/CctvCategory');
-    category = await CctvCategory.findById(subcategory.categoryId).lean();
-  }
-
-  // Handle custom dynamic pricing for Install New CCTV
-  if (subcategory && subcategory.slug === 'install-new-cctv') {
-    const propertyType = input.propertyType || '';
-    const cameraTypes = Array.isArray(input.cameraTypes) ? input.cameraTypes : [];
-    const installationRequired = input.installationRequired === true || input.installationRequired === 'Yes' || String(input.installationRequired).toLowerCase() === 'true';
-    const cableType = input.cableType || 'CAT6';
-    const cableLength = Math.max(Number(input.cableLength) || 0, 0);
-    const dvrRequired = input.dvrRequired === true || input.dvrRequired === 'Yes' || String(input.dvrRequired).toLowerCase() === 'true';
-    const nvrRequired = input.nvrRequired === true || input.nvrRequired === 'Yes' || String(input.nvrRequired).toLowerCase() === 'true';
-    const networkRack = input.networkRack === true || input.networkRack === 'Yes' || String(input.networkRack).toLowerCase() === 'true';
-    const monitorMounting = input.monitorMounting === true || input.monitorMounting === 'Yes' || String(input.monitorMounting).toLowerCase() === 'true';
-
-    // 1. Camera Installation Charge: ₹400 * total cameras
-    const totalCameras = cameraTypes.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-    const cameraInstallation = totalCameras * 400;
-
-    // 2. Cabling Charge: CAT6 (₹60/m), 3+1 (₹18/m)
-    let cableCharge = 0;
-    if (installationRequired) {
-      const is3Plus1 = String(cableType).includes('3+1');
-      const rate = is3Plus1 ? 18 : 60;
-      cableCharge = cableLength * rate;
-    }
-
-    // 3. DVR & NVR Charges: flat ₹1000 each
-    const dvrCharge = dvrRequired ? 1000 : 0;
-    const nvrCharge = nvrRequired ? 1000 : 0;
-
-    // 4. Rack charge: +500
-    const rackCharge = networkRack ? 500 : 0;
-
-    // 5. Monitor mounting: +350
-    const monitorCharge = monitorMounting ? 350 : 0;
-
-    // Visit charge
-    const visitCharge = Number(input.visitCharge) || 0;
-
-    // Subtotal
-    const subtotal = cameraInstallation + cableCharge + dvrCharge + nvrCharge + rackCharge + monitorCharge + visitCharge;
-
-    // GST (18%)
-    const gst = Math.round(subtotal * 0.18);
-
-    // Grand Total
-    const grandTotal = subtotal + gst;
-
-    return {
-      category: category ? { id: category._id, name: category.name, slug: category.slug } : undefined,
-      subcategory: { id: subcategory._id, name: subcategory.name, slug: subcategory.slug },
-      propertyType,
-      cameraTypes,
-      installationRequired,
-      cableType,
-      cableLength,
-      dvrRequired,
-      nvrRequired,
-      networkRack,
-      monitorMounting,
-      priceBreakdown: {
-        cameraInstallation,
-        cableCharge,
-        dvrCharge,
-        nvrCharge,
-        rackCharge,
-        monitorCharge,
-        visitCharge,
-        subtotal,
-        gst,
-        grandTotal
-      }
-    };
-  }
+  const [config, category, subcategory] = await Promise.all([
+    getActivePricingConfig(),
+    input.categoryId ? CctvCategory.findById(input.categoryId).lean() : null,
+    input.subcategoryId ? CctvSubcategory.findById(input.subcategoryId).lean() : null,
+  ]);
 
   let cameraType = null;
   let selectedServiceType = null;
@@ -174,7 +88,7 @@ async function calculateCctvPrice(input = {}) {
   const wireLength = Math.max(Number(input.wireLength) || 0, 0);
   const installationArea = input.installationArea === 'outdoor' ? 'outdoor' : 'indoor';
   const addonIds = Array.isArray(input.addonIds) ? input.addonIds : [];
-  
+
   const ServiceMaterial = require('../models/ServiceMaterial');
   const addons = [];
   if (addonIds.length) {
@@ -240,7 +154,7 @@ async function calculateCctvPrice(input = {}) {
       total: roundAmount(price * qty),
     };
   });
-  
+
   const addonsTotal = roundAmount(selectedAddons.reduce((sum, addon) => sum + addon.total, 0));
   const subtotal = roundAmount(baseCharge + cameraTotal + areaCharge + wireTotal + addonsTotal);
   const discountTotal = Math.min(adjustmentAmount(config.discount, subtotal), subtotal);
