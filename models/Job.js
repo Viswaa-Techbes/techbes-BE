@@ -148,6 +148,16 @@ const jobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    products: [
+      {
+        product: { type: String, trim: true },
+        variant: { type: String, trim: true },
+        quantity: { type: Number, min: 1 },
+        unitPrice: { type: Number, min: 0 },
+        total: { type: Number, min: 0 },
+        _id: false
+      }
+    ],
     bookingAnswers: [
       {
         question: { type: String, default: '' },
@@ -167,8 +177,30 @@ const jobSchema = new mongoose.Schema(
       district: { type: String, default: '' },
       state: { type: String, default: '' },
       addressType: { type: String, default: 'home' },
+      houseNumber: { type: String, default: '' },
+      street: { type: String, default: '' },
+      landmark: { type: String, default: '' },
+      country: { type: String, default: '' },
+      manualNotes: { type: String, default: '' },
+      formattedAddress: { type: String, default: '' },
     },
     cctvDetails: {
+      propertyType: { type: String, default: '' },
+      cameraTypes: [
+        {
+          type: { type: String, default: '' },
+          quantity: { type: Number, default: 0 },
+          _id: false
+        }
+      ],
+      installationType: { type: String, default: '' },
+      wiringRequired: { type: Boolean, default: false },
+      cableLength: { type: Number, default: 0 },
+      existingCable: { type: Boolean, default: false },
+      dvrRequired: { type: Boolean, default: false },
+      dvrChannels: { type: Number, default: 0 },
+      networkRack: { type: Boolean, default: false },
+      monitorMounting: { type: Boolean, default: false },
       category: {
         id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvCategory', default: null },
         name: { type: String, default: '', trim: true },
@@ -216,8 +248,34 @@ const jobSchema = new mongoose.Schema(
         taxableAmount: { type: Number, default: 0, min: 0 },
         taxTotal: { type: Number, default: 0, min: 0 },
         grandTotal: { type: Number, default: 0, min: 0 },
+        cameraInstallation: { type: Number, default: 0 },
+        cableCharge: { type: Number, default: 0 },
+        dvrCharge: { type: Number, default: 0 },
+        rackCharge: { type: Number, default: 0 },
+        monitorCharge: { type: Number, default: 0 },
+        gst: { type: Number, default: 0 },
+        discount: { type: Number, default: 0 },
       },
+      products: [
+        {
+          product: { type: String, trim: true },
+          variant: { type: String, trim: true },
+          quantity: { type: Number, min: 1 },
+          unitPrice: { type: Number, min: 0 },
+          total: { type: Number, min: 0 },
+          _id: false
+        }
+      ],
       notes: { type: String, default: '', trim: true },
+    },
+    additionalChargesStatus: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none',
+    },
+    additionalCharges: {
+      type: Number,
+      default: 0,
     },
     appId: {
       type: String,
@@ -424,6 +482,12 @@ jobSchema.pre('validate', async function(next) {
     if (meta.longitude || meta.lng) {
       this.longitude = Number(meta.longitude || meta.lng) || null;
     }
+  }
+
+  if (this.latitude || this.longitude) {
+    if (!this.geoLocation) this.geoLocation = { lat: null, lng: null };
+    this.geoLocation.lat = this.latitude;
+    this.geoLocation.lng = this.longitude;
   }
 
   next();

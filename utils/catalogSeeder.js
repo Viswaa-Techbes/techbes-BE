@@ -3,6 +3,254 @@ const SubCategory = require('../models/SubCategory');
 
 async function runSeed() {
   try {
+    // Seed CCTV Products with Technical Variants
+    const CctvProduct = require('../models/CctvProduct');
+    const productsData = [
+      {
+        name: 'Camera',
+        price: 1200,
+        type: 'camera',
+        variants: [
+          { name: 'Dome Camera', price: 1200 },
+          { name: 'Bullet Camera', price: 1400 },
+          { name: 'PTZ Camera', price: 4800 },
+          { name: 'IP Camera', price: 2000 },
+          { name: 'Wireless Camera', price: 1800 }
+        ],
+        sortOrder: 1
+      },
+      {
+        name: 'DVR',
+        price: 2800,
+        type: 'recorder',
+        variants: [
+          { name: '4 Channel DVR', price: 2800 },
+          { name: '8 Channel DVR', price: 4500 },
+          { name: '16 Channel DVR', price: 8500 }
+        ],
+        sortOrder: 2
+      },
+      {
+        name: 'NVR',
+        price: 4800,
+        type: 'recorder',
+        variants: [
+          { name: '4 Channel NVR', price: 4800 },
+          { name: '8 Channel NVR', price: 7500 },
+          { name: '16 Channel NVR', price: 12000 }
+        ],
+        sortOrder: 3
+      },
+      {
+        name: 'Hard Disk',
+        price: 3800,
+        type: 'storage',
+        variants: [
+          { name: '1 TB HDD', price: 3800 },
+          { name: '2 TB HDD', price: 5500 },
+          { name: '4 TB HDD', price: 8500 },
+          { name: '8 TB HDD', price: 14000 }
+        ],
+        sortOrder: 4
+      },
+      {
+        name: 'Cable',
+        price: 1800,
+        type: 'cable',
+        variants: [
+          { name: 'Coaxial Cable (per meter)', price: 35 },
+          { name: 'Cat6 Cable (per meter)', price: 45 },
+          { name: 'Cable Roll (90m)', price: 1800 }
+        ],
+        sortOrder: 5
+      },
+      {
+        name: 'Connector',
+        price: 150,
+        type: 'accessory',
+        variants: [
+          { name: 'BNC Connector', price: 50 },
+          { name: 'DC Pin', price: 30 },
+          { name: 'RJ45 Connector', price: 20 },
+          { name: 'Connector Kit', price: 150 }
+        ],
+        sortOrder: 6
+      },
+      {
+        name: 'Power Supply',
+        price: 650,
+        type: 'power',
+        variants: [
+          { name: '4 Channel Power Supply', price: 650 },
+          { name: '8 Channel Power Supply', price: 1200 },
+          { name: 'SMPS', price: 650 }
+        ],
+        sortOrder: 7
+      },
+      {
+        name: 'Accessories',
+        price: 150,
+        type: 'accessory',
+        variants: [
+          { name: 'Junction Box', price: 150 },
+          { name: 'PVC Pipe (per meter)', price: 60 },
+          { name: 'HDMI Cable (3m)', price: 450 }
+        ],
+        sortOrder: 8
+      },
+      {
+        name: 'Complete CCTV Kit',
+        price: 15000,
+        type: 'product',
+        variants: [
+          { name: '4 Camera Setup Kit', price: 15000 },
+          { name: '8 Camera Setup Kit', price: 28000 }
+        ],
+        sortOrder: 9
+      }
+    ];
+
+    for (const p of productsData) {
+      await CctvProduct.findOneAndUpdate(
+        { slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') },
+        { $set: { ...p, slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), status: 'active' } },
+        { upsert: true, new: true }
+      );
+    }
+    console.log("🌱 Auto-seeded CCTV Products and technical variants successfully!");
+
+    // ─── CCTV Category & Subcategory Redesign Migration ────────────────────────
+    let cctvCategory = await Category.findOne({ slug: 'cctv' });
+    if (!cctvCategory) {
+      cctvCategory = await Category.create({
+        name: 'CCTV',
+        slug: 'cctv',
+        description: 'Smart surveillance, remote monitoring, and security camera solutions.',
+        icon: 'Camera',
+        color: '#0EA5E9',
+        gradient: 'from-cyan-500 via-sky-500 to-blue-600',
+        sortOrder: 1,
+      });
+    }
+
+    const newSlugs = [
+      'install-new-cctv',
+      'repair-existing-cctv',
+      'maintenance-amc',
+      'upgrade-existing-cctv',
+      'buy-cctv-products',
+      'free-site-survey'
+    ];
+
+    // Check if new subcategories are present
+    const existingCctvSubs = await SubCategory.find({ categoryId: cctvCategory._id });
+    const existingSlugs = existingCctvSubs.map(s => s.slug);
+    const needsMigration = newSlugs.some(slug => !existingSlugs.includes(slug)) || existingSlugs.some(slug => !newSlugs.includes(slug));
+
+    if (needsMigration) {
+      console.log("🔄 CCTV Category redesign migration triggered. Re-seeding CCTV subcategories...");
+      
+      // Delete old subcategories under CCTV
+      await SubCategory.deleteMany({ categoryId: cctvCategory._id });
+
+      const cctvSubcategories = [
+        {
+          name: 'Install New CCTV',
+          slug: 'install-new-cctv',
+          description: 'Fresh CCTV camera installation for homes and offices.',
+          sortOrder: 1,
+          categoryId: cctvCategory._id,
+          bookingQuestions: [
+            { question: "Select Property Type", type: "select", options: ["Home", "Office", "Shop", "Apartment", "Warehouse", "Factory", "Other"], required: true, placeholder: "Select property type...", sortOrder: 1 },
+            { question: "How many Cameras", type: "select", options: ["2", "4", "6", "8", "16+", "Custom"], required: true, placeholder: "Select number of cameras...", sortOrder: 2 },
+            { question: "Installation Package", type: "select", options: ["Basic", "Premium", "Custom"], required: true, placeholder: "Select package type...", sortOrder: 3 }
+          ],
+          packages: [
+            { name: "Basic Setup", description: "Standard 1080p cameras, basic mounting and wiring", price: 1500, originalPrice: 2499, duration: "3-5 hours", includes: ["1080p camera setup", "Standard cable routing", "1-year installation warranty"], isPopular: true, isActive: true },
+            { name: "Premium Setup", description: "4K UHD cameras, smart AI detection, structured conduit routing", price: 3500, originalPrice: 5999, duration: "4-6 hours", includes: ["4K UHD camera setup", "Conduit cable protection", "2-year warranty", "Mobile app setup"], isPopular: false, isActive: true },
+            { name: "Custom Setup", description: "Design a customized setup matching complex site layouts", price: 0, originalPrice: 0, duration: "Flexible", includes: ["On-site planning", "Custom quotes", "Dedicated project manager"], isPopular: false, isActive: true }
+          ]
+        },
+        {
+          name: 'Repair Existing CCTV',
+          slug: 'repair-existing-cctv',
+          description: 'Diagnose and repair video loss, DVR/NVR errors, and power faults.',
+          sortOrder: 2,
+          categoryId: cctvCategory._id,
+          bookingQuestions: [
+            { question: "What's the Issue?", type: "multiselect", options: ["Camera Not Working", "DVR Issue", "NVR Issue", "Mobile View", "Recording Problem", "Poor Video", "No Power", "Others"], required: true, placeholder: "Select all that apply", sortOrder: 1 },
+            { question: "Number of Cameras", type: "select", options: ["1", "2-4", "5-8", "8+"], required: true, placeholder: "Select number of faulty cameras...", sortOrder: 2 },
+            { question: "Upload Image / Video", type: "image", required: false, placeholder: "Upload clear picture of fault (optional)", sortOrder: 3 }
+          ],
+          packages: [
+            { name: "CCTV Diagnosis & Repair", description: "Comprehensive on-site troubleshooting and component fixing", price: 499, originalPrice: 899, duration: "1-2 hours", includes: ["Diagnosis of camera/DVR/NVR faults", "Connector crimping and checking", "Power supply check"], isPopular: true, isActive: true }
+          ]
+        },
+        {
+          name: 'Maintenance (AMC)',
+          slug: 'maintenance-amc',
+          description: 'Annual Maintenance Contracts for continuous, uninterrupted security coverage.',
+          sortOrder: 3,
+          categoryId: cctvCategory._id,
+          bookingQuestions: [
+            { question: "Choose AMC Plan", type: "select", options: ["One Time", "Quarterly", "Half Yearly", "Annual"], required: true, placeholder: "Select billing frequency...", sortOrder: 1 },
+            { question: "Property Type", type: "select", options: ["Home", "Office", "Shop", "Apartment", "Warehouse", "Factory", "Other"], required: true, placeholder: "Select property type...", sortOrder: 2 }
+          ],
+          packages: [
+            { name: "One Time Support", description: "Single-visit preemptive cleanup, camera alignment, and HDD health check", price: 999, originalPrice: 1499, duration: "2-3 hours", includes: ["Camera lens cleaning", "Connectors inspection", "DVR/NVR dust blower cleaning"], isPopular: false, isActive: true },
+            { name: "Quarterly AMC", description: "Preventative checks every 3 months + priority support", price: 2499, originalPrice: 3999, duration: "Yearly coverage", includes: ["4 scheduled checks/year", "Unlimited breakdown calls", "No visit charges"], isPopular: false, isActive: true },
+            { name: "Half Yearly AMC", description: "Preventative checks every 6 months + priority support", price: 4499, originalPrice: 6999, duration: "Yearly coverage", includes: ["2 scheduled checks/year", "Priority ticket status"], isPopular: false, isActive: true },
+            { name: "Annual AMC", description: "Full year of premium maintenance, checks, and remote assistance", price: 7999, originalPrice: 11999, duration: "Yearly coverage", includes: ["Monthly checkups", "Free spares replacement (basic)", "24/7 priority support"], isPopular: true, isActive: true }
+          ]
+        },
+        {
+          name: 'Upgrade Existing CCTV',
+          slug: 'upgrade-existing-cctv',
+          description: 'Expand your coverage, upgrade to IP cameras, or increase storage capacities.',
+          sortOrder: 4,
+          categoryId: cctvCategory._id,
+          bookingQuestions: [
+            { question: "Upgrade Requirement", type: "multiselect", options: ["Add Cameras", "Replace DVR", "Upgrade DVR", "Upgrade NVR", "Increase Storage", "Complete Upgrade"], required: true, placeholder: "Select all upgrade goals", sortOrder: 1 }
+          ],
+          packages: [
+            { name: "CCTV Upgrade Consultation", description: "Technician inspects existing wiring and recommends upgrade options", price: 499, originalPrice: 999, duration: "1-2 hours", includes: ["Existing setup compatibility check", "Custom upgrade roadmap", "Visit charges included"], isPopular: true, isActive: true }
+          ]
+        },
+        {
+          name: 'Buy CCTV Products',
+          slug: 'buy-cctv-products',
+          description: 'Purchase individual security cameras, recorders, or cables.',
+          sortOrder: 5,
+          categoryId: cctvCategory._id,
+          bookingQuestions: [
+            { question: "Product Category", type: "select", options: ["Camera", "DVR", "NVR", "Hard Disk", "Cable", "Connector", "Power Supply", "Accessories", "Complete CCTV Kit"], required: true, placeholder: "Select product type...", sortOrder: 1 }
+          ],
+          packages: [
+            { name: "Product Delivery & Demonstration", description: "Deliver products directly to your doorstep and show basic demo", price: 199, originalPrice: 399, duration: "1 hour", includes: ["Safe delivery", "Product inspection", "Basic settings overview"], isPopular: true, isActive: true }
+          ]
+        },
+        {
+          name: 'Free Site Survey',
+          slug: 'free-site-survey',
+          description: 'Schedule a free on-site survey for custom security planning and estimation.',
+          sortOrder: 6,
+          categoryId: cctvCategory._id,
+          bookingQuestions: [
+            { question: "Property Type", type: "select", options: ["Home", "Office", "Shop", "Apartment", "Warehouse", "Factory", "Other"], required: true, placeholder: "Select property type...", sortOrder: 1 },
+            { question: "Survey Purpose", type: "select", options: ["New Installation", "Repair", "Upgrade", "AMC"], required: true, placeholder: "Select survey purpose...", sortOrder: 2 }
+          ],
+          packages: [
+            { name: "Free Site Survey", description: "Get a certified engineer to draft a customized layout diagram and quotation", price: 0, originalPrice: 499, duration: "1-2 hours", includes: ["On-site camera placement planning", "Structured cabling path layout", "Detailed estimate sheet"], isPopular: true, isActive: true }
+          ]
+        }
+      ];
+
+      for (const sub of cctvSubcategories) {
+        await SubCategory.create(sub);
+      }
+      console.log("✅ CCTV Category redesigned subcategories seeded successfully.");
+    }
+
     const count = await Category.countDocuments();
     if (count > 0) {
       console.log("[Seeder] Catalog already contains data. Skipping seeder.");

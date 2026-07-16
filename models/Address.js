@@ -12,6 +12,13 @@ const addressSchema = new mongoose.Schema(
     pincode: { type: String, default: '', trim: true },
     googleMapLink: { type: String, default: '', trim: true },
     isDefault: { type: Boolean, default: false },
+    // Structured Address Fields
+    houseNumber: { type: String, default: '', trim: true },
+    street: { type: String, default: '', trim: true },
+    area: { type: String, default: '', trim: true },
+    district: { type: String, default: '', trim: true },
+    country: { type: String, default: '', trim: true },
+    manualNotes: { type: String, default: '', trim: true },
     // Compatibility fields
     label: { type: String, default: 'Address', trim: true },
     addressLine1: { type: String, default: '', trim: true },
@@ -33,14 +40,30 @@ addressSchema.pre('validate', function(next) {
     this.label = this.name;
   }
   
-  this.formattedAddress = [
-    this.address || this.addressLine1,
-    this.addressLine2,
-    this.landmark,
-    this.city,
-    this.state,
-    this.pincode
-  ].filter(Boolean).join(', ');
+  if (!this.formattedAddress) {
+    const parts = [
+      this.houseNumber,
+      this.street,
+      this.area,
+      this.landmark,
+      this.city,
+      this.state,
+      this.pincode,
+      this.country
+    ].filter(Boolean);
+    if (parts.length > 0) {
+      this.formattedAddress = parts.join(', ');
+    } else {
+      this.formattedAddress = [
+        this.address || this.addressLine1,
+        this.addressLine2,
+        this.landmark,
+        this.city,
+        this.state,
+        this.pincode
+      ].filter(Boolean).join(', ');
+    }
+  }
   
   next();
 });

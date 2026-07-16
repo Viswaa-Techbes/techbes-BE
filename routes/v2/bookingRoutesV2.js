@@ -9,6 +9,7 @@ router.post('/create', authenticate, jobControllerV2.createBooking); // alias
 
 // List bookings — requires login (role-filtered in controller)
 router.get('/', authenticate, jobControllerV2.listBookings);
+router.get('/:id', authenticate, jobControllerV2.getBookingDetails);
 
 // Assign a booking to a technician (admin / manager only)
 router.put('/:id/assign', authenticate, requireRoles('manager', 'admin'), jobControllerV2.assignById);

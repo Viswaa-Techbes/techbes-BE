@@ -128,9 +128,78 @@ async function getTransactions(req, res) {
   }
 }
 
+async function payBooking(req, res) {
+  try {
+    const { jobId, amount } = req.body;
+    if (!jobId || !amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid job or amount' });
+    }
+
+    const Job = require('../../models/Job');
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    let wallet = await Wallet.findOne({ user: req.user.id });
+    if (!wallet) {
+      wallet = await Wallet.create({ user: req.user.id });
+    }
+
+    if (wallet.balance < amount) {
+      return res.status(400).json({ success: false, message: 'Insufficient wallet balance' });
+    }
+
+    // Debit wallet
+    wallet.balance -= amount;
+    await wallet.save();
+
+    // Create Transaction
+    const transaction = await WalletTransaction.create({
+      wallet: wallet._id,
+      amount: amount,
+      type: 'debit',
+      category: 'payment',
+      description: `Payment for booking #${jobId}`,
+      referenceId: jobId,
+      referenceModel: 'Job'
+    });
+
+    // Update job payment status
+    if (job.status === 'completed' || job.status === 'payment_pending') {
+      job.paymentStatus = 'paid';
+      job.remainingAmount = 0;
+    } else {
+      job.paymentStatus = 'paid';
+      job.advancePaid = true;
+      job.status = 'pending';
+      job.dispatchStatus = 'pending_dispatch';
+    }
+    await job.save();
+
+    // Trigger auto-dispatch in background if it was pending
+    if (job.status === 'pending') {
+      setImmediate(async () => {
+        try {
+          const dispatchService = require('../../services/dispatchService');
+          const io = req.app.get('io') || global._socketIo || null;
+          await dispatchService.autoAssignTechnician(job._id, io);
+        } catch (dispatchErr) {
+          console.error('[Wallet Pay Dispatch Error]', dispatchErr.message);
+        }
+      });
+    }
+
+    res.json({ success: true, data: { wallet, transaction, job } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   createOrder,
   verifyPayment,
   getWallet,
-  getTransactions
+  getTransactions,
+  payBooking
 };

@@ -146,6 +146,13 @@ router.put('/job/:jobId', authenticate, async (req, res, next) => {
       });
       worksheet.materialCost = matCostSum;
       worksheet.totalCost = worksheet.materialCost + (worksheet.labourCost || 0);
+
+      const job = await Job.findById(jobId);
+      if (job && worksheet.totalCost > job.price && job.additionalChargesStatus === 'none') {
+        job.additionalChargesStatus = 'pending';
+        job.additionalCharges = worksheet.totalCost - job.price;
+        await job.save();
+      }
     }
 
     // Handle Submission Action
@@ -374,6 +381,73 @@ router.post('/job/:jobId/reject', authenticate, requireRoles('admin', 'manager')
     }
 
     return res.json({ success: true, message: 'Worksheet rejected. Status set back to IN_PROGRESS.', data: worksheet });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST: APPROVE ADDITIONAL CHARGES (CLIENT ONLY) ─────────────────────────
+router.post('/job/:jobId/approve-additional', authenticate, async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const worksheet = await ServiceWorksheet.findOne({ jobId });
+    if (!worksheet) {
+      return res.status(404).json({ success: false, message: 'Worksheet not found' });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    // Verify it is the booking client
+    if (job.client && job.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to approve charges for this booking' });
+    }
+
+    job.additionalChargesStatus = 'approved';
+    const oldPrice = job.price || 0;
+    const newPrice = worksheet.totalCost || 0;
+    job.additionalCharges = Math.max(newPrice - oldPrice, 0);
+    job.price = newPrice;
+    job.amount = newPrice;
+    job.remainingAmount = Math.max(newPrice - (job.advanceAmount || 0), 0);
+    await job.save();
+
+    const io = getIo(req);
+    if (io) {
+      io.emit('additionalChargesApproved', { jobId, totalCost: newPrice });
+    }
+
+    return res.json({ success: true, message: 'Additional charges approved successfully', data: job });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST: REJECT ADDITIONAL CHARGES (CLIENT ONLY) ─────────────────────────
+router.post('/job/:jobId/reject-additional', authenticate, async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    // Verify it is the booking client
+    if (job.client && job.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to reject charges for this booking' });
+    }
+
+    job.additionalChargesStatus = 'rejected';
+    await job.save();
+
+    const io = getIo(req);
+    if (io) {
+      io.emit('additionalChargesRejected', { jobId });
+    }
+
+    return res.json({ success: true, message: 'Additional charges rejected successfully', data: job });
   } catch (err) {
     next(err);
   }

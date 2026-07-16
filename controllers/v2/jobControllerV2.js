@@ -383,6 +383,31 @@ async function uploadWork(req, res, next) {
   }
 }
 
+async function getBookingDetails(req, res, next) {
+  try {
+    const { id } = req.params;
+    const job = await Job.findById(id)
+      .populate('assignedTechnician', 'name email mobileNumber photoUrl rating experience specialty')
+      .populate('client', 'name email mobileNumber')
+      .lean();
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (req.user.role === 'client' && job.client && job.client._id.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this booking' });
+    }
+    if (req.user.role === 'technician' && job.assignedTechnician && job.assignedTechnician._id.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this booking' });
+    }
+
+    res.json({ success: true, data: job });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createBooking,
   assignById,
@@ -392,4 +417,5 @@ module.exports = {
   requestPayment,
   listBookings,
   uploadWork,
+  getBookingDetails,
 };
