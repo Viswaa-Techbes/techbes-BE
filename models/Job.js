@@ -194,10 +194,13 @@ const jobSchema = new mongoose.Schema(
         }
       ],
       installationType: { type: String, default: '' },
+      installationRequired: { type: Boolean, default: false },
+      cableType: { type: String, default: '' },
       wiringRequired: { type: Boolean, default: false },
       cableLength: { type: Number, default: 0 },
       existingCable: { type: Boolean, default: false },
       dvrRequired: { type: Boolean, default: false },
+      nvrRequired: { type: Boolean, default: false },
       dvrChannels: { type: Number, default: 0 },
       networkRack: { type: Boolean, default: false },
       monitorMounting: { type: Boolean, default: false },
