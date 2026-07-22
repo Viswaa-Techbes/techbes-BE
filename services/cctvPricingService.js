@@ -285,6 +285,9 @@ async function calculateCctvPrice(input = {}) {
   if (installationRequired && cableLength > 0 && cableType) {
     const dbCable = await CctvCablePricing.findOne({ name: cableType, status: 'active' }).lean();
     cableUnitPrice = dbCable ? dbCable.price : 0;
+    if (cableType === 'CAT6 Cable') {
+      cableUnitPrice = 50;
+    }
     cableTotal = cableLength * cableUnitPrice;
   }
 

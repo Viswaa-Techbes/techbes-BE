@@ -22,7 +22,7 @@ const sdCardsData = [
 ];
 
 const cablesData = [
-  { name: 'CAT6 Cable', price: 60 },
+  { name: 'CAT6 Cable', price: 50 },
   { name: '3+1 CCTV Cable', price: 18 },
 ];
 
@@ -127,10 +127,14 @@ async function seed() {
 
     // 4. Seed Cable Pricing
     for (const c of cablesData) {
-      const existing = await CctvCablePricing.findOne({ name: c.name });
+      let existing = await CctvCablePricing.findOne({ name: c.name });
       if (!existing) {
         await CctvCablePricing.create({ ...c, status: 'active' });
         console.log(`Seeded Cable: ${c.name} -> ₹${c.price}`);
+      } else {
+        existing.price = c.price;
+        await existing.save();
+        console.log(`Updated Cable: ${c.name} -> ₹${c.price}`);
       }
     }
 
