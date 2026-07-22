@@ -4,6 +4,12 @@ const CctvCameraType = require('../../models/CctvCameraType');
 const CctvAddon = require('../../models/CctvAddon');
 const CctvProduct = require('../../models/CctvProduct');
 const CctvPricingConfig = require('../../models/CctvPricingConfig');
+const CctvBrand = require('../../models/CctvBrand');
+const CctvModel = require('../../models/CctvModel');
+const CctvSdCard = require('../../models/CctvSdCard');
+const CctvInstallationCharge = require('../../models/CctvInstallationCharge');
+const CctvCablePricing = require('../../models/CctvCablePricing');
+const CctvAccessory = require('../../models/CctvAccessory');
 const { calculateCctvPrice, getActivePricingConfig } = require('../../services/cctvPricingService');
 
 function slugify(value = '') {
@@ -240,6 +246,56 @@ async function getServiceById(req, res, next) {
   }
 }
 
+async function listBrands(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvBrand.find(query).sort({ name: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listModels(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    if (req.query.brandId) query.brandId = req.query.brandId;
+    if (req.query.cameraType) query.cameraType = req.query.cameraType;
+    const data = await CctvModel.find(query).populate('brandId', 'name').sort({ price: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listSdCards(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvSdCard.find(query).sort({ price: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listInstallationCharges(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvInstallationCharge.find(query).sort({ name: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listCablePricings(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvCablePricing.find(query).sort({ name: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listAccessories(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvAccessory.find(query).sort({ name: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   listCategories,
   listSubcategories,
@@ -251,11 +307,23 @@ module.exports = {
   calculatePrice,
   getServiceConfig,
   getServiceById,
+  listBrands,
+  listModels,
+  listSdCards,
+  listInstallationCharges,
+  listCablePricings,
+  listAccessories,
   categoryAdmin: crud(CctvCategory),
   subcategoryAdmin: crud(CctvSubcategory),
   cameraTypeAdmin: crud(CctvCameraType),
   addonAdmin: crud(CctvAddon),
   productAdmin: crud(CctvProduct),
+  brandAdmin: crud(CctvBrand),
+  modelAdmin: crud(CctvModel),
+  sdCardAdmin: crud(CctvSdCard),
+  installationChargeAdmin: crud(CctvInstallationCharge),
+  cablePricingAdmin: crud(CctvCablePricing),
+  accessoryAdmin: crud(CctvAccessory),
   upsertPricingConfig,
 };
 

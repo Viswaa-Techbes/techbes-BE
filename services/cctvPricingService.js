@@ -4,6 +4,13 @@ const CctvCameraType = require('../models/CctvCameraType');
 const CctvAddon = require('../models/CctvAddon');
 const CctvPricingConfig = require('../models/CctvPricingConfig');
 
+const CctvBrand = require('../models/CctvBrand');
+const CctvModel = require('../models/CctvModel');
+const CctvSdCard = require('../models/CctvSdCard');
+const CctvInstallationCharge = require('../models/CctvInstallationCharge');
+const CctvCablePricing = require('../models/CctvCablePricing');
+const CctvAccessory = require('../models/CctvAccessory');
+
 function roundAmount(value) {
   return Math.max(Math.round((Number(value) || 0) * 100) / 100, 0);
 }
@@ -30,12 +37,11 @@ async function getActivePricingConfig() {
   return config;
 }
 
-async function calculateCctvPrice(input = {}) {
+async function calculateLegacyCctvPrice(input = {}, config) {
   const Material = require('../models/Material');
   const slugify = (val = '') => String(val).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-  const [config, category, subcategory] = await Promise.all([
-    getActivePricingConfig(),
+  const [category, subcategory] = await Promise.all([
     input.categoryId ? CctvCategory.findById(input.categoryId).lean() : null,
     input.subcategoryId ? CctvSubcategory.findById(input.subcategoryId).lean() : null,
   ]);
@@ -108,8 +114,6 @@ async function calculateCctvPrice(input = {}) {
     }
   }
 
-
-  // Load custom quantity mappings if provided in input
   const addonQtyMap = {};
   const inputMaterials = input.materials || input.selectedMaterials || [];
   if (Array.isArray(inputMaterials)) {
@@ -121,14 +125,12 @@ async function calculateCctvPrice(input = {}) {
     }
   }
 
-  // Set default pricing configuration
   let baseCharge = roundAmount(config.baseCharge);
   let taxPercentage = config.tax?.status === 'active' ? Number(config.tax.percentage) || 0 : 0;
   let wirePricePerMeter = roundAmount(config.wirePricePerMeter);
   let indoorCharge = roundAmount(config.indoorCharge);
   let outdoorCharge = roundAmount(config.outdoorCharge);
 
-  // Apply subcategory pricing rules overrides if present
   if (subcategory && subcategory.pricingRules) {
     const r = subcategory.pricingRules;
     if (typeof r.baseCharge === 'number') baseCharge = roundAmount(r.baseCharge);
@@ -205,6 +207,177 @@ async function calculateCctvPrice(input = {}) {
       grandTotal,
     },
   };
+}
+
+async function calculateCctvPrice(input = {}) {
+  const config = await getActivePricingConfig();
+
+  // Fallback to legacy structure if cameraTypes is not passed or looks like legacy input
+  if (!Array.isArray(input.cameraTypes) && (input.cameraTypeId || input.cameraCount || input.wireLength || input.addonIds)) {
+    return calculateLegacyCctvPrice(input, config);
+  }
+
+  // New database-driven pricing structure
+  const propertyType = input.propertyType || 'Home';
+  const inputCameras = input.cameraTypes || []; // Array of { type, brandId, modelId, quantity }
+  const installationRequired = !!input.installationRequired;
+  const cableType = input.cableType;
+  const cableLength = Math.max(Number(input.cableLength) || 0, 0);
+  const dvrRequired = !!input.dvrRequired;
+  const nvrRequired = !!input.nvrRequired;
+  const networkRack = !!input.networkRack;
+  const monitorMounting = !!input.monitorMounting;
+  const sdCardRequired = !!input.sdCardRequired;
+  const sdCardCapacity = input.sdCardCapacity;
+  const sdCardQuantity = Math.max(Number(input.sdCardQuantity) || 0, 0);
+
+  let cameraTotal = 0;
+  let totalCameraCount = 0;
+  const cameraDetails = [];
+
+  for (const cam of inputCameras) {
+    const qty = Math.max(Number(cam.quantity) || 0, 0);
+    if (qty <= 0) continue;
+
+    let unitPrice = 0;
+    let brandName = 'Unknown';
+    let modelName = 'Unknown';
+    let resolution = 'Unknown';
+
+    if (cam.modelId) {
+      const dbModel = await CctvModel.findById(cam.modelId).populate('brandId').lean();
+      if (dbModel) {
+        unitPrice = dbModel.price;
+        modelName = dbModel.name;
+        resolution = dbModel.resolution;
+        if (dbModel.brandId) {
+          brandName = dbModel.brandId.name;
+        }
+      }
+    }
+
+    const itemTotal = unitPrice * qty;
+    cameraTotal += itemTotal;
+    totalCameraCount += qty;
+
+    cameraDetails.push({
+      type: cam.type,
+      brand: brandName,
+      model: `${resolution} ${modelName}`,
+      quantity: qty,
+      unitPrice,
+      totalPrice: itemTotal
+    });
+  }
+
+  // Installation charges (Camera Fitting)
+  let installationTotal = 0;
+  let fittingUnitPrice = 0;
+  if (totalCameraCount > 0) {
+    const fittingCharge = await CctvInstallationCharge.findOne({ name: 'Camera Fitting', status: 'active' }).lean();
+    fittingUnitPrice = fittingCharge ? fittingCharge.price : 400; // fallback ₹400
+    installationTotal = totalCameraCount * fittingUnitPrice;
+  }
+
+  // Cable charges
+  let cableTotal = 0;
+  let cableUnitPrice = 0;
+  if (installationRequired && cableLength > 0 && cableType) {
+    const dbCable = await CctvCablePricing.findOne({ name: cableType, status: 'active' }).lean();
+    cableUnitPrice = dbCable ? dbCable.price : 0;
+    cableTotal = cableLength * cableUnitPrice;
+  }
+
+  // Accessories (DVR, NVR, Rack, Monitor)
+  let dvrTotal = 0;
+  if (dvrRequired) {
+    const dbAcc = await CctvAccessory.findOne({ name: 'DVR Installation', status: 'active' }).lean();
+    dvrTotal = dbAcc ? dbAcc.price : 1000;
+  }
+
+  let nvrTotal = 0;
+  if (nvrRequired) {
+    const dbAcc = await CctvAccessory.findOne({ name: 'NVR Installation', status: 'active' }).lean();
+    nvrTotal = dbAcc ? dbAcc.price : 1000;
+  }
+
+  let rackTotal = 0;
+  if (networkRack) {
+    const dbAcc = await CctvAccessory.findOne({ name: 'Network Rack Mount', status: 'active' }).lean();
+    rackTotal = dbAcc ? dbAcc.price : 500;
+  }
+
+  let monitorTotal = 0;
+  if (monitorMounting) {
+    const dbAcc = await CctvAccessory.findOne({ name: 'Monitor Mount', status: 'active' }).lean();
+    monitorTotal = dbAcc ? dbAcc.price : 350;
+  }
+
+  // SD Card pricing
+  let sdCardTotal = 0;
+  let sdCardUnitPrice = 0;
+  if (sdCardRequired && sdCardQuantity > 0 && sdCardCapacity) {
+    const dbSd = await CctvSdCard.findOne({ capacity: sdCardCapacity, status: 'active' }).lean();
+    sdCardUnitPrice = dbSd ? dbSd.price : 0;
+    sdCardTotal = sdCardQuantity * sdCardUnitPrice;
+  }
+
+  // Visit charges
+  const visitCharge = config.baseCharge || 499;
+
+  // Subtotal
+  const subtotal = cameraTotal + installationTotal + cableTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + sdCardTotal + visitCharge;
+  
+  // Tax
+  const gstPercent = config.tax?.status === 'active' ? Number(config.tax.percentage) || 0 : 18;
+  const gstTotal = Math.round((subtotal * gstPercent) / 100);
+  
+  // Grand Total
+  const grandTotal = subtotal + gstTotal;
+
+  const result = {
+    propertyType,
+    cameraDetails,
+    installation: {
+      quantity: totalCameraCount,
+      unitPrice: fittingUnitPrice,
+      totalPrice: installationTotal
+    },
+    cable: {
+      type: cableType || 'None',
+      length: cableLength,
+      unitPrice: cableUnitPrice,
+      totalPrice: cableTotal
+    },
+    dvrTotal,
+    nvrTotal,
+    rackTotal,
+    monitorTotal,
+    sdCard: {
+      required: sdCardRequired,
+      capacity: sdCardCapacity || '',
+      quantity: sdCardQuantity,
+      unitPrice: sdCardUnitPrice,
+      totalPrice: sdCardTotal
+    },
+    visitCharge,
+    priceBreakdown: {
+      baseCharge: visitCharge,
+      cameraTotal,
+      installationTotal,
+      cableTotal,
+      dvrTotal,
+      nvrTotal,
+      rackTotal,
+      monitorTotal,
+      sdCardTotal,
+      subtotal,
+      taxTotal: gstTotal,
+      grandTotal
+    }
+  };
+
+  return result;
 }
 
 module.exports = {

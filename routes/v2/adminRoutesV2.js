@@ -87,6 +87,42 @@ router.put('/services/cctv/products/:id', cctvControllerV2.productAdmin.update);
 router.delete('/services/cctv/products/:id', cctvControllerV2.productAdmin.remove);
 router.get('/services/cctv/pricing-config', cctvControllerV2.getPricingConfig);
 
+// CCTV Brands
+router.get('/services/cctv/brands', cctvControllerV2.listBrands);
+router.post('/services/cctv/brands', cctvControllerV2.brandAdmin.create);
+router.put('/services/cctv/brands/:id', cctvControllerV2.brandAdmin.update);
+router.delete('/services/cctv/brands/:id', cctvControllerV2.brandAdmin.remove);
+
+// CCTV Models
+router.get('/services/cctv/models', cctvControllerV2.listModels);
+router.post('/services/cctv/models', cctvControllerV2.modelAdmin.create);
+router.put('/services/cctv/models/:id', cctvControllerV2.modelAdmin.update);
+router.delete('/services/cctv/models/:id', cctvControllerV2.modelAdmin.remove);
+
+// CCTV SD Cards
+router.get('/services/cctv/sd-cards', cctvControllerV2.listSdCards);
+router.post('/services/cctv/sd-cards', cctvControllerV2.sdCardAdmin.create);
+router.put('/services/cctv/sd-cards/:id', cctvControllerV2.sdCardAdmin.update);
+router.delete('/services/cctv/sd-cards/:id', cctvControllerV2.sdCardAdmin.remove);
+
+// CCTV Installation Charges
+router.get('/services/cctv/installation-charges', cctvControllerV2.listInstallationCharges);
+router.post('/services/cctv/installation-charges', cctvControllerV2.installationChargeAdmin.create);
+router.put('/services/cctv/installation-charges/:id', cctvControllerV2.installationChargeAdmin.update);
+router.delete('/services/cctv/installation-charges/:id', cctvControllerV2.installationChargeAdmin.remove);
+
+// CCTV Cable Pricings
+router.get('/services/cctv/cable-pricings', cctvControllerV2.listCablePricings);
+router.post('/services/cctv/cable-pricings', cctvControllerV2.cablePricingAdmin.create);
+router.put('/services/cctv/cable-pricings/:id', cctvControllerV2.cablePricingAdmin.update);
+router.delete('/services/cctv/cable-pricings/:id', cctvControllerV2.cablePricingAdmin.remove);
+
+// CCTV Accessories
+router.get('/services/cctv/accessories', cctvControllerV2.listAccessories);
+router.post('/services/cctv/accessories', cctvControllerV2.accessoryAdmin.create);
+router.put('/services/cctv/accessories/:id', cctvControllerV2.accessoryAdmin.update);
+router.delete('/services/cctv/accessories/:id', cctvControllerV2.accessoryAdmin.remove);
+
 // Technicians
 router.get('/technicians', technicianControllerV2.listTechnicians);
 router.put('/technicians/:id/status', technicianControllerV2.updateStatus);

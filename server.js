@@ -168,6 +168,14 @@ async function start() {
       console.log("Connecting to Database...");
       await connectDB();
       console.log("Database connected successfully.");
+      
+      // CCTV Seeding trigger
+      try {
+        const seedCctvDataInternal = require('./scripts/seedCctvData_internal');
+        await seedCctvDataInternal();
+      } catch (seedErr) {
+        console.error("CCTV seeding failed at startup:", seedErr);
+      }
     } catch (err) {
       console.error('CRITICAL: Failed to connect to database:', err.message || err);
       // We don't exit here so the process stays alive and Render doesn't restart it immediately
