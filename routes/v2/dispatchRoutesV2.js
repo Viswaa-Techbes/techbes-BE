@@ -71,7 +71,7 @@ router.get('/status/:jobId', verifyToken, async (req, res) => {
 router.get('/active', verifyToken, requireAdmin, async (req, res) => {
   try {
     const jobs = await Job.find({
-      dispatchStatus: { $in: ['pending_dispatch', 'dispatching', 'no_tech_found'] },
+      dispatchStatus: { $in: ['pending_dispatch', 'dispatching', 'no_tech_found', 'pending_admin_assignment'] },
     })
       .populate('assignedTechnician', 'name phone rating')
       .populate('client', 'name phone email')

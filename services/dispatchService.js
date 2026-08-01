@@ -210,6 +210,29 @@ async function autoAssignTechnician(jobId, io = null) {
     return { success: true, method: 'already_assigned' };
   }
 
+  // Same-day check: compare bookingDate with today's date (local timezone YYYY-MM-DD)
+  const todayLocal = new Date();
+  const offset = todayLocal.getTimezoneOffset();
+  const todayWithOffset = new Date(todayLocal.getTime() - (offset*60*1000));
+  const todayStr = todayWithOffset.toISOString().split('T')[0];
+
+  if (job.bookingDate && job.bookingDate.trim() !== '' && job.bookingDate > todayStr) {
+    console.log(`[Dispatch] Job ${jobId} is a future booking (${job.bookingDate} > today ${todayStr}). Bypassing auto-assignment.`);
+    await Job.findByIdAndUpdate(jobId, {
+      dispatchStatus: 'pending_admin_assignment',
+      status: 'pending'
+    });
+    // Notify admins
+    await notifyAdmins(
+      io,
+      '📅 Future Booking Created',
+      `Future booking #${jobId} scheduled for ${job.bookingDate}. Manual assignment required.`,
+      'dispatch_update',
+      { jobId: jobId.toString() }
+    );
+    return { success: false, reason: 'future_booking', method: 'MANUAL_REQUIRED' };
+  }
+
   // Mark as dispatching
   await Job.findByIdAndUpdate(jobId, {
     dispatchStatus: 'dispatching',

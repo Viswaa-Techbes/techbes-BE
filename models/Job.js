@@ -400,7 +400,7 @@ const jobSchema = new mongoose.Schema(
     },
     dispatchStatus: {
       type: String,
-      enum: ['pending_dispatch', 'dispatching', 'assigned', 'no_tech_found', null],
+      enum: ['pending_dispatch', 'dispatching', 'assigned', 'no_tech_found', 'pending_admin_assignment', null],
       default: null,
     },
     dispatchAttempts: {
