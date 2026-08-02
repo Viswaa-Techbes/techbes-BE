@@ -128,6 +128,10 @@ const jobSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isAdminCreated: {
+      type: Boolean,
+      default: false,
+    },
     v2Metadata: {
       type: Map,
       of: String,

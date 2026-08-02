@@ -765,6 +765,7 @@ async function createJob(req, res, next) {
       assignedTechnician: technicianId || null,
       assignedManager: req.user.id,
       status: technicianId ? 'assigned' : 'pending',
+      isAdminCreated: true,
     });
     const populated = await Job.findById(job._id).populate('assignedTechnician', 'name email specialty').lean();
     return res.status(201).json({ success: true, data: populated });

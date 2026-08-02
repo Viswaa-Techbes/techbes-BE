@@ -70,6 +70,43 @@ router.post('/start/:jobId', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to request OTP for this job' });
     }
 
+    // Skip OTP check for admin-created jobs
+    if (job.isAdminCreated) {
+      job.status = 'in_progress';
+      job.startedAt = new Date();
+      job.actualStartTime = new Date();
+      await job.save();
+
+      const io = getIo(req);
+      if (io) {
+        io.emit('jobStatusUpdated', { jobId, status: 'in_progress', note: 'Job started directly (Admin Created)' });
+        if (job.assignedTechnician) {
+          io.to(job.assignedTechnician.toString()).emit('jobStarted', job);
+        }
+        if (job.client) {
+          io.to(job.client.toString()).emit('jobStarted', job);
+        }
+      }
+
+      if (job.client) {
+        await notificationService.createNotification(
+          job.client,
+          '🚀 Job Started',
+          `Your service for ${job.serviceName || job.title} has started.`,
+          'job_started',
+          io,
+          { jobId: job._id.toString() }
+        );
+      }
+
+      return res.json({
+        success: true,
+        otpRequired: false,
+        message: 'Admin created job started directly',
+        job,
+      });
+    }
+
     const { otp } = await getOrCreateStartJobOtp(job);
 
     let emailSent = false;
@@ -87,6 +124,7 @@ router.post('/start/:jobId', verifyToken, async (req, res) => {
 
     return res.json({
       success: true,
+      otpRequired: true,
       message: 'OTP generated and logged successfully',
       otp,
       emailSent,
@@ -103,13 +141,25 @@ router.post('/start/:jobId/verify', verifyToken, async (req, res) => {
     const { jobId } = req.params;
     const { otp } = req.body;
 
-    if (!otp) {
-      return res.status(400).json({ success: false, message: 'OTP is required' });
-    }
-
     const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({ success: false, message: 'Booking mismatch: Job not found' });
+    }
+
+    if (job.isAdminCreated) {
+      job.status = 'in_progress';
+      job.startedAt = new Date();
+      job.actualStartTime = new Date();
+      await job.save();
+      return res.json({
+        success: true,
+        message: 'OTP verified successfully. Job status updated to IN_PROGRESS.',
+        job,
+      });
+    }
+
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'OTP is required' });
     }
 
     const technicianId = job.assignedTechnician;
