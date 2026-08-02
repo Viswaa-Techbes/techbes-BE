@@ -100,9 +100,9 @@ async function getDashboardStats(req, res) {
     let upcomingBookings = [];
     
     try {
-      totalBookings = await Job.countDocuments({ customer: userId });
-      completedBookings = await Job.countDocuments({ customer: userId, status: 'Completed' });
-      upcomingBookings = await Job.find({ customer: userId, status: { $in: ['Pending', 'Assigned', 'In Progress'] } }).sort({ createdAt: -1 }).limit(3);
+      totalBookings = await Job.countDocuments({ client: userId, useNewFlow: true });
+      completedBookings = await Job.countDocuments({ client: userId, useNewFlow: true, status: 'completed' });
+      upcomingBookings = await Job.find({ client: userId, useNewFlow: true, status: { $in: ['pending', 'assigned', 'travelling', 'arrived', 'working', 'payment_pending', 'payment_requested'] } }).sort({ createdAt: -1 }).limit(3);
     } catch(e) {
       console.error("Dashboard stats error:", e);
     }
