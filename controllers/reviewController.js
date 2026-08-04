@@ -29,31 +29,47 @@ async function listReviews(req, res, next) {
  */
 async function createReview(req, res, next) {
   try {
-    const { rating, comment, technicianId, jobId, clientName } = req.body;
+    const { rating, comment, technicianId, jobId, clientName, serviceRating, technicianRating, images, videos } = req.body;
 
-    if (!rating || !technicianId) {
-      return res.status(400).json({ success: false, message: 'Rating and technicianId are required' });
+    const finalTechnicianId = technicianId || req.body.technician;
+    const finalJobId = jobId || req.body.booking;
+
+    if (!rating && !serviceRating && !technicianRating) {
+      return res.status(400).json({ success: false, message: 'Rating is required' });
+    }
+    if (!finalTechnicianId) {
+      return res.status(400).json({ success: false, message: 'technicianId is required' });
     }
 
     // Customer cannot rate twice: check if review for this jobId already exists
-    if (jobId) {
-      const existingReview = await Review.findOne({ jobId });
+    if (finalJobId) {
+      const existingReview = await Review.findOne({ $or: [{ jobId: finalJobId }, { booking: finalJobId }] });
       if (existingReview) {
         return res.status(400).json({ success: false, message: 'You have already rated the service for this job.' });
       }
     }
 
+    const overall = rating || Math.round(((Number(serviceRating) || 5) + (Number(technicianRating) || 5)) / 2);
+
     const review = await Review.create({
-      rating,
-      comment,
-      technicianId,
-      jobId,
+      customer: req.user?.id,
+      technician: finalTechnicianId,
+      booking: finalJobId,
+      serviceRating: serviceRating || rating || 5,
+      technicianRating: technicianRating || rating || 5,
+      overallRating: overall,
+      rating: overall,
+      technicianId: finalTechnicianId,
+      jobId: finalJobId,
       clientName: clientName || req.user?.name || 'Customer',
+      comment,
+      images: images || [],
+      videos: videos || [],
     });
 
     // Update technician rating and performance score
     setImmediate(() => {
-      ratingService.updateTechnicianRating(technicianId);
+      ratingService.updateTechnicianRating(finalTechnicianId);
     });
 
     return res.status(201).json({
