@@ -206,6 +206,8 @@ const jobSchema = new mongoose.Schema(
       dvrRequired: { type: Boolean, default: false },
       nvrRequired: { type: Boolean, default: false },
       dvrChannels: { type: Number, default: 0 },
+      selectedDvrChannels: { type: String, default: '' },
+      recommendedDvrChannels: { type: String, default: '' },
       networkRack: { type: Boolean, default: false },
       monitorMounting: { type: Boolean, default: false },
       category: {
@@ -262,6 +264,7 @@ const jobSchema = new mongoose.Schema(
         monitorCharge: { type: Number, default: 0 },
         gst: { type: Number, default: 0 },
         discount: { type: Number, default: 0 },
+        miscCharges: { type: Number, default: 0 },
       },
       products: [
         {

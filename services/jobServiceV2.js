@@ -1,6 +1,7 @@
 const Job = require('../models/Job');
 const User = require('../models/User');
 const TechnicianLocation = require('../models/TechnicianLocation');
+const { calculateCctvPrice } = require('./cctvPricingService');
 
 async function createBookingV2(bookingData) {
   const {
@@ -60,6 +61,62 @@ async function createBookingV2(bookingData) {
   const grandTotal = Number(
     cctvDetails?.priceBreakdown?.grandTotal ?? bookingData.totalAmount ?? bookingData.priceValue ?? 0
   ) || 0;
+
+  // CCTV Validation
+  const isInstallNewCctv = serviceId === 'install-new-cctv' || serviceName === 'Install New CCTV' || (cctvDetails && cctvDetails.subcategory?.slug === 'install-new-cctv');
+  if (isInstallNewCctv && cctvDetails) {
+    const inputCameras = cctvDetails.cameraTypes || [];
+    const totalCameras = inputCameras.reduce((sum, cam) => sum + (Number(cam.quantity) || 0), 0);
+    
+    // 1. Max 16 Cameras Check
+    if (totalCameras > 16) {
+      const err = new Error("Bookings with more than 16 cameras are not allowed online. Please contact our office for a customized quotation.");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // 2. SD Card Eligibility Check
+    const wifiOr4gSelected = inputCameras.some(cam => 
+      ['WiFi Indoor Camera', 'WiFi Outdoor Camera', '4G Camera'].includes(cam.type)
+    );
+    if (cctvDetails.sdCardRequired && !wifiOr4gSelected) {
+      const err = new Error("Validation Error: SD Card is only allowed for WiFi/4G cameras.");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // 3. Recalculate price on the backend
+    const computedPrice = await calculateCctvPrice({
+      propertyType: cctvDetails.propertyType,
+      cameraTypes: cctvDetails.cameraTypes,
+      installationRequired: cctvDetails.installationRequired,
+      cableType: cctvDetails.cableType,
+      cableLength: cctvDetails.cableLength,
+      dvrRequired: cctvDetails.dvrRequired,
+      nvrRequired: cctvDetails.nvrRequired,
+      networkRack: cctvDetails.networkRack,
+      monitorMounting: cctvDetails.monitorMounting,
+      sdCardRequired: cctvDetails.sdCardRequired,
+      sdCardCapacity: cctvDetails.sdCardCapacity,
+      sdCardQuantity: cctvDetails.sdCardQuantity,
+      selectedDvrChannels: cctvDetails.selectedDvrChannels || cctvDetails.dvrChannels || '',
+    });
+
+    const expectedGrandTotal = computedPrice.priceBreakdown.grandTotal;
+
+    // 4. Validate total calculation matches (within ₹2 tolerance)
+    if (Math.abs(grandTotal - expectedGrandTotal) > 2) {
+      const err = new Error(`Validation Error: Submitted price (₹${grandTotal}) does not match server calculation (₹${expectedGrandTotal}).`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // Update details with correct recommended channel, selected channel and pricing
+    cctvDetails.recommendedDvrChannels = computedPrice.recommendedDvrChannels;
+    cctvDetails.selectedDvrChannels = String(cctvDetails.selectedDvrChannels || cctvDetails.dvrChannels || '').trim();
+    cctvDetails.cameraCount = totalCameras;
+    cctvDetails.priceBreakdown = computedPrice.priceBreakdown;
+  }
 
   const derivedMapsLink = googleMapsLink || googleMapLink || cctvDetails?.mapLink || '';
 

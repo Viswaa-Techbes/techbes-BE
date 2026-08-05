@@ -223,11 +223,8 @@ async function calculateCctvPrice(input = {}) {
   const installationRequired = !!input.installationRequired;
   const cableType = input.cableType;
   const cableLength = Math.max(Number(input.cableLength) || 0, 0);
-  const dvrRequired = !!input.dvrRequired;
-  const nvrRequired = !!input.nvrRequired;
   const networkRack = !!input.networkRack;
   const monitorMounting = !!input.monitorMounting;
-  const sdCardRequired = !!input.sdCardRequired;
   const sdCardCapacity = input.sdCardCapacity;
   const sdCardQuantity = Math.max(Number(input.sdCardQuantity) || 0, 0);
 
@@ -268,6 +265,37 @@ async function calculateCctvPrice(input = {}) {
       unitPrice,
       totalPrice: itemTotal
     });
+  }
+
+  // Recommended DVR/NVR channels
+  let recommendedDvrChannels = '';
+  if (totalCameraCount > 0) {
+    if (totalCameraCount <= 4) recommendedDvrChannels = '4 Channel';
+    else if (totalCameraCount <= 8) recommendedDvrChannels = '8 Channel';
+    else if (totalCameraCount <= 16) recommendedDvrChannels = '16 Channel';
+    else recommendedDvrChannels = '32 Channel';
+  }
+
+  // Recorders: Determine dvrRequired and nvrRequired based on selectedDvrChannels
+  let dvrRequired = !!input.dvrRequired;
+  let nvrRequired = !!input.nvrRequired;
+  const selectedDvrChannels = String(input.selectedDvrChannels || input.dvrChannels || '').trim();
+
+  if (input.selectedDvrChannels !== undefined || input.dvrChannels !== undefined) {
+    const isRecorderSelected = selectedDvrChannels && selectedDvrChannels !== 'None' && selectedDvrChannels !== '0' && selectedDvrChannels !== '';
+    if (isRecorderSelected) {
+      const hasAnalog = inputCameras.some(cam => cam.type === 'Analog Camera');
+      if (hasAnalog) {
+        dvrRequired = true;
+        nvrRequired = false;
+      } else {
+        dvrRequired = false;
+        nvrRequired = true;
+      }
+    } else {
+      dvrRequired = false;
+      nvrRequired = false;
+    }
   }
 
   // Installation charges (Camera Fitting)
@@ -316,7 +344,12 @@ async function calculateCctvPrice(input = {}) {
     monitorTotal = dbAcc ? dbAcc.price : 350;
   }
 
-  // SD Card pricing
+  // SD Card eligibility & pricing
+  const wifiOr4gSelected = inputCameras.some(cam => 
+    ['WiFi Indoor Camera', 'WiFi Outdoor Camera', '4G Camera'].includes(cam.type)
+  );
+  const sdCardRequired = !!input.sdCardRequired && wifiOr4gSelected;
+
   let sdCardTotal = 0;
   let sdCardUnitPrice = 0;
   if (sdCardRequired && sdCardQuantity > 0 && sdCardCapacity) {
@@ -328,8 +361,11 @@ async function calculateCctvPrice(input = {}) {
   // Visit charges
   const visitCharge = config.baseCharge || 499;
 
+  // Miscellaneous charges
+  const miscCharges = totalCameraCount === 0 ? 0 : (totalCameraCount <= 4 ? 1000 : 1500);
+
   // Subtotal
-  const subtotal = cameraTotal + installationTotal + cableTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + sdCardTotal + visitCharge;
+  const subtotal = cameraTotal + installationTotal + cableTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + sdCardTotal + visitCharge + miscCharges;
   
   // Tax
   const gstPercent = config.tax?.status === 'active' ? Number(config.tax.percentage) || 0 : 18;
@@ -341,6 +377,8 @@ async function calculateCctvPrice(input = {}) {
   const result = {
     propertyType,
     cameraDetails,
+    recommendedDvrChannels,
+    selectedDvrChannels: (input.selectedDvrChannels || input.dvrChannels || ''),
     installation: {
       quantity: totalCameraCount,
       unitPrice: fittingUnitPrice,
@@ -374,6 +412,7 @@ async function calculateCctvPrice(input = {}) {
       rackTotal,
       monitorTotal,
       sdCardTotal,
+      miscCharges,
       subtotal,
       taxTotal: gstTotal,
       grandTotal
