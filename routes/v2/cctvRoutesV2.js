@@ -17,6 +17,8 @@ router.get('/sd-cards', cctvController.listSdCards);
 router.get('/installation-charges', cctvController.listInstallationCharges);
 router.get('/cable-pricings', cctvController.listCablePricings);
 router.get('/accessories', cctvController.listAccessories);
+router.get('/hdds', cctvController.listHdds);
+router.get('/racks', cctvController.listRacks);
 router.post('/calculate-price', cctvController.calculatePrice);
 
 router.get('/:serviceId/config', cctvController.getServiceConfig);

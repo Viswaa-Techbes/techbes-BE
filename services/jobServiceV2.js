@@ -100,6 +100,8 @@ async function createBookingV2(bookingData) {
       sdCardCapacity: cctvDetails.sdCardCapacity,
       sdCardQuantity: cctvDetails.sdCardQuantity,
       selectedDvrChannels: cctvDetails.selectedDvrChannels || cctvDetails.dvrChannels || '',
+      hddCapacity: cctvDetails.hddCapacity,
+      rackType: cctvDetails.rackType,
     });
 
     const expectedGrandTotal = computedPrice.priceBreakdown.grandTotal;

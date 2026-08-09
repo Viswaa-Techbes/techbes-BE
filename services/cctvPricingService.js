@@ -10,6 +10,8 @@ const CctvSdCard = require('../models/CctvSdCard');
 const CctvInstallationCharge = require('../models/CctvInstallationCharge');
 const CctvCablePricing = require('../models/CctvCablePricing');
 const CctvAccessory = require('../models/CctvAccessory');
+const CctvHdd = require('../models/CctvHdd');
+const CctvRack = require('../models/CctvRack');
 
 function roundAmount(value) {
   return Math.max(Math.round((Number(value) || 0) * 100) / 100, 0);
@@ -227,6 +229,8 @@ async function calculateCctvPrice(input = {}) {
   const monitorMounting = !!input.monitorMounting;
   const sdCardCapacity = input.sdCardCapacity;
   const sdCardQuantity = Math.max(Number(input.sdCardQuantity) || 0, 0);
+  const hddCapacity = input.hddCapacity || '';
+  const rackType = input.rackType || '';
 
   let cameraTotal = 0;
   let totalCameraCount = 0;
@@ -358,6 +362,24 @@ async function calculateCctvPrice(input = {}) {
     sdCardTotal = sdCardQuantity * sdCardUnitPrice;
   }
 
+  // HDD Storage pricing
+  let hddTotal = 0;
+  let hddUnitPrice = 0;
+  if (hddCapacity && hddCapacity !== 'None') {
+    const dbHdd = await CctvHdd.findOne({ capacity: hddCapacity, status: 'active' }).lean();
+    hddUnitPrice = dbHdd ? dbHdd.price : 0;
+    hddTotal = hddUnitPrice;
+  }
+
+  // Rack Type pricing (separate from networkRack accessory mount)
+  let rackSelectedTotal = 0;
+  let rackSelectedUnitPrice = 0;
+  if (rackType && rackType !== 'None') {
+    const dbRack = await CctvRack.findOne({ type: rackType, status: 'active' }).lean();
+    rackSelectedUnitPrice = dbRack ? dbRack.price : 0;
+    rackSelectedTotal = rackSelectedUnitPrice;
+  }
+
   // Visit charges
   const visitCharge = config.baseCharge || 499;
 
@@ -365,7 +387,7 @@ async function calculateCctvPrice(input = {}) {
   const miscCharges = totalCameraCount === 0 ? 0 : (totalCameraCount <= 4 ? 1000 : 1500);
 
   // Subtotal
-  const subtotal = cameraTotal + installationTotal + cableTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + sdCardTotal + visitCharge + miscCharges;
+  const subtotal = cameraTotal + installationTotal + cableTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + sdCardTotal + visitCharge + miscCharges + hddTotal + rackSelectedTotal;
   
   // Tax
   const gstPercent = config.tax?.status === 'active' ? Number(config.tax.percentage) || 0 : 18;
@@ -401,6 +423,10 @@ async function calculateCctvPrice(input = {}) {
       unitPrice: sdCardUnitPrice,
       totalPrice: sdCardTotal
     },
+    hddCapacity,
+    hddTotal,
+    rackType,
+    rackSelectedTotal,
     visitCharge,
     priceBreakdown: {
       baseCharge: visitCharge,
@@ -412,6 +438,8 @@ async function calculateCctvPrice(input = {}) {
       rackTotal,
       monitorTotal,
       sdCardTotal,
+      hddTotal,
+      rackSelectedTotal,
       miscCharges,
       subtotal,
       taxTotal: gstTotal,

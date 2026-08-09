@@ -10,6 +10,8 @@ const CctvSdCard = require('../../models/CctvSdCard');
 const CctvInstallationCharge = require('../../models/CctvInstallationCharge');
 const CctvCablePricing = require('../../models/CctvCablePricing');
 const CctvAccessory = require('../../models/CctvAccessory');
+const CctvHdd = require('../../models/CctvHdd');
+const CctvRack = require('../../models/CctvRack');
 const { calculateCctvPrice, getActivePricingConfig } = require('../../services/cctvPricingService');
 
 function slugify(value = '') {
@@ -296,6 +298,22 @@ async function listAccessories(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function listHdds(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvHdd.find(query).sort({ price: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listRacks(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvRack.find(query).sort({ price: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   listCategories,
   listSubcategories,
@@ -313,6 +331,8 @@ module.exports = {
   listInstallationCharges,
   listCablePricings,
   listAccessories,
+  listHdds,
+  listRacks,
   categoryAdmin: crud(CctvCategory),
   subcategoryAdmin: crud(CctvSubcategory),
   cameraTypeAdmin: crud(CctvCameraType),
@@ -324,6 +344,8 @@ module.exports = {
   installationChargeAdmin: crud(CctvInstallationCharge),
   cablePricingAdmin: crud(CctvCablePricing),
   accessoryAdmin: crud(CctvAccessory),
+  hddAdmin: crud(CctvHdd),
+  rackAdmin: crud(CctvRack),
   upsertPricingConfig,
 };
 

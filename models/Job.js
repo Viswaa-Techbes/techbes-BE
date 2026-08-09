@@ -210,6 +210,8 @@ const jobSchema = new mongoose.Schema(
       recommendedDvrChannels: { type: String, default: '' },
       networkRack: { type: Boolean, default: false },
       monitorMounting: { type: Boolean, default: false },
+      hddCapacity: { type: String, default: '' },
+      rackType: { type: String, default: '' },
       category: {
         id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvCategory', default: null },
         name: { type: String, default: '', trim: true },
@@ -265,6 +267,8 @@ const jobSchema = new mongoose.Schema(
         gst: { type: Number, default: 0 },
         discount: { type: Number, default: 0 },
         miscCharges: { type: Number, default: 0 },
+        hddTotal: { type: Number, default: 0 },
+        rackSelectedTotal: { type: Number, default: 0 },
       },
       products: [
         {

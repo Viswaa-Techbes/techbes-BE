@@ -123,6 +123,18 @@ router.post('/services/cctv/accessories', cctvControllerV2.accessoryAdmin.create
 router.put('/services/cctv/accessories/:id', cctvControllerV2.accessoryAdmin.update);
 router.delete('/services/cctv/accessories/:id', cctvControllerV2.accessoryAdmin.remove);
 
+// CCTV HDDs
+router.get('/services/cctv/hdds', cctvControllerV2.listHdds);
+router.post('/services/cctv/hdds', cctvControllerV2.hddAdmin.create);
+router.put('/services/cctv/hdds/:id', cctvControllerV2.hddAdmin.update);
+router.delete('/services/cctv/hdds/:id', cctvControllerV2.hddAdmin.remove);
+
+// CCTV Racks
+router.get('/services/cctv/racks', cctvControllerV2.listRacks);
+router.post('/services/cctv/racks', cctvControllerV2.rackAdmin.create);
+router.put('/services/cctv/racks/:id', cctvControllerV2.rackAdmin.update);
+router.delete('/services/cctv/racks/:id', cctvControllerV2.rackAdmin.remove);
+
 // Technicians
 router.get('/technicians', technicianControllerV2.listTechnicians);
 router.put('/technicians/:id/status', technicianControllerV2.updateStatus);

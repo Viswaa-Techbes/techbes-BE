@@ -6,8 +6,26 @@ const CctvInstallationCharge = require('../models/CctvInstallationCharge');
 const CctvCablePricing = require('../models/CctvCablePricing');
 const CctvAccessory = require('../models/CctvAccessory');
 const CctvPricingConfig = require('../models/CctvPricingConfig');
+const CctvHdd = require('../models/CctvHdd');
+const CctvRack = require('../models/CctvRack');
 
 const brandsData = ['CP Plus', 'Secureye', 'Mikam', 'Hikvision'];
+
+const hddsData = [
+  { capacity: '500GB', price: 2100 },
+  { capacity: '1TB', price: 4000 },
+  { capacity: '2TB', price: 8000 },
+  { capacity: '4TB', price: 14500 },
+  { capacity: '6TB', price: 23000 },
+];
+
+const racksData = [
+  { type: 'Mini 2U', price: 950 },
+  { type: '2U', price: 1250 },
+  { type: '4U', price: 1750 },
+  { type: '9U', price: 3400 },
+  { type: '15U', price: 6500 },
+];
 
 const sdCardsData = [
   { capacity: '32GB', price: 750 },
@@ -139,6 +157,24 @@ async function seedCctvDataInternal() {
       if (!existing) {
         await CctvAccessory.create({ ...acc, status: 'active' });
         console.log(`[Seed] Seeded Accessory: ${acc.name} -> ₹${acc.price}`);
+      }
+    }
+
+    // 6b. Seed HDDs
+    for (const h of hddsData) {
+      const existing = await CctvHdd.findOne({ capacity: h.capacity });
+      if (!existing) {
+        await CctvHdd.create({ ...h, status: 'active' });
+        console.log(`[Seed] Seeded HDD: ${h.capacity} -> ₹${h.price}`);
+      }
+    }
+
+    // 6c. Seed Racks
+    for (const r of racksData) {
+      const existing = await CctvRack.findOne({ type: r.type });
+      if (!existing) {
+        await CctvRack.create({ ...r, status: 'active' });
+        console.log(`[Seed] Seeded Rack: ${r.type} -> ₹${r.price}`);
       }
     }
 
