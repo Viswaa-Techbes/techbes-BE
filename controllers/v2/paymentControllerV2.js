@@ -35,6 +35,17 @@ async function createOrder(req, res, next) {
       console.log('[Payment] Derived booking payable amount', { grandTotal: grand, payableAmount });
     }
 
+    // CCTV Test Payment Mode Override
+    const host = req.headers.host || '';
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('192.168.') || host.includes('10.');
+    const isTestMode = process.env.CCTV_TEST_PAYMENT === 'true' && (process.env.NODE_ENV !== 'production' || isLocalhost);
+
+    if (isTestMode) {
+      payableAmount = 100; // Force exactly ₹1.00 (100 paise)
+      paymentDescription = `[TEST PAYMENT] ${paymentDescription || 'CCTV Booking'}`;
+      console.log('[Payment] CCTV Test Payment Mode is ENABLED. Forcing payableAmount to 100 paise (₹1.00).');
+    }
+
     const orderData = await paymentService.createRazorpayOrder(payableAmount, paymentDescription, paymentReceipt, req.user.id);
     console.log('[Payment] Razorpay order created', {
       orderId: orderData.orderId,
