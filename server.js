@@ -176,6 +176,14 @@ async function start() {
       } catch (seedErr) {
         console.error("CCTV seeding failed at startup:", seedErr);
       }
+
+      // Masterclass Seeding trigger
+      try {
+        const seedMasterclass = require('./scripts/seedMasterclass');
+        await seedMasterclass();
+      } catch (seedMcErr) {
+        console.error("Masterclass seeding failed at startup:", seedMcErr);
+      }
     } catch (err) {
       console.error('CRITICAL: Failed to connect to database:', err.message || err);
       // We don't exit here so the process stays alive and Render doesn't restart it immediately
