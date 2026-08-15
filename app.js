@@ -75,6 +75,9 @@ productionDomains.forEach((domain) => {
 if (!allowedOrigins.includes('http://localhost:3000')) {
   allowedOrigins.push('http://localhost:3000');
 }
+if (!allowedOrigins.includes('http://localhost:3001')) {
+  allowedOrigins.push('http://localhost:3001');
+}
 if (!allowedOrigins.includes('http://localhost:5173')) {
   allowedOrigins.push('http://localhost:5173');
 }

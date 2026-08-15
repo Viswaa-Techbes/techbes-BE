@@ -16,7 +16,8 @@ const registrationSchema = new mongoose.Schema({
   amount: Number,
   paidAt: Date,
   attended: { type: Boolean, default: false },
-  certificateStatus: { type: String, default: 'NOT_ELIGIBLE' }
+  certificateStatus: { type: String, default: 'NOT_ELIGIBLE' },
+  courseType: { type: String, default: 'CCTV_MASTERCLASS' }
 }, { timestamps: true });
 
 registrationSchema.index({ email: 1 });

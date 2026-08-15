@@ -128,6 +128,10 @@ async function createRazorpayOrder(req, res, next) {
     // order returned structure: { orderId, amount, currency, receipt, keyId }
     return res.json({
       success: true,
+      key_id: order.keyId || order.razorpayKey,
+      order_id: order.orderId,
+      amount: order.amount,
+      currency: order.currency,
       order: {
         id: order.orderId,
         amount: order.amount,
@@ -162,6 +166,15 @@ async function verifyRazorpayPayment(req, res, next) {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
+    if (reg.paymentStatus === 'PAID') {
+      const cert = await Certificate.findOne({ registrationId: reg._id });
+      return res.json({
+        success: true,
+        ok: true,
+        certificateId: cert ? cert.certificateId : null,
+      });
+    }
+
     const mc = await Masterclass.findById(reg.masterclassId);
     if (!mc) {
       return res.status(404).json({ success: false, message: 'Masterclass not found' });
@@ -189,6 +202,15 @@ async function verifyRazorpayPayment(req, res, next) {
     reg.registrationStatus = 'REGISTERED';
     reg.razorpayPaymentId = razorpay_payment_id;
     reg.paidAt = new Date();
+    reg.courseType = 'CCTV_MASTERCLASS';
+    
+    // Generate unique sequential enrollment ID: TB-CCTV-2026-XXXXXX
+    if (!reg.enrollmentId) {
+      const count = await Registration.countDocuments({ enrollmentId: { $exists: true } });
+      const seq = String(count + 1).padStart(6, '0');
+      reg.enrollmentId = `TB-CCTV-2026-${seq}`;
+    }
+
     await reg.save();
 
     // Create Certificate record
@@ -303,6 +325,14 @@ async function webhookHandler(req, res, next) {
         reg.registrationStatus = 'REGISTERED';
         reg.razorpayPaymentId = payment_id;
         reg.paidAt = new Date();
+        reg.courseType = 'CCTV_MASTERCLASS';
+
+        // Generate unique sequential enrollment ID
+        if (!reg.enrollmentId) {
+          const count = await Registration.countDocuments({ enrollmentId: { $exists: true } });
+          const seq = String(count + 1).padStart(6, '0');
+          reg.enrollmentId = `TB-CCTV-2026-${seq}`;
+        }
         await reg.save();
 
         let certificate = null;
