@@ -372,12 +372,89 @@ async function getAdminStats(req, res, next) {
     const total = await Registration.countDocuments();
     const paid = await Registration.countDocuments({ paymentStatus: 'PAID' });
     const pending = await Registration.countDocuments({ paymentStatus: 'PENDING' });
+    const failed = await Registration.countDocuments({ paymentStatus: 'FAILED' });
+
+    // Revenue: sum amount for PAID registrations
+    const revenueAgg = await Registration.aggregate([
+      { $match: { paymentStatus: 'PAID' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    const revenue = revenueAgg.length > 0 ? revenueAgg[0].total : 0;
 
     return res.json({
       success: true,
-      data: { total, paid, pending },
-      stats: { total, paid, pending },
+      data: { total, paid, pending, failed, revenue },
+      stats: { total, paid, pending, failed, revenue },
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 7. GET /api/v2/cctv-course/admin/registrations
+async function getAdminRegistrations(req, res, next) {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+
+    // Status filter
+    if (req.query.status && ['PENDING', 'PAID', 'FAILED', 'REFUNDED'].includes(req.query.status)) {
+      filter.paymentStatus = req.query.status;
+    }
+
+    // Date filter
+    if (req.query.from || req.query.to) {
+      filter.createdAt = {};
+      if (req.query.from) filter.createdAt.$gte = new Date(req.query.from);
+      if (req.query.to) {
+        const to = new Date(req.query.to);
+        to.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = to;
+      }
+    }
+
+    // Search filter
+    if (req.query.search) {
+      const re = new RegExp(req.query.search, 'i');
+      filter.$or = [{ name: re }, { email: re }, { mobile: re }, { enrollmentId: re }];
+    }
+
+    const [registrations, total] = await Promise.all([
+      Registration.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Registration.countDocuments(filter),
+    ]);
+
+    return res.json({
+      success: true,
+      data: registrations,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 8. GET /api/v2/cctv-course/admin/registrations/:id
+async function getAdminRegistrationById(req, res, next) {
+  try {
+    const reg = await Registration.findById(req.params.id).lean();
+    if (!reg) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+    const mc = await Masterclass.findById(reg.masterclassId).lean();
+    return res.json({ success: true, data: { ...reg, masterclass: mc || null } });
   } catch (err) {
     next(err);
   }
@@ -390,4 +467,6 @@ module.exports = {
   webhookHandler,
   getCertificateDetails,
   getAdminStats,
+  getAdminRegistrations,
+  getAdminRegistrationById,
 };
