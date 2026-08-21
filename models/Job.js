@@ -99,6 +99,10 @@ const jobSchema = new mongoose.Schema(
       enum: PAYMENT_STATUSES,
       default: 'pending',
     },
+    quoteRequestId: {
+      type: String,
+      default: null,
+    },
     paymentDescription: {
       type: String,
       default: '',

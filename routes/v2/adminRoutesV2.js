@@ -5,6 +5,7 @@ const materialControllerV2 = require('../../controllers/v2/materialControllerV2'
 const technicianControllerV2 = require('../../controllers/v2/technicianControllerV2');
 const attendanceControllerV2 = require('../../controllers/v2/attendanceControllerV2');
 const { authenticate, requireRoles } = require('../../middlewares/auth');
+const quoteControllerV2 = require('../../controllers/v2/quoteControllerV2');
 
 const router = express.Router();
 
@@ -240,5 +241,11 @@ router.put('/catalog/subcategories/:id/questions', async (req, res) => {
     res.json({ success: true, data: sub.bookingQuestions });
   } catch (e) { res.status(400).json({ success: false, message: e.message }); }
 });
+
+// Quote Requests Admin Endpoints
+router.get('/quotes', quoteControllerV2.getQuoteRequests);
+router.get('/quotes/:id', quoteControllerV2.getQuoteRequestDetails);
+router.put('/quotes/:id', quoteControllerV2.updateQuoteRequest);
+router.post('/quotes/:id/convert', quoteControllerV2.convertToBooking);
 
 module.exports = router;
