@@ -33,6 +33,25 @@ const quoteRequestSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    serviceCategory: {
+      type: String,
+      required: [true, 'Service Category is required'],
+      default: 'CCTV',
+    },
+    companyName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    googleMapsUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    source: {
+      type: String,
+      default: 'Website Quote Request',
+    },
     locality: {
       type: String,
       required: [true, 'Bangalore Area/Locality is required'],
@@ -109,8 +128,11 @@ const quoteRequestSchema = new mongoose.Schema(
         'Site Survey Scheduled',
         'Quote Prepared',
         'Quote Sent',
+        'Quotation Sent',
         'Accepted',
         'Converted to Booking',
+        'Converted',
+        'Closed',
         'Rejected',
         'Cancelled',
       ],

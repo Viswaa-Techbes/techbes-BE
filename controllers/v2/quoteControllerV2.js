@@ -14,6 +14,10 @@ async function submitQuoteRequest(req, res, next) {
       mobile,
       email,
       whatsapp,
+      serviceCategory,
+      companyName,
+      googleMapsUrl,
+      source,
       locality,
       pincode,
       address,
@@ -39,11 +43,8 @@ async function submitQuoteRequest(req, res, next) {
     if (!mobile || !mobile.trim()) {
       return res.status(400).json({ success: false, message: 'Mobile Number is required' });
     }
-    if (!locality || !locality.trim()) {
-      return res.status(400).json({ success: false, message: 'Locality is required' });
-    }
     if (!address || !address.trim()) {
-      return res.status(400).json({ success: false, message: 'Full Address is required' });
+      return res.status(400).json({ success: false, message: 'Address / Area is required' });
     }
 
     // Validate Indian mobile number
@@ -55,12 +56,18 @@ async function submitQuoteRequest(req, res, next) {
     // Check if client is logged in
     const customerId = req.user && req.user.role === 'client' ? req.user.id : null;
 
+    const finalLocality = locality?.trim() || address.trim();
+
     const quoteData = {
       fullName: fullName.trim(),
       mobile: mobile.trim(),
       email: email?.trim() || '',
       whatsapp: whatsapp?.trim() || '',
-      locality: locality.trim(),
+      serviceCategory: serviceCategory?.trim() || 'CCTV',
+      companyName: companyName?.trim() || '',
+      googleMapsUrl: googleMapsUrl?.trim() || '',
+      source: source?.trim() || 'Website Quote Request',
+      locality: finalLocality,
       pincode: pincode?.trim() || '',
       address: address.trim(),
       latitude: Number(latitude) || null,
@@ -88,8 +95,8 @@ async function submitQuoteRequest(req, res, next) {
       for (const admin of admins) {
         await notificationService.createNotification(
           admin._id,
-          'New CCTV Quote Request',
-          `A new CCTV quote request ${quoteRequest.requestId} has been submitted by ${quoteRequest.fullName}.`,
+          `New ${quoteRequest.serviceCategory} Quote Request`,
+          `A new ${quoteRequest.serviceCategory} quote request ${quoteRequest.requestId} has been submitted by ${quoteRequest.fullName}.`,
           'quote_request_created'
         );
       }
@@ -117,7 +124,7 @@ async function submitQuoteRequest(req, res, next) {
  */
 async function getQuoteRequests(req, res, next) {
   try {
-    const { search, status, propertyType, requirementType, area, date, assignedTo } = req.query;
+    const { search, status, propertyType, requirementType, area, date, assignedTo, serviceCategory } = req.query;
     const filter = {};
 
     if (search) {
@@ -129,7 +136,13 @@ async function getQuoteRequests(req, res, next) {
         { email: searchRegex },
         { locality: searchRegex },
         { address: searchRegex },
+        { serviceCategory: searchRegex },
+        { companyName: searchRegex },
       ];
+    }
+
+    if (serviceCategory && serviceCategory !== 'All') {
+      filter.serviceCategory = serviceCategory;
     }
 
     if (status && status !== 'All') {
@@ -254,21 +267,12 @@ async function convertToBooking(req, res, next) {
     // 3. Create Job booking if it does not already exist
     let existingJob = await Job.findOne({ quoteRequestId: quote.requestId });
     if (!existingJob) {
-      const title = quote.requirementType ? `CCTV ${quote.requirementType}` : 'CCTV Installation';
-      const cleanCameraCount = Number(quote.cameraCount.split(/[^\d]+/)[0]) || 4;
+      const isCctv = quote.serviceCategory === 'CCTV';
+      const title = isCctv 
+        ? (quote.requirementType ? `CCTV ${quote.requirementType}` : 'CCTV Installation')
+        : `${quote.serviceCategory || 'Quote'} Services`;
 
-      const cctvDetails = {
-        propertyType: quote.propertyType || 'Home',
-        cameraCount: cleanCameraCount,
-        cameraTypes: [
-          {
-            type: quote.cameraRequirement === 'Indoor' ? 'Dome Camera' : 'Bullet Camera',
-            quantity: cleanCameraCount,
-          },
-        ],
-      };
-
-      existingJob = await Job.create({
+      const jobData = {
         title,
         description: quote.additionalRequirements || `Created from Quote Request ID: ${quote.requestId}`,
         location: quote.address,
@@ -281,7 +285,7 @@ async function convertToBooking(req, res, next) {
         bookingDate: quote.preferredVisitDate ? new Date(quote.preferredVisitDate).toISOString().split('T')[0] : '',
         timeSlot: quote.preferredVisitTime || '',
         addressId: addr ? addr._id : undefined,
-        googleMapsLink: quote.latitude && quote.longitude ? `https://www.google.com/maps?q=${quote.latitude},${quote.longitude}` : '',
+        googleMapsLink: quote.googleMapsUrl || (quote.latitude && quote.longitude ? `https://www.google.com/maps?q=${quote.latitude},${quote.longitude}` : ''),
         latitude: quote.latitude,
         longitude: quote.longitude,
         addressDetails: {
@@ -290,8 +294,23 @@ async function convertToBooking(req, res, next) {
           formattedAddress: quote.address || '',
         },
         quoteRequestId: quote.requestId,
-        cctvDetails,
-      });
+      };
+
+      if (isCctv) {
+        const cleanCameraCount = Number(quote.cameraCount.split(/[^\d]+/)[0]) || 4;
+        jobData.cctvDetails = {
+          propertyType: quote.propertyType || 'Home',
+          cameraCount: cleanCameraCount,
+          cameraTypes: [
+            {
+              type: quote.cameraRequirement === 'Indoor' ? 'Dome Camera' : 'Bullet Camera',
+              quantity: cleanCameraCount,
+            },
+          ],
+        };
+      }
+
+      existingJob = await Job.create(jobData);
     }
 
     // 4. Update Quote Request status
