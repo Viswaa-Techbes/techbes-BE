@@ -47,11 +47,14 @@ async function createBooking(req, res, next) {
 
     // Notify booking client (if authenticated)
     if (req.user && req.user.id) {
+      const isFree = job.price === 0;
       await notificationService.createNotification(
         req.user.id,
-        'Booking Requested',
-        `Your booking request for ${job.serviceName || job.title} has been received. Please complete the advance payment to confirm the booking.`,
-        'booking_requested',
+        isFree ? 'Booking Confirmed' : 'Booking Requested',
+        isFree
+          ? `Your free site survey request for ${job.serviceName || job.title} has been scheduled successfully.`
+          : `Your booking request for ${job.serviceName || job.title} has been received. Please complete the advance payment to confirm the booking.`,
+        isFree ? 'booking_confirmed' : 'booking_requested',
         io,
         {
           bookingId: job._id ? job._id.toString() : '',

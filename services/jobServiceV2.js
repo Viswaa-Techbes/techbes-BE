@@ -155,11 +155,12 @@ async function createBookingV2(bookingData) {
       formattedAddress: bookingData.formattedAddress || address || '',
       addressType: bookingData.addressType || 'home',
     },
+    paymentStatus: grandTotal === 0 ? 'FREE' : 'pending',
     // Pricing fields
     price: grandTotal,
     amount: grandTotal,
-    advanceAmount: Math.round(grandTotal / 2),
-    remainingAmount: Math.max(grandTotal - Math.round(grandTotal / 2), 0),
+    advanceAmount: grandTotal === 0 ? 0 : Math.round(grandTotal / 2),
+    remainingAmount: grandTotal === 0 ? 0 : Math.max(grandTotal - Math.round(grandTotal / 2), 0),
     products: products || cctvDetails?.products || undefined,
     cctvDetails: cctvDetails ? {
       ...cctvDetails,

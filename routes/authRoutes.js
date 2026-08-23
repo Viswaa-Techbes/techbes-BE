@@ -24,6 +24,9 @@ router.post('/fcm-token', authenticate, authController.updateFcmToken);
 // POST /auth/logout
 router.post('/logout', authenticate, authController.logout);
 
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
+
 // GET /session to retrieve current authenticated session data
 router.get('/session', authenticate, (req, res) => {
   // Assuming authUser is attached by authenticate middleware

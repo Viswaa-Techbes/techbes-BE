@@ -20,7 +20,7 @@ const otpVerificationSchema = new mongoose.Schema(
     },
     purpose: {
       type: String,
-      enum: ['register', 'start_job', 'complete_job'],
+      enum: ['register', 'start_job', 'complete_job', 'login'],
       default: 'register',
     },
     bookingId: {

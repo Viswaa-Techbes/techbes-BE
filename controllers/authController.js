@@ -77,47 +77,99 @@ async function register(req, res, next) {
 
 async function sendOtp(req, res) {
   try {
-    const email = normalizeEmail(req.body.email);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, message: 'Valid email is required' });
+    const emailInput = req.body.email;
+    const mobileInput = req.body.mobileNumber;
+
+    if (mobileInput) {
+      const mobile = String(mobileInput).trim();
+      if (!/^[6-9]\d{9}$/.test(mobile)) {
+        return res.status(400).json({ success: false, message: 'Valid 10-digit Indian mobile number is required' });
+      }
+
+      const existingOtp = await OtpVerification.findOne({ email: mobile, purpose: 'login' });
+      if (existingOtp?.lastSentAt && Date.now() - existingOtp.lastSentAt.getTime() < 60_000) {
+        return res.status(429).json({ success: false, message: 'Please wait 60 seconds before requesting another OTP' });
+      }
+
+      if ((existingOtp?.resendCount || 0) >= 5 && existingOtp.expiresAt > new Date()) {
+        return res.status(429).json({ success: false, message: 'OTP limit reached. Try again after 5 minutes.' });
+      }
+
+      const otp = generateOtp();
+      const otpHash = await bcrypt.hash(otp, 12);
+      const expiresAt = new Date(Date.now() + 5 * 60_000);
+
+      await OtpVerification.findOneAndUpdate(
+        { email: mobile, purpose: 'login' },
+        {
+          otpHash,
+          otp,
+          expiresAt,
+          verifiedAt: null,
+          attempts: 0,
+          resendCount: existingOtp ? (existingOtp.resendCount || 0) + 1 : 0,
+          lastSentAt: new Date(),
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      const { sendSMS } = require('../services/channelNotificationService');
+      const smsRes = await sendSMS({
+        to: mobile,
+        body: `Your TechBes verification code is: ${otp}. Valid for 5 minutes.`
+      });
+
+      if (!smsRes.success) {
+        return res.status(500).json({ success: false, message: 'Failed to send OTP to mobile. ' + (smsRes.reason || '') });
+      }
+
+      console.log(`[SMS OTP] Sent OTP ${otp} to +91 ${mobile}`);
+      return res.json({ success: true, message: 'OTP sent successfully to +91 ' + mobile, expiresInSeconds: 60 });
+    } else if (emailInput) {
+      const email = normalizeEmail(emailInput);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ success: false, message: 'Valid email is required' });
+      }
+
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(409).json({ success: false, message: 'Email already registered' });
+      }
+
+      const existingOtp = await OtpVerification.findOne({ email, purpose: 'register' });
+      if (existingOtp?.lastSentAt && Date.now() - existingOtp.lastSentAt.getTime() < 60_000) {
+        return res.status(429).json({ success: false, message: 'Please wait before requesting another OTP' });
+      }
+
+      if ((existingOtp?.resendCount || 0) >= 5 && existingOtp.expiresAt > new Date()) {
+        return res.status(429).json({ success: false, message: 'OTP resend limit reached. Try again after 5 minutes.' });
+      }
+
+      const otp = generateOtp();
+      const otpHash = await bcrypt.hash(otp, 12);
+      const expiresAt = new Date(Date.now() + 5 * 60_000);
+
+      await OtpVerification.findOneAndUpdate(
+        { email, purpose: 'register' },
+        {
+          otpHash,
+          expiresAt,
+          verifiedAt: null,
+          attempts: 0,
+          resendCount: existingOtp ? (existingOtp.resendCount || 0) + 1 : 0,
+          lastSentAt: new Date(),
+          verificationTokenHash: undefined,
+          verificationTokenExpiresAt: null,
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      await sendOtpEmail(email, otp);
+
+      return res.json({ success: true, message: 'OTP sent successfully', expiresInSeconds: 300 });
+    } else {
+      return res.status(400).json({ success: false, message: 'Email or Mobile Number is required' });
     }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ success: false, message: 'Email already registered' });
-    }
-
-    const existingOtp = await OtpVerification.findOne({ email, purpose: 'register' });
-    if (existingOtp?.lastSentAt && Date.now() - existingOtp.lastSentAt.getTime() < 60_000) {
-      return res.status(429).json({ success: false, message: 'Please wait before requesting another OTP' });
-    }
-
-    if ((existingOtp?.resendCount || 0) >= 5 && existingOtp.expiresAt > new Date()) {
-      return res.status(429).json({ success: false, message: 'OTP resend limit reached. Try again after 5 minutes.' });
-    }
-
-    const otp = generateOtp();
-    const otpHash = await bcrypt.hash(otp, 12);
-    const expiresAt = new Date(Date.now() + 5 * 60_000);
-
-    await OtpVerification.findOneAndUpdate(
-      { email, purpose: 'register' },
-      {
-        otpHash,
-        expiresAt,
-        verifiedAt: null,
-        attempts: 0,
-        resendCount: existingOtp ? (existingOtp.resendCount || 0) + 1 : 0,
-        lastSentAt: new Date(),
-        verificationTokenHash: undefined,
-        verificationTokenExpiresAt: null,
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    await sendOtpEmail(email, otp);
-
-    return res.json({ success: true, message: 'OTP sent successfully', expiresInSeconds: 300 });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message || 'Unable to send OTP' });
   }
@@ -125,40 +177,112 @@ async function sendOtp(req, res) {
 
 async function verifyOtp(req, res) {
   try {
-    const email = normalizeEmail(req.body.email);
+    const emailInput = req.body.email;
+    const mobileInput = req.body.mobileNumber;
     const otp = String(req.body.otp || '').trim();
 
-    if (!email || !/^\d{6}$/.test(otp)) {
-      return res.status(400).json({ success: false, message: 'Valid email and 6-digit OTP are required' });
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ success: false, message: 'Valid 6-digit OTP is required' });
     }
 
-    const record = await OtpVerification.findOne({ email, purpose: 'register' }).select('+otpHash');
-    if (!record || record.expiresAt <= new Date()) {
-      return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
-    }
+    if (mobileInput) {
+      const mobile = String(mobileInput).trim();
+      const record = await OtpVerification.findOne({ email: mobile, purpose: 'login' }).select('+otpHash');
+      if (!record || record.expiresAt <= new Date()) {
+        return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
+      }
 
-    if (record.attempts >= 5) {
-      return res.status(429).json({ success: false, message: 'Too many incorrect OTP attempts. Request a new code.' });
-    }
+      if (record.attempts >= 5) {
+        return res.status(429).json({ success: false, message: 'Too many incorrect OTP attempts. Request a new code.' });
+      }
 
-    const ok = await bcrypt.compare(otp, record.otpHash);
-    if (!ok) {
-      record.attempts += 1;
+      const ok = await bcrypt.compare(otp, record.otpHash);
+      if (!ok) {
+        record.attempts += 1;
+        await record.save();
+        return res.status(400).json({ success: false, message: 'Invalid verification code' });
+      }
+
+      record.verifiedAt = new Date();
+      record.used = true;
       await record.save();
-      return res.status(400).json({ success: false, message: 'Invalid verification code' });
+
+      let user = await User.findOne({ mobileNumber: mobile });
+      let isNewUser = false;
+      if (!user) {
+        const { registerUser } = require('../services/authService');
+        const emailPlaceholder = `user-${mobile}@techbes.co.in`;
+        const tempPassword = crypto.randomBytes(16).toString('hex');
+        const regResult = await registerUser({
+          name: 'Techbes Client',
+          mobileNumber: mobile,
+          email: emailPlaceholder,
+          password: tempPassword,
+          role: 'client',
+          userType: 'web_user',
+        });
+        user = await User.findById(regResult.user.id || regResult.user._id);
+        isNewUser = true;
+      }
+
+      const { signToken } = require('../utils/jwt');
+      const token = signToken(user._id, user.role);
+
+      user.isOnline = true;
+      user.sessionActive = true;
+      user.lastSeen = new Date();
+      await user.save();
+
+      try {
+        const { markAttendance } = require('./v2/attendanceControllerV2');
+        await markAttendance(user._id);
+      } catch (attErr) {
+        console.warn('[Attendance] Failed to auto-mark attendance:', attErr.message);
+      }
+
+      return res.json({
+        success: true,
+        message: isNewUser ? 'User registered and authenticated' : 'Authentication successful',
+        token,
+        user: user.toSafeObject(),
+        data: { token, user: user.toSafeObject() }
+      });
+    } else if (emailInput) {
+      const email = normalizeEmail(emailInput);
+      if (!email || !/^\d{6}$/.test(otp)) {
+        return res.status(400).json({ success: false, message: 'Valid email and 6-digit OTP are required' });
+      }
+
+      const record = await OtpVerification.findOne({ email, purpose: 'register' }).select('+otpHash');
+      if (!record || record.expiresAt <= new Date()) {
+        return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
+      }
+
+      if (record.attempts >= 5) {
+        return res.status(429).json({ success: false, message: 'Too many incorrect OTP attempts. Request a new code.' });
+      }
+
+      const ok = await bcrypt.compare(otp, record.otpHash);
+      if (!ok) {
+        record.attempts += 1;
+        await record.save();
+        return res.status(400).json({ success: false, message: 'Invalid verification code' });
+      }
+
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      record.verifiedAt = new Date();
+      record.verificationTokenHash = hashValue(verificationToken);
+      record.verificationTokenExpiresAt = new Date(Date.now() + 10 * 60_000);
+      await record.save();
+
+      return res.json({
+        success: true,
+        message: 'Email verified successfully',
+        data: { emailVerificationToken: verificationToken },
+      });
+    } else {
+      return res.status(400).json({ success: false, message: 'Email or Mobile Number is required' });
     }
-
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    record.verifiedAt = new Date();
-    record.verificationTokenHash = hashValue(verificationToken);
-    record.verificationTokenExpiresAt = new Date(Date.now() + 10 * 60_000);
-    await record.save();
-
-    return res.json({
-      success: true,
-      message: 'Email verified successfully',
-      data: { emailVerificationToken: verificationToken },
-    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message || 'Unable to verify OTP' });
   }
@@ -206,4 +330,102 @@ async function logout(req, res, next) {
   }
 }
 
-module.exports = { login, register, sendOtp, verifyOtp, me, updateFcmToken, logout };
+async function forgotPassword(req, res, next) {
+  try {
+    const email = normalizeEmail(req.body.email);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Valid email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Email address not found. Please register first.' });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    user.resetToken = hashedToken;
+    user.resetTokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutes
+    await user.save();
+
+    try {
+      const { getTransporter } = require('../services/emailService');
+      const transporter = getTransporter();
+      const from = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+      
+      console.log(`[Forgot Password] Reset token generated: ${resetToken}`);
+      console.log(`[Forgot Password] Reset link: ${resetLink}`);
+
+      await transporter.sendMail({
+        from,
+        to: email,
+        subject: 'Reset your Techbes account password',
+        text: `You requested to reset your password. Click the link below to set a new password:\n\n${resetLink}\n\nThis link is valid for 30 minutes. If you did not request this, you can ignore this email.`,
+        html: `
+          <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:32px;color:#0f172a">
+            <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
+              <div style="padding:24px;border-bottom:1px solid #e2e8f0">
+                <h1 style="margin:0;font-size:22px">Reset your password</h1>
+              </div>
+              <div style="padding:28px 24px">
+                <p style="margin:0 0 20px;color:#475569">You requested to reset your password. Click the button below to set a new password:</p>
+                <a href="${resetLink}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px">Reset Password</a>
+                <p style="margin:20px 0 0;color:#64748b">This link is valid for 30 minutes. If you did not request this, you can ignore this email.</p>
+              </div>
+            </div>
+          </div>
+        `,
+      });
+      return res.json({ success: true, message: 'Password reset link sent to your registered email address.' });
+    } catch (emailErr) {
+      console.warn('[Forgot Password] Email send failed. Fallback printing resetToken:', emailErr.message);
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+      return res.json({
+        success: true,
+        message: 'Password reset link generated. (Email service offline)',
+        token: resetToken,
+        resetLink
+      });
+    }
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const { token, email, password } = req.body;
+
+    if (!token || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Token, email and new password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const user = await User.findOne({ email: normalizedEmail }).select('+resetToken +resetTokenExpiry');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    if (user.resetToken !== hashedToken || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired password reset token' });
+    }
+
+    user.password = password;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    return res.json({ success: true, message: 'Password has been reset successfully. You can now log in.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, register, sendOtp, verifyOtp, me, updateFcmToken, logout, forgotPassword, resetPassword };
