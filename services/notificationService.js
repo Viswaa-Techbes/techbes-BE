@@ -78,7 +78,7 @@ async function createNotification(userId, title, message, type = 'general', io =
         if (user) {
           await channelService.dispatch({
             type,
-            data: { ...extraData, customerName: user.name },
+            data: { ...extraData, customerName: user.name, title, message },
             recipient: {
               userId: userId.toString(),
               name: user.name,

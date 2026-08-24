@@ -244,7 +244,9 @@ async function verifyRazorpayPayment(req, res, next) {
     // Send confirmation email
     const transporter = getTransporter();
     if (transporter) {
-      const fromMail = process.env.SMTP_FROM || process.env.MAIL_FROM || process.env.SMTP_USER;
+      const { formatFromAddress } = require('../../services/emailService');
+      const rawFrom = process.env.SMTP_FROM || process.env.MAIL_FROM || process.env.SMTP_USER;
+      const fromMail = formatFromAddress(rawFrom);
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
       let emailHtml = `

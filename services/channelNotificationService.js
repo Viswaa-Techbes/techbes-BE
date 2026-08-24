@@ -15,6 +15,20 @@ const nodemailer = require('nodemailer');
 const { getEmailTemplate } = require('../utils/emailTemplates');
 const { sendPushNotification } = require('../utils/notification');
 
+function formatFromAddress(from) {
+  if (!from) return from;
+  from = from.trim();
+  if (from.includes('<') && from.includes('>')) return from;
+  const parts = from.split(/\s+/);
+  if (parts.length > 1) {
+    const email = parts.pop();
+    const name = parts.join(' ');
+    const cleanName = name.replace(/^["']|["']$/g, '');
+    return `"${cleanName}" <${email}>`;
+  }
+  return from;
+}
+
 // ─── Email Transport ───────────────────────────────────────────────────────────
 function getEmailTransport() {
   return nodemailer.createTransport({
@@ -48,8 +62,10 @@ async function sendEmail({ to, subject, html, text }) {
   if (!process.env.SMTP_USER || !to) return { success: false, reason: 'No SMTP config or email address' };
   try {
     const transport = getEmailTransport();
+    const rawFrom = process.env.SMTP_FROM || `"TechBes" <${process.env.SMTP_USER}>`;
+    const from = formatFromAddress(rawFrom);
     const info = await transport.sendMail({
-      from: process.env.SMTP_FROM || `"TechBes" <${process.env.SMTP_USER}>`,
+      from,
       to,
       subject,
       html,
@@ -232,13 +248,19 @@ const NOTIFICATION_TEMPLATES = {
  */
 async function dispatch({ type, data, recipient, channels }) {
   const template = NOTIFICATION_TEMPLATES[type];
-  if (!template) {
+  let body;
+  let subject;
+
+  if (template) {
+    body = template.getBody(data);
+    subject = template.subject;
+  } else if (data && (data.message || data.body)) {
+    body = data.message || data.body;
+    subject = data.title || 'Notification Update – TechBes';
+  } else {
     console.warn(`[OmniChannel] Unknown notification type: ${type}`);
     return;
   }
-
-  const body = template.getBody(data);
-  const subject = template.subject;
 
   // Default channels by audience
   const defaultChannels = recipient.role === 'technician'

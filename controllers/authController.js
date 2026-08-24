@@ -124,7 +124,12 @@ async function sendOtp(req, res) {
       }
 
       console.log(`[SMS OTP] Sent OTP ${otp} to +91 ${mobile}`);
-      return res.json({ success: true, message: 'OTP sent successfully to +91 ' + mobile, expiresInSeconds: 60 });
+      return res.json({
+        success: true,
+        message: 'OTP sent successfully to +91 ' + mobile,
+        expiresInSeconds: 60,
+        ...(smsRes.fallback ? { otp } : {})
+      });
     } else if (emailInput) {
       const email = normalizeEmail(emailInput);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -350,9 +355,10 @@ async function forgotPassword(req, res, next) {
     await user.save();
 
     try {
-      const { getTransporter } = require('../services/emailService');
+      const { getTransporter, formatFromAddress } = require('../services/emailService');
       const transporter = getTransporter();
-      const from = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+      const rawFrom = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+      const from = formatFromAddress(rawFrom);
       const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
       
       console.log(`[Forgot Password] Reset token generated: ${resetToken}`);

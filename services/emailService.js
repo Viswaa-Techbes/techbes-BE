@@ -1,5 +1,19 @@
 const nodemailer = require('nodemailer');
 
+function formatFromAddress(from) {
+  if (!from) return from;
+  from = from.trim();
+  if (from.includes('<') && from.includes('>')) return from;
+  const parts = from.split(/\s+/);
+  if (parts.length > 1) {
+    const email = parts.pop();
+    const name = parts.join(' ');
+    const cleanName = name.replace(/^["']|["']$/g, '');
+    return `"${cleanName}" <${email}>`;
+  }
+  return from;
+}
+
 function getTransporter() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -38,7 +52,8 @@ function otpTemplate(otp) {
 
 async function sendOtpEmail(email, otp) {
   const transporter = getTransporter();
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+  const rawFrom = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+  const from = formatFromAddress(rawFrom);
 
   await transporter.sendMail({
     from,
@@ -88,4 +103,5 @@ async function verifySmtpConfig() {
 module.exports = {
   sendOtpEmail,
   verifySmtpConfig,
+  formatFromAddress,
 };
