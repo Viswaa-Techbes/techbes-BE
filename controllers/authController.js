@@ -81,12 +81,13 @@ async function sendOtp(req, res) {
     const mobileInput = req.body.mobileNumber;
 
     if (mobileInput) {
-      const mobile = String(mobileInput).trim();
-      if (!/^[6-9]\d{9}$/.test(mobile)) {
+      const mobile = String(mobileInput).trim().replace(/\D/g, "");
+      const normalizedMobile = mobile.length === 12 && mobile.startsWith("91") ? mobile.slice(2) : mobile;
+      if (!/^[6-9]\d{9}$/.test(normalizedMobile)) {
         return res.status(400).json({ success: false, message: 'Valid 10-digit Indian mobile number is required' });
       }
 
-      const existingOtp = await OtpVerification.findOne({ email: mobile, purpose: 'login' });
+      const existingOtp = await OtpVerification.findOne({ email: normalizedMobile, purpose: 'login' });
       if (existingOtp?.lastSentAt && Date.now() - existingOtp.lastSentAt.getTime() < 60_000) {
         return res.status(429).json({ success: false, message: 'Please wait 60 seconds before requesting another OTP' });
       }
@@ -100,7 +101,7 @@ async function sendOtp(req, res) {
       const expiresAt = new Date(Date.now() + 5 * 60_000);
 
       await OtpVerification.findOneAndUpdate(
-        { email: mobile, purpose: 'login' },
+        { email: normalizedMobile, purpose: 'login' },
         {
           otpHash,
           otp,
@@ -115,7 +116,7 @@ async function sendOtp(req, res) {
 
       const { sendSMS } = require('../services/channelNotificationService');
       const smsRes = await sendSMS({
-        to: mobile,
+        to: normalizedMobile,
         body: `Your TechBes verification code is: ${otp}. Valid for 5 minutes.`
       });
 
@@ -123,12 +124,16 @@ async function sendOtp(req, res) {
         return res.status(500).json({ success: false, message: 'Failed to send OTP to mobile. ' + (smsRes.reason || '') });
       }
 
-      console.log(`[SMS OTP] Sent OTP ${otp} to +91 ${mobile}`);
+      console.log(`[SMS OTP] Sent OTP ${otp} to +91 ${normalizedMobile}`);
+
+      const isProduction = process.env.NODE_ENV === 'production';
+      const isDebugEnabled = process.env.OTP_DEBUG === 'true';
+
       return res.json({
         success: true,
-        message: 'OTP sent successfully to +91 ' + mobile,
+        message: 'OTP sent successfully to +91 ' + normalizedMobile,
         expiresInSeconds: 60,
-        ...(smsRes.fallback ? { otp } : {})
+        ...((!isProduction || isDebugEnabled) && smsRes.fallback ? { otp } : {})
       });
     } else if (emailInput) {
       const email = normalizeEmail(emailInput);
@@ -136,12 +141,16 @@ async function sendOtp(req, res) {
         return res.status(400).json({ success: false, message: 'Valid email is required' });
       }
 
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(409).json({ success: false, message: 'Email already registered' });
+      const purpose = req.body.purpose || 'login';
+
+      if (purpose === 'register') {
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+          return res.status(409).json({ success: false, message: 'Email already registered' });
+        }
       }
 
-      const existingOtp = await OtpVerification.findOne({ email, purpose: 'register' });
+      const existingOtp = await OtpVerification.findOne({ email, purpose });
       if (existingOtp?.lastSentAt && Date.now() - existingOtp.lastSentAt.getTime() < 60_000) {
         return res.status(429).json({ success: false, message: 'Please wait before requesting another OTP' });
       }
@@ -155,9 +164,10 @@ async function sendOtp(req, res) {
       const expiresAt = new Date(Date.now() + 5 * 60_000);
 
       await OtpVerification.findOneAndUpdate(
-        { email, purpose: 'register' },
+        { email, purpose },
         {
           otpHash,
+          otp,
           expiresAt,
           verifiedAt: null,
           attempts: 0,
@@ -169,9 +179,27 @@ async function sendOtp(req, res) {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      await sendOtpEmail(email, otp);
+      let emailServiceOffline = false;
+      try {
+        await sendOtpEmail(email, otp);
+      } catch (mailErr) {
+        console.error('[Email OTP] Failed to send email:', mailErr);
+        emailServiceOffline = true;
+      }
 
-      return res.json({ success: true, message: 'OTP sent successfully', expiresInSeconds: 300 });
+      if (emailServiceOffline && process.env.NODE_ENV === 'production' && process.env.OTP_DEBUG !== 'true') {
+        return res.status(500).json({ success: false, message: 'Failed to send OTP email. Please try again later.' });
+      }
+
+      const isProduction = process.env.NODE_ENV === 'production';
+      const isDebugEnabled = process.env.OTP_DEBUG === 'true';
+
+      return res.json({
+        success: true,
+        message: 'OTP sent successfully',
+        expiresInSeconds: 300,
+        ...((!isProduction || isDebugEnabled) && emailServiceOffline ? { otp } : {})
+      });
     } else {
       return res.status(400).json({ success: false, message: 'Email or Mobile Number is required' });
     }
@@ -185,14 +213,16 @@ async function verifyOtp(req, res) {
     const emailInput = req.body.email;
     const mobileInput = req.body.mobileNumber;
     const otp = String(req.body.otp || '').trim();
+    const purpose = req.body.purpose || 'login';
 
     if (!/^\d{6}$/.test(otp)) {
       return res.status(400).json({ success: false, message: 'Valid 6-digit OTP is required' });
     }
 
     if (mobileInput) {
-      const mobile = String(mobileInput).trim();
-      const record = await OtpVerification.findOne({ email: mobile, purpose: 'login' }).select('+otpHash');
+      const mobile = String(mobileInput).trim().replace(/\D/g, "");
+      const normalizedMobile = mobile.length === 12 && mobile.startsWith("91") ? mobile.slice(2) : mobile;
+      const record = await OtpVerification.findOne({ email: normalizedMobile, purpose: 'login' }).select('+otpHash');
       if (!record || record.expiresAt <= new Date()) {
         return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
       }
@@ -212,15 +242,15 @@ async function verifyOtp(req, res) {
       record.used = true;
       await record.save();
 
-      let user = await User.findOne({ mobileNumber: mobile });
+      let user = await User.findOne({ mobileNumber: normalizedMobile });
       let isNewUser = false;
       if (!user) {
         const { registerUser } = require('../services/authService');
-        const emailPlaceholder = `user-${mobile}@techbes.co.in`;
+        const emailPlaceholder = `user-${normalizedMobile}@techbes.co.in`;
         const tempPassword = crypto.randomBytes(16).toString('hex');
         const regResult = await registerUser({
           name: 'Techbes Client',
-          mobileNumber: mobile,
+          mobileNumber: normalizedMobile,
           email: emailPlaceholder,
           password: tempPassword,
           role: 'client',
@@ -258,7 +288,7 @@ async function verifyOtp(req, res) {
         return res.status(400).json({ success: false, message: 'Valid email and 6-digit OTP are required' });
       }
 
-      const record = await OtpVerification.findOne({ email, purpose: 'register' }).select('+otpHash');
+      const record = await OtpVerification.findOne({ email, purpose }).select('+otpHash');
       if (!record || record.expiresAt <= new Date()) {
         return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
       }
@@ -274,17 +304,65 @@ async function verifyOtp(req, res) {
         return res.status(400).json({ success: false, message: 'Invalid verification code' });
       }
 
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      record.verifiedAt = new Date();
-      record.verificationTokenHash = hashValue(verificationToken);
-      record.verificationTokenExpiresAt = new Date(Date.now() + 10 * 60_000);
-      await record.save();
+      if (purpose === 'register') {
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        record.verifiedAt = new Date();
+        record.verificationTokenHash = hashValue(verificationToken);
+        record.verificationTokenExpiresAt = new Date(Date.now() + 10 * 60_000);
+        await record.save();
 
-      return res.json({
-        success: true,
-        message: 'Email verified successfully',
-        data: { emailVerificationToken: verificationToken },
-      });
+        return res.json({
+          success: true,
+          message: 'Email verified successfully',
+          data: { emailVerificationToken: verificationToken },
+        });
+      } else {
+        // purpose === 'login'
+        record.verifiedAt = new Date();
+        record.used = true;
+        await record.save();
+
+        let user = await User.findOne({ email });
+        let isNewUser = false;
+        if (!user) {
+          const { registerUser } = require('../services/authService');
+          const mobilePlaceholder = `99999${Math.floor(10000 + Math.random() * 90000)}`;
+          const tempPassword = crypto.randomBytes(16).toString('hex');
+          const regResult = await registerUser({
+            name: 'Techbes Client',
+            mobileNumber: mobilePlaceholder,
+            email: email,
+            password: tempPassword,
+            role: 'client',
+            userType: 'web_user',
+          });
+          user = await User.findById(regResult.user.id || regResult.user._id);
+          isNewUser = true;
+        }
+
+        const { signToken } = require('../utils/jwt');
+        const token = signToken(user._id, user.role);
+
+        user.isOnline = true;
+        user.sessionActive = true;
+        user.lastSeen = new Date();
+        await user.save();
+
+        try {
+          const { markAttendance } = require('./v2/attendanceControllerV2');
+          await markAttendance(user._id);
+        } catch (attErr) {
+          console.warn('[Attendance] Failed to auto-mark attendance:', attErr.message);
+        }
+
+        return res.json({
+          success: true,
+          message: isNewUser ? 'User registered and authenticated' : 'Authentication successful',
+          token,
+          user: user.toSafeObject(),
+          data: { token, user: user.toSafeObject() }
+        });
+      }
     } else {
       return res.status(400).json({ success: false, message: 'Email or Mobile Number is required' });
     }
@@ -386,13 +464,20 @@ async function forgotPassword(req, res, next) {
       });
       return res.json({ success: true, message: 'Password reset link sent to your registered email address.' });
     } catch (emailErr) {
-      console.warn('[Forgot Password] Email send failed. Fallback printing resetToken:', emailErr.message);
-      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
-      return res.json({
-        success: true,
-        message: 'Password reset link generated. (Email service offline)',
-        token: resetToken,
-        resetLink
+      console.error('[Forgot Password] Email send failed:', emailErr);
+      const isDev = process.env.NODE_ENV !== 'production' || process.env.OTP_DEBUG === 'true';
+      if (isDev) {
+        const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+        return res.json({
+          success: true,
+          message: 'Password reset link generated (Development Fallback).',
+          token: resetToken,
+          resetLink
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send password reset email. Please try again later.'
       });
     }
   } catch (err) {
@@ -402,28 +487,37 @@ async function forgotPassword(req, res, next) {
 
 async function resetPassword(req, res, next) {
   try {
-    const { token, email, password } = req.body;
+    const { token, email, password, newPassword } = req.body;
 
-    if (!token || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Token, email and new password are required' });
+    const passwordVal = password || newPassword;
+
+    if (!token || !passwordVal) {
+      return res.status(400).json({ success: false, message: 'Token and new password are required' });
     }
 
-    if (password.length < 6) {
+    if (passwordVal.length < 6) {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
     }
 
-    const normalizedEmail = normalizeEmail(email);
-    const user = await User.findOne({ email: normalizedEmail }).select('+resetToken +resetTokenExpiry');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    
+    let user;
+    if (email) {
+      const normalizedEmail = normalizeEmail(email);
+      user = await User.findOne({ email: normalizedEmail }).select('+resetToken +resetTokenExpiry');
+    } else {
+      user = await User.findOne({ resetToken: hashedToken }).select('+resetToken +resetTokenExpiry');
+    }
+
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     if (user.resetToken !== hashedToken || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
       return res.status(400).json({ success: false, message: 'Invalid or expired password reset token' });
     }
 
-    user.password = password;
+    user.password = passwordVal;
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
     await user.save();

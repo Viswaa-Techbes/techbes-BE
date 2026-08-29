@@ -104,4 +104,5 @@ module.exports = {
   sendOtpEmail,
   verifySmtpConfig,
   formatFromAddress,
+  getTransporter,
 };
