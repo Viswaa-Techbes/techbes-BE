@@ -9,6 +9,10 @@ const User = require('../models/User');
 async function sendPushNotification(userId, { title, body, data = {} }) {
   try {
     const user = await User.findById(userId).select('fcmToken');
+    if (!admin.isInitialized) {
+      console.warn(`[Firebase] Firebase Admin is not initialized, skipping push notification to user ${userId}`);
+      return;
+    }
     if (!user || !user.fcmToken) {
       console.log(`No FCM token found for user ${userId}, skipping push notification`);
       return;

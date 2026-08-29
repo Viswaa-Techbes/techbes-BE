@@ -148,56 +148,60 @@ io.on('connection', (socket) => {
 
 
 async function start() {
-  // Start listening IMMEDIATELY so Render detects the open port
-  server.listen(PORT, '0.0.0.0', async () => {
-    console.log(`--------------------------------------------------`);
-    console.log(`SERVER IS LIVE ON PORT ${PORT}`);
-    console.log(`Environment: ${startupEnv.nodeEnv}`);
-    console.log(`Binds to: 0.0.0.0:${PORT}`);
-    console.log(`[Startup] Env readiness: ${JSON.stringify(startupEnv)}`);
-    console.log(`--------------------------------------------------`);
+  try {
+    console.log("[Startup] 1. Environment loaded and validated.");
+    console.log("[Startup] 2. Configuration & Infrastructure initialized.");
 
+    // 3. Connect to Database (Essential)
+    console.log("[Startup] 3. Connecting to Database...");
+    await connectDB();
+    console.log("Database connected successfully.");
+    
+    // Trigger seeders only after database connection
     try {
-      const { printMountedRoutes } = require('./utils/routePrinter');
-      printMountedRoutes(app);
-    } catch (routeErr) {
-      console.error('Failed to print routes:', routeErr);
+      const seedCctvDataInternal = require('./scripts/seedCctvData_internal');
+      await seedCctvDataInternal();
+    } catch (seedErr) {
+      console.error("CCTV seeding failed at startup:", seedErr);
     }
 
     try {
-      console.log("Connecting to Database...");
-      await connectDB();
-      console.log("Database connected successfully.");
-      
-      // CCTV Seeding trigger
-      try {
-        const seedCctvDataInternal = require('./scripts/seedCctvData_internal');
-        await seedCctvDataInternal();
-      } catch (seedErr) {
-        console.error("CCTV seeding failed at startup:", seedErr);
-      }
-
-      // Masterclass Seeding trigger
-      try {
-        const seedMasterclass = require('./scripts/seedMasterclass');
-        await seedMasterclass();
-      } catch (seedMcErr) {
-        console.error("Masterclass seeding failed at startup:", seedMcErr);
-      }
-    } catch (err) {
-      console.error('CRITICAL: Failed to connect to database:', err.message || err);
-      // We don't exit here so the process stays alive and Render doesn't restart it immediately
-      // This allows us to see the error in logs more easily.
+      const seedMasterclass = require('./scripts/seedMasterclass');
+      await seedMasterclass();
+    } catch (seedMcErr) {
+      console.error("Masterclass seeding failed at startup:", seedMcErr);
     }
 
+    // 4. Auxiliary Services (Fault-tolerant)
     try {
-      console.log("Validating SMTP Email Configuration...");
+      console.log("[Startup] 4. Validating SMTP Email Configuration...");
       const { verifySmtpConfig } = require('./services/emailService');
       await verifySmtpConfig();
     } catch (err) {
       console.error('SMTP Validation Error during startup:', err.message || err);
     }
-  });
+
+    // 5. Server Binding (Listen only when all dependencies are ready)
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`--------------------------------------------------`);
+      console.log(`SERVER IS LIVE ON PORT ${PORT}`);
+      console.log(`Environment: ${startupEnv.nodeEnv}`);
+      console.log(`Binds to: 0.0.0.0:${PORT}`);
+      console.log(`[Startup] Env readiness: ${JSON.stringify(startupEnv)}`);
+      console.log(`--------------------------------------------------`);
+
+      try {
+        const { printMountedRoutes } = require('./utils/routePrinter');
+        printMountedRoutes(app);
+      } catch (routeErr) {
+        console.error('Failed to print routes:', routeErr);
+      }
+    });
+
+  } catch (err) {
+    console.error('❌ CRITICAL STARTUP FAILURE:', err.message || err);
+    process.exit(1);
+  }
 }
 
 start();

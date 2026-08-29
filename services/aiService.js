@@ -18,50 +18,16 @@ const CctvAccessory = require('../models/CctvAccessory');
 
 const { calculateCctvPrice } = require('./cctvPricingService');
 
-// Dynamically load frontend AEO/GEO data
-function parseTsObject(filePath, varName) {
-  try {
-    const fullPath = path.resolve(__dirname, filePath);
-    if (!fs.existsSync(fullPath)) {
-      console.warn(`File not found for dynamic parsing: ${fullPath}`);
-      return {};
-    }
-    let code = fs.readFileSync(fullPath, 'utf8');
-
-    // Remove imports
-    code = code.replace(/import\s+[\s\S]*?from\s+['"].*?['"];?/g, '');
-
-    // Remove interface definitions
-    code = code.replace(/export\s+interface\s+[A-Za-z0-9_]+\s*\{[\s\S]*?\}/g, '');
-
-    // Strip the Record<...> type annotation precisely
-    code = code.replace(/:\s*Record\s*<[^>]+>/g, '');
-
-    // Remove functions at the bottom
-    const parts = code.split(/export\s+function/);
-    code = parts[0];
-
-    // Replace export const with const
-    code = code.replace(/export\s+const\s+/g, 'const ');
-
-    const wrapper = `
-      ${code}
-      module.exports = { data: typeof ${varName} !== 'undefined' ? ${varName} : {} };
-    `;
-
-    const m = new module.constructor();
-    m.paths = module.paths;
-    m._compile(wrapper, fullPath);
-    return m.exports.data;
-  } catch (err) {
-    console.error(`Error parsing TS file ${filePath}:`, err);
-    return {};
-  }
+// Load pre-compiled AEO/GEO data
+let aeoData = {};
+let geoPages = {};
+try {
+  aeoData = require('../data/aeoData').AEO_DATA || {};
+  geoPages = require('../data/geoData').GEO_PAGES || {};
+  console.log('✅ [AI Service] Successfully loaded pre-compiled AEO and GEO data.');
+} catch (err) {
+  console.warn('⚠️ [AI Service] Pre-compiled AEO/GEO data not found. AI Chatbot will run without search indices. Error:', err.message);
 }
-
-// Load files
-const aeoData = parseTsObject('../../main_app/lib/aeo-data.ts', 'AEO_DATA');
-const geoPages = parseTsObject('../../main_app/lib/geo-data.ts', 'GEO_PAGES');
 
 // Helper to score string matches by keyword overlap
 function getContextMatches(userMessage, aeoData, geoPages) {
@@ -70,8 +36,28 @@ function getContextMatches(userMessage, aeoData, geoPages) {
   let matchedGeo = [];
   let matchedFaqs = [];
 
-  // Split query into keywords (exclude short words)
-  const keywords = query.split(/[^a-z0-9]+/).filter(k => k.length > 3);
+  // Exclude extremely generic terms that cause false-positive matches
+  const stopWords = new Set([
+    'cctv', 'camera', 'cameras', 'service', 'services', 'installation', 'setup',
+    'system', 'repair', 'diagnostics', 'about', 'need', 'want', 'help', 'find',
+    'advisor', 'techbes', 'please', 'tell', 'show', 'give', 'what', 'where',
+    'when', 'how', 'who', 'which', 'why', 'does', 'have', 'would', 'could',
+    'should', 'your', 'they', 'them', 'their', 'this', 'that', 'these', 'those',
+    'with', 'from', 'than', 'then', 'were', 'been', 'being', 'some', 'many',
+    'more', 'most', 'each', 'every', 'other', 'only', 'same', 'also', 'very',
+    'much', 'here', 'there', 'their', 'them', 'both', 'into', 'onto', 'your',
+    'yours', 'ours', 'myself', 'himself', 'herself', 'itself', 'themselves',
+    'serve', 'located', 'location', 'pricing', 'price', 'cost', 'estimate',
+    'charges', 'charge', 'bangalore'
+  ]);
+  
+  // Whitelist important 3-letter industry terms
+  const whitelistedTerms = new Set(['amc', 'dvr', 'nvr', 'ip', 'gst', 'cat', 'pay']);
+
+  // Split query into keywords
+  const keywords = query.split(/[^a-z0-9]+/).filter(k => {
+    return (k.length > 3 || whitelistedTerms.has(k)) && !stopWords.has(k);
+  });
 
   if (keywords.length === 0) return { matchedAeo, matchedGeo, matchedFaqs };
 
@@ -88,6 +74,12 @@ function getContextMatches(userMessage, aeoData, geoPages) {
   let bestAeoScore = 0;
   for (const [key, val] of Object.entries(aeoData)) {
     let score = scoreString(key);
+    // Exact key terms match boost
+    const keyWords = key.split('-');
+    if (keyWords.length > 0 && keyWords.every(w => query.includes(w))) {
+      score += 20;
+    }
+
     if (val.aiAnswers) {
       val.aiAnswers.forEach(ans => {
         score += scoreString(ans.question) * 2;
@@ -113,6 +105,13 @@ function getContextMatches(userMessage, aeoData, geoPages) {
     score += scoreString(val.description) * 2;
     score += scoreString(val.question) * 2;
     score += scoreString(val.answer);
+
+    // Exact slug terms match boost (e.g. 'jp' and 'nagar' in query boosts 'jp-nagar')
+    const keyWords = key.split('-');
+    if (keyWords.length > 0 && keyWords.every(w => query.includes(w))) {
+      score += 20;
+    }
+
     if (val.keyPoints) {
       val.keyPoints.forEach(kp => { score += scoreString(kp); });
     }
@@ -273,8 +272,9 @@ async function executeLocalSearchFallback(userMessage) {
   const query = userMessage.toLowerCase();
   
   // 1. Greetings
-  const greetings = ['hi', 'hello', 'hey', 'greetings', 'hola', 'sup'];
-  const isGreeting = greetings.some(g => query.trim() === g || query.trim().startsWith(g + ' '));
+  const greetings = ['hi', 'hello', 'hey', 'greetings', 'hola', 'sup', 'good morning', 'good afternoon'];
+  const cleanQuery = query.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
+  const isGreeting = greetings.some(g => cleanQuery === g || cleanQuery.startsWith(g + ' '));
   if (isGreeting) {
     return "Hello! I am your TechBes Smart Service Advisor. How can I help you today? I can recommend CCTV packages, estimate installation costs, compare camera brands, or assist in booking. 👋";
   }
@@ -330,7 +330,28 @@ async function executeLocalSearchFallback(userMessage) {
     return `**${page.title}**\n\n${page.answer}\n\n*Key Highlights:*\n${page.keyPoints.map(kp => `• ${kp}`).join('\n')}`;
   }
 
-  // 6. Generic Fallback
+  // 6. Context-Aware Keyword fallbacks
+  if (query.match(/\b(brand|model|cp plus|hikvision|secureye|brands|models|cpplus)\b/)) {
+    return "TechBes supports top security brands like CP Plus (excellent budget-friendly choice), Hikvision (advanced analytics & premium night vision), and Secureye. Let me know if you would like pricing estimates for any of these brands!";
+  }
+
+  if (query.match(/\b(bangalore|location|area|neighborhood|where|address|local|service area|pincode)\b/)) {
+    return "We provide doorstep CCTV and IT support across all areas of Bangalore, including Indiranagar, Jayanagar, Koramangala, Whitefield, HSR Layout, JP Nagar, and Malleshwaram. Our verified local technicians are usually dispatched within a few hours.";
+  }
+
+  if (query.match(/\b(amc|maintenance|contract|yearly|annual|checkup|checking|servicing)\b/)) {
+    return "Our Annual Maintenance Contracts (AMC) protect your home or business security systems. An AMC includes regular preventative maintenance visits, connection checks, and free spares replacement (up to standard limits). Would you like to select an AMC plan?";
+  }
+
+  if (query.match(/\b(password|reset|login|otp|email|forgot|auth|sign in|register|phone)\b/)) {
+    return "For logging in or resetting passwords, you can receive a secure OTP on your registered phone. If you forgot your password, select 'Forgot Password' on the login screen to receive a secure link in your email. Let me know if you need any assistance with this workflow.";
+  }
+
+  if (query.match(/\b(price|cost|estimate|fee|charge|billing|rate|cheap|expensive)\b/)) {
+    return "We use transparent, dynamic pricing for all services. CCTV camera installations generally start at ₹499 per camera (including fitting & accessories), plus cabling billed at standard rates. Please tell me the number of cameras you need (e.g. 'pricing for 4 cameras') for an instant estimate!";
+  }
+
+  // 7. Generic Fallback
   return `I understand you need help with: "${userMessage}". As a Smart Service Advisor, I can help you with CCTV installation, repair, AMC plans, or structured network cabling. How can I assist you today?`;
 }
 
