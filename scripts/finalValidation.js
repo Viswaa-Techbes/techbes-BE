@@ -124,7 +124,7 @@ async function run() {
     serviceName: 'CCTV Installation E2E',
     address: 'Bangalore Central GPO, 560001',
     description: 'E2E Test Install',
-    date: '2026-06-15',
+    date: new Date().toISOString().split('T')[0],
     timeSlot: '10:00 AM',
     customerName: customer.name,
     customerPhone: customer.phone,

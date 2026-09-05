@@ -10,6 +10,23 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function maskEmail(email) {
+  if (!email) return 'null';
+  const parts = email.split('@');
+  if (parts.length !== 2) return '***';
+  const [local, domain] = parts;
+  if (local.length <= 2) return `${local[0] || ''}***@${domain}`;
+  return `${local[0]}***${local[local.length - 1]}@${domain}`;
+}
+
+function maskMobile(mobile) {
+  if (!mobile) return 'null';
+  const clean = String(mobile).replace(/\D/g, "");
+  if (clean.length <= 4) return '***';
+  return `+91 *****${clean.slice(-4)}`;
+}
+
+
 function hashValue(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -124,7 +141,11 @@ async function sendOtp(req, res) {
         return res.status(500).json({ success: false, message: 'Failed to send OTP to mobile. ' + (smsRes.reason || '') });
       }
 
-      console.log(`[SMS OTP] Sent OTP ${otp} to +91 ${normalizedMobile}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[SMS OTP] Sent OTP ${otp} to +91 ${normalizedMobile}`);
+      } else {
+        console.log(`[SMS OTP] Sent OTP [MASKED] to +91 ${normalizedMobile}`);
+      }
 
       const isProduction = process.env.NODE_ENV === 'production';
       const isDebugEnabled = process.env.OTP_DEBUG === 'true';
@@ -222,12 +243,27 @@ async function verifyOtp(req, res) {
     if (mobileInput) {
       const mobile = String(mobileInput).trim().replace(/\D/g, "");
       const normalizedMobile = mobile.length === 12 && mobile.startsWith("91") ? mobile.slice(2) : mobile;
+      const maskedMobile = maskMobile(normalizedMobile);
+
+      console.log(`[Auth Debug] Mobile OTP verification requested for: ${maskedMobile}`);
+
       const record = await OtpVerification.findOne({ email: normalizedMobile, purpose: 'login' }).select('+otpHash');
-      if (!record || record.expiresAt <= new Date()) {
+      console.log(`[Auth Debug] OTP record found: ${Boolean(record)}`);
+
+      if (!record) {
+        console.log(`[Auth Debug] Verification result: failure (record not found)`);
+        return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
+      }
+
+      const isExpired = record.expiresAt <= new Date();
+      console.log(`[Auth Debug] OTP expired: ${isExpired}`);
+      if (isExpired) {
+        console.log(`[Auth Debug] Verification result: failure (expired)`);
         return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
       }
 
       if (record.attempts >= 5) {
+        console.log(`[Auth Debug] Verification result: failure (too many attempts)`);
         return res.status(429).json({ success: false, message: 'Too many incorrect OTP attempts. Request a new code.' });
       }
 
@@ -235,6 +271,7 @@ async function verifyOtp(req, res) {
       if (!ok) {
         record.attempts += 1;
         await record.save();
+        console.log(`[Auth Debug] Verification result: failure (invalid OTP)`);
         return res.status(400).json({ success: false, message: 'Invalid verification code' });
       }
 
@@ -243,6 +280,8 @@ async function verifyOtp(req, res) {
       await record.save();
 
       let user = await User.findOne({ mobileNumber: normalizedMobile });
+      console.log(`[Auth Debug] User found: ${Boolean(user)}`);
+      
       let isNewUser = false;
       if (!user) {
         const { registerUser } = require('../services/authService');
@@ -275,6 +314,8 @@ async function verifyOtp(req, res) {
         console.warn('[Attendance] Failed to auto-mark attendance:', attErr.message);
       }
 
+      console.log(`[Auth Debug] Verification result: success`);
+
       return res.json({
         success: true,
         message: isNewUser ? 'User registered and authenticated' : 'Authentication successful',
@@ -284,16 +325,32 @@ async function verifyOtp(req, res) {
       });
     } else if (emailInput) {
       const email = normalizeEmail(emailInput);
+      const maskedEmail = maskEmail(email);
+
+      console.log(`[Auth Debug] Email OTP verification requested for: ${maskedEmail}`);
+
       if (!email || !/^\d{6}$/.test(otp)) {
+        console.log(`[Auth Debug] Verification result: failure (invalid input)`);
         return res.status(400).json({ success: false, message: 'Valid email and 6-digit OTP are required' });
       }
 
       const record = await OtpVerification.findOne({ email, purpose }).select('+otpHash');
-      if (!record || record.expiresAt <= new Date()) {
+      console.log(`[Auth Debug] OTP record found: ${Boolean(record)}`);
+
+      if (!record) {
+        console.log(`[Auth Debug] Verification result: failure (record not found)`);
+        return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
+      }
+
+      const isExpired = record.expiresAt <= new Date();
+      console.log(`[Auth Debug] OTP expired: ${isExpired}`);
+      if (isExpired) {
+        console.log(`[Auth Debug] Verification result: failure (expired)`);
         return res.status(400).json({ success: false, message: 'OTP expired. Please request a new code.' });
       }
 
       if (record.attempts >= 5) {
+        console.log(`[Auth Debug] Verification result: failure (too many attempts)`);
         return res.status(429).json({ success: false, message: 'Too many incorrect OTP attempts. Request a new code.' });
       }
 
@@ -301,6 +358,7 @@ async function verifyOtp(req, res) {
       if (!ok) {
         record.attempts += 1;
         await record.save();
+        console.log(`[Auth Debug] Verification result: failure (invalid OTP)`);
         return res.status(400).json({ success: false, message: 'Invalid verification code' });
       }
 
@@ -310,6 +368,8 @@ async function verifyOtp(req, res) {
         record.verificationTokenHash = hashValue(verificationToken);
         record.verificationTokenExpiresAt = new Date(Date.now() + 10 * 60_000);
         await record.save();
+
+        console.log(`[Auth Debug] Verification result: success (registration flow)`);
 
         return res.json({
           success: true,
@@ -323,6 +383,8 @@ async function verifyOtp(req, res) {
         await record.save();
 
         let user = await User.findOne({ email });
+        console.log(`[Auth Debug] User found: ${Boolean(user)}`);
+
         let isNewUser = false;
         if (!user) {
           const { registerUser } = require('../services/authService');
@@ -354,6 +416,8 @@ async function verifyOtp(req, res) {
         } catch (attErr) {
           console.warn('[Attendance] Failed to auto-mark attendance:', attErr.message);
         }
+
+        console.log(`[Auth Debug] Verification result: success`);
 
         return res.json({
           success: true,
@@ -439,8 +503,13 @@ async function forgotPassword(req, res, next) {
       const from = formatFromAddress(rawFrom);
       const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
       
-      console.log(`[Forgot Password] Reset token generated: ${resetToken}`);
-      console.log(`[Forgot Password] Reset link: ${resetLink}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Forgot Password] Reset token generated: ${resetToken}`);
+        console.log(`[Forgot Password] Reset link: ${resetLink}`);
+      } else {
+        console.log(`[Forgot Password] Reset token generated: [MASKED]`);
+        console.log(`[Forgot Password] Reset email dispatched`);
+      }
 
       await transporter.sendMail({
         from,
