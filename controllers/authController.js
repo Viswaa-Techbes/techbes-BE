@@ -484,9 +484,18 @@ async function forgotPassword(req, res, next) {
       return res.status(400).json({ success: false, message: 'Valid email is required' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, isDeleted: { $ne: true } });
+    
+    // Generic response regardless of whether user exists to prevent email enumeration
+    const genericSuccessResponse = {
+      success: true,
+      message: 'If an account with this email address exists, a password reset link has been sent.',
+    };
+
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Email address not found. Please register first.' });
+      // Simulate slight delay to prevent timing attacks
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      return res.json(genericSuccessResponse);
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -501,7 +510,13 @@ async function forgotPassword(req, res, next) {
       const transporter = getTransporter();
       const rawFrom = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
       const from = formatFromAddress(rawFrom);
-      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+      
+      const baseUrl =
+        process.env.ADMIN_URL ||
+        process.env.FRONTEND_URL ||
+        (process.env.NODE_ENV === 'production' ? 'https://cpad.techbes.co.in' : 'http://localhost:3000');
+        
+      const resetLink = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
       
       if (process.env.NODE_ENV !== 'production') {
         console.log(`[Forgot Password] Reset token generated: ${resetToken}`);
@@ -531,17 +546,17 @@ async function forgotPassword(req, res, next) {
           </div>
         `,
       });
-      return res.json({ success: true, message: 'Password reset link sent to your registered email address.' });
+      return res.json(genericSuccessResponse);
     } catch (emailErr) {
       console.error('[Forgot Password] Email send failed:', emailErr);
       const isDev = process.env.NODE_ENV !== 'production' || process.env.OTP_DEBUG === 'true';
       if (isDev) {
-        const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+        const baseUrl = process.env.ADMIN_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+        const resetLink = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
         return res.json({
-          success: true,
-          message: 'Password reset link generated (Development Fallback).',
-          token: resetToken,
-          resetLink
+          ...genericSuccessResponse,
+          devToken: resetToken,
+          devResetLink: resetLink,
         });
       }
       return res.status(500).json({
@@ -557,6 +572,7 @@ async function forgotPassword(req, res, next) {
 async function resetPassword(req, res, next) {
   try {
     const { token, email, password, newPassword } = req.body;
+    const { validatePasswordStrength } = require('../utils/passwordPolicy');
 
     const passwordVal = password || newPassword;
 
@@ -564,8 +580,12 @@ async function resetPassword(req, res, next) {
       return res.status(400).json({ success: false, message: 'Token and new password are required' });
     }
 
-    if (passwordVal.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    const passwordValidation = validatePasswordStrength(passwordVal);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: passwordValidation.message,
+      });
     }
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -573,13 +593,13 @@ async function resetPassword(req, res, next) {
     let user;
     if (email) {
       const normalizedEmail = normalizeEmail(email);
-      user = await User.findOne({ email: normalizedEmail }).select('+resetToken +resetTokenExpiry');
+      user = await User.findOne({ email: normalizedEmail }).select('+password +resetToken +resetTokenExpiry');
     } else {
-      user = await User.findOne({ resetToken: hashedToken }).select('+resetToken +resetTokenExpiry');
+      user = await User.findOne({ resetToken: hashedToken }).select('+password +resetToken +resetTokenExpiry');
     }
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(400).json({ success: false, message: 'Invalid or expired password reset token' });
     }
 
     if (user.resetToken !== hashedToken || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
@@ -589,9 +609,13 @@ async function resetPassword(req, res, next) {
     user.password = passwordVal;
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    user.sessionActive = false; // Invalidate previous sessions
+    user.isOnline = false;
     await user.save();
 
-    return res.json({ success: true, message: 'Password has been reset successfully. You can now log in.' });
+    return res.json({ success: true, message: 'Password has been reset successfully. You can now sign in with your new password.' });
   } catch (err) {
     next(err);
   }

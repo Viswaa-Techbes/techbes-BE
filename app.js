@@ -53,6 +53,21 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
+// Security Headers Middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
+  // Prevent indexing of admin endpoints
+  if (req.path.startsWith('/admin') || req.path.startsWith('/api/v2/admin') || req.path.startsWith('/api/admin')) {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
+  next();
+});
+
 const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
@@ -64,6 +79,7 @@ const productionDomains = [
   'https://www.techbes.co.in',
   'https://members.techbes.co.in',
   'https://admin.techbes.co.in',
+  'https://cpad.techbes.co.in',
   'https://skills.techbes.co.in'
 ];
 productionDomains.forEach((domain) => {
@@ -120,7 +136,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-CSRF-Protection', 'X-CSRF-Token'],
 }));
 // capture raw body for webhook signature verification
 app.use(express.json({

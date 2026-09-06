@@ -1,14 +1,31 @@
 const express = require('express');
 const adminController = require('../controllers/adminController');
-const { authenticate, requireRoles } = require('../middlewares/auth');
+const { authenticate, requireRoles, verifyCsrf } = require('../middlewares/auth');
+const rateLimit = require('../middlewares/rateLimit');
 
 const router = express.Router();
 
-// Public Admin Auth
-router.post('/login', adminController.adminLogin);
+// Public Admin Auth with Rate Limiting (5 requests / min on login, 5 / 5 min on MFA)
+router.post(
+  '/login',
+  rateLimit({ windowMs: 60_000, max: 5, keyPrefix: 'admin-login', message: 'Too many login attempts. Please wait a minute before trying again.' }),
+  adminController.adminLogin
+);
 
-// Protected Admin Routes
-router.use(authenticate, requireRoles('admin'));
+router.post(
+  '/mfa-verify',
+  rateLimit({ windowMs: 5 * 60_000, max: 8, keyPrefix: 'admin-mfa-verify', message: 'Too many verification attempts. Please wait a few minutes.' }),
+  adminController.verifyAdminMfa
+);
+
+router.post(
+  '/mfa-resend',
+  rateLimit({ windowMs: 60_000, max: 3, keyPrefix: 'admin-mfa-resend', message: 'Too many resend attempts. Please wait 60 seconds.' }),
+  adminController.resendAdminMfa
+);
+
+// Protected Admin Routes (Require Admin Auth + CSRF Header verification on mutations)
+router.use(authenticate, requireRoles('admin'), verifyCsrf);
 
 router.get('/dashboard', adminController.dashboard);
 router.get('/users', adminController.listUsers);

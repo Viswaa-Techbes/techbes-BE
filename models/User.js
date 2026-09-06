@@ -242,6 +242,18 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    mfaEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
     appId: {
       type: String,
       default: 'technician-v1',
@@ -429,6 +441,7 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     kycDetails: this.kycDetails,
     kycDocuments: this.kycDocuments,
     kycRejectionReason: this.kycRejectionReason,
+    mfaEnabled: this.mfaEnabled !== false,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

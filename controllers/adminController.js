@@ -1,43 +1,178 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const Review = require('../models/Review');
 const Expense = require('../models/Expense');
 const Lead = require('../models/Lead');
+const OtpVerification = require('../models/OtpVerification');
 const { signToken } = require('../utils/jwt');
 const { markAttendance } = require('./v2/attendanceControllerV2');
+const { recordAudit } = require('../services/auditService');
+const { validatePasswordStrength } = require('../utils/passwordPolicy');
+const { sendOtpEmail } = require('../services/emailService');
+
+function generateOtp() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || req.ip || '';
+}
 
 /**
- * POST /admin/login — same as auth login but only succeeds if role is admin.
+ * POST /admin/login — Admin authentication with MFA requirement and brute-force lockout protection.
  */
 async function adminLogin(req, res, next) {
   try {
     const { email, password } = req.body;
+    const ip = getClientIp(req);
+    const userAgent = req.headers['user-agent'] || '';
+
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'email and password are required' });
+      return res.status(400).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail, isDeleted: { $ne: true } }).select('+password');
+
     if (!user || user.role !== 'admin') {
-      return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+      await recordAudit({
+        actorEmail: normalizedEmail,
+        actorRole: 'unknown',
+        action: 'admin_login_failed',
+        ip,
+        userAgent,
+        status: 'failure',
+        details: { reason: 'User not found or not admin' },
+      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    const ok = await user.comparePassword(password);
-    if (!ok) {
-      return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+    // Check account lockout
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const waitMinutes = Math.ceil((user.lockUntil.getTime() - Date.now()) / (1000 * 60));
+      await recordAudit({
+        actorId: user._id,
+        actorEmail: user.email,
+        actorRole: user.role,
+        action: 'admin_login_locked',
+        ip,
+        userAgent,
+        status: 'warning',
+        details: { waitMinutes },
+      });
+      return res.status(429).json({
+        success: false,
+        message: `Account is temporarily locked due to repeated failed attempts. Please try again in ${waitMinutes} minute(s).`,
+      });
     }
 
-    const token = signToken(user._id, user.role);
-    
-    // Auto-mark attendance for admin login
-    await markAttendance(user._id);
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+      if (user.failedLoginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minute temporary lockout
+      }
+      await user.save({ validateBeforeSave: false });
 
-    // Activate session to bypass daily session check in middleware
+      await recordAudit({
+        actorId: user._id,
+        actorEmail: user.email,
+        actorRole: user.role,
+        action: 'admin_login_failed',
+        ip,
+        userAgent,
+        status: 'failure',
+        details: { attempts: user.failedLoginAttempts, locked: Boolean(user.lockUntil) },
+      });
+
+      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+    }
+
+    // Check if MFA is required for this admin (default is enabled)
+    const isMfaRequired = user.mfaEnabled !== false;
+
+    if (isMfaRequired) {
+      const otp = generateOtp();
+      const otpHash = await bcrypt.hash(otp, 12);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Store in OtpVerification
+      await OtpVerification.findOneAndUpdate(
+        { email: normalizedEmail, purpose: 'admin_mfa' },
+        {
+          otpHash,
+          otp: process.env.NODE_ENV === 'production' ? undefined : otp,
+          expiresAt,
+          verifiedAt: null,
+          attempts: 0,
+          resendCount: 0,
+          lastSentAt: new Date(),
+          used: false,
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      // Send OTP via Email
+      let emailSent = false;
+      try {
+        await sendOtpEmail(normalizedEmail, otp);
+        emailSent = true;
+      } catch (mailErr) {
+        console.error('[Admin MFA] Failed to dispatch OTP email:', mailErr.message);
+      }
+
+      const tempToken = jwt.sign(
+        { sub: user._id.toString(), type: 'admin_mfa', email: normalizedEmail },
+        process.env.JWT_SECRET || 'secret',
+        { expiresIn: '10m' }
+      );
+
+      await recordAudit({
+        actorId: user._id,
+        actorEmail: user.email,
+        actorRole: user.role,
+        action: 'admin_mfa_challenge_issued',
+        ip,
+        userAgent,
+        status: 'success',
+      });
+
+      const isDev = process.env.NODE_ENV !== 'production' || process.env.OTP_DEBUG === 'true';
+
+      return res.json({
+        success: true,
+        mfaRequired: true,
+        tempToken,
+        email: normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+        message: 'A 6-digit verification code has been sent to your registered admin email address.',
+        ...(isDev && !emailSent ? { devOtp: otp } : {}),
+      });
+    }
+
+    // If MFA disabled (fallback)
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
     user.sessionActive = true;
     user.isOnline = true;
     user.lastSeen = new Date();
-    await user.save({ validateBeforeSave: false }); // Bypass validation for missing mobileNumber if any
+    await user.save({ validateBeforeSave: false });
 
-    user.password = undefined;
+    await markAttendance(user._id);
+
+    const token = signToken(user._id, user.role);
+
+    await recordAudit({
+      actorId: user._id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'admin_login_success',
+      ip,
+      userAgent,
+      status: 'success',
+    });
 
     return res.json({
       success: true,
@@ -45,6 +180,184 @@ async function adminLogin(req, res, next) {
         token,
         user: user.toSafeObject(),
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /admin/mfa-verify — Complete admin authentication after validating OTP.
+ */
+async function verifyAdminMfa(req, res, next) {
+  try {
+    const { tempToken, otp, email } = req.body;
+    const ip = getClientIp(req);
+    const userAgent = req.headers['user-agent'] || '';
+
+    if (!otp || (!tempToken && !email)) {
+      return res.status(400).json({ success: false, message: 'Verification code and session token are required' });
+    }
+
+    let userId = null;
+    let userEmail = email ? email.toLowerCase().trim() : null;
+
+    if (tempToken) {
+      try {
+        const decoded = jwt.verify(tempToken, process.env.JWT_SECRET || 'secret');
+        if (decoded.type !== 'admin_mfa') {
+          return res.status(401).json({ success: false, message: 'Invalid MFA session token' });
+        }
+        userId = decoded.sub;
+        if (!userEmail) userEmail = decoded.email;
+      } catch {
+        return res.status(401).json({ success: false, message: 'MFA session expired. Please sign in again.' });
+      }
+    }
+
+    const user = userId
+      ? await User.findById(userId).select('+password')
+      : await User.findOne({ email: userEmail, role: 'admin', isDeleted: { $ne: true } }).select('+password');
+
+    if (!user || user.role !== 'admin') {
+      return res.status(401).json({ success: false, message: 'Invalid admin account' });
+    }
+
+    const otpRecord = await OtpVerification.findOne({ email: user.email, purpose: 'admin_mfa' }).select('+otpHash');
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, message: 'Verification code expired. Please request a new code.' });
+    }
+
+    if (otpRecord.expiresAt <= new Date() || otpRecord.used) {
+      return res.status(400).json({ success: false, message: 'Verification code expired or already used. Please request a new one.' });
+    }
+
+    if (otpRecord.attempts >= 5) {
+      return res.status(429).json({ success: false, message: 'Too many incorrect attempts. Please request a new verification code.' });
+    }
+
+    const isValidOtp = await bcrypt.compare(String(otp).trim(), otpRecord.otpHash);
+    if (!isValidOtp) {
+      otpRecord.attempts = (otpRecord.attempts || 0) + 1;
+      await otpRecord.save();
+
+      await recordAudit({
+        actorId: user._id,
+        actorEmail: user.email,
+        actorRole: user.role,
+        action: 'admin_mfa_verification_failed',
+        ip,
+        userAgent,
+        status: 'failure',
+        details: { attempts: otpRecord.attempts },
+      });
+
+      return res.status(400).json({ success: false, message: 'Invalid verification code' });
+    }
+
+    // OTP Verified Successfully
+    otpRecord.verifiedAt = new Date();
+    otpRecord.used = true;
+    await otpRecord.save();
+
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    user.sessionActive = true;
+    user.isOnline = true;
+    user.lastSeen = new Date();
+    await user.save({ validateBeforeSave: false });
+
+    await markAttendance(user._id);
+
+    const token = signToken(user._id, user.role);
+
+    await recordAudit({
+      actorId: user._id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'admin_login_success_mfa',
+      ip,
+      userAgent,
+      status: 'success',
+    });
+
+    return res.json({
+      success: true,
+      message: 'MFA verification successful',
+      token,
+      data: {
+        token,
+        user: user.toSafeObject(),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /admin/mfa-resend — Resend Admin MFA OTP with cooldown restriction.
+ */
+async function resendAdminMfa(req, res, next) {
+  try {
+    const { tempToken, email } = req.body;
+    let targetEmail = email ? email.toLowerCase().trim() : null;
+
+    if (tempToken) {
+      try {
+        const decoded = jwt.verify(tempToken, process.env.JWT_SECRET || 'secret');
+        if (decoded.email) targetEmail = decoded.email;
+      } catch {
+        return res.status(401).json({ success: false, message: 'MFA session expired. Please sign in again.' });
+      }
+    }
+
+    if (!targetEmail) {
+      return res.status(400).json({ success: false, message: 'Valid email or session token required' });
+    }
+
+    const existingOtp = await OtpVerification.findOne({ email: targetEmail, purpose: 'admin_mfa' });
+    if (existingOtp?.lastSentAt && Date.now() - existingOtp.lastSentAt.getTime() < 60_000) {
+      const waitSeconds = Math.ceil((60_000 - (Date.now() - existingOtp.lastSentAt.getTime())) / 1000);
+      return res.status(429).json({
+        success: false,
+        message: `Please wait ${waitSeconds} seconds before requesting another code.`,
+      });
+    }
+
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 12);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await OtpVerification.findOneAndUpdate(
+      { email: targetEmail, purpose: 'admin_mfa' },
+      {
+        otpHash,
+        otp: process.env.NODE_ENV === 'production' ? undefined : otp,
+        expiresAt,
+        verifiedAt: null,
+        attempts: 0,
+        resendCount: (existingOtp?.resendCount || 0) + 1,
+        lastSentAt: new Date(),
+        used: false,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    let emailSent = false;
+    try {
+      await sendOtpEmail(targetEmail, otp);
+      emailSent = true;
+    } catch (mailErr) {
+      console.error('[Admin MFA Resend] Email error:', mailErr.message);
+    }
+
+    const isDev = process.env.NODE_ENV !== 'production' || process.env.OTP_DEBUG === 'true';
+
+    return res.json({
+      success: true,
+      message: 'New verification code sent successfully to your admin email address.',
+      ...(isDev && !emailSent ? { devOtp: otp } : {}),
     });
   } catch (err) {
     next(err);
@@ -139,7 +452,7 @@ async function dashboard(req, res, next) {
 
 async function listUsers(req, res, next) {
   try {
-    const users = await User.find().sort({ createdAt: -1 }).lean();
+    const users = await User.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean();
     const safe = users.map((u) => ({
       id: u._id.toString(),
       name: u.name,
@@ -156,7 +469,7 @@ async function listUsers(req, res, next) {
 
 async function listTechnicians(req, res, next) {
   try {
-    const technicians = await User.find({ role: 'technician' }).sort({ createdAt: -1 }).lean();
+    const technicians = await User.find({ role: 'technician', isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean();
     return res.json({
       success: true,
       data: technicians.map(formatTechnician),
@@ -207,6 +520,18 @@ async function createJob(req, res, next) {
       status: technicianId ? 'assigned' : 'pending',
     });
 
+    await recordAudit({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      action: 'create_job',
+      entityType: 'job',
+      entityId: job._id.toString(),
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+      details: { title, technicianId, price: amount || price },
+    });
+
     const hydratedJob = await Job.findById(job._id)
       .populate('assignedTechnician', 'name email status isOnline specialty')
       .lean();
@@ -251,6 +576,18 @@ async function updateCompletionRequest(req, res, next) {
 
     job.status = action === 'approve' ? 'approved_by_manager' : 'assigned';
     await job.save();
+
+    await recordAudit({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      action: 'update_completion_request',
+      entityType: 'job',
+      entityId: job._id.toString(),
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+      details: { action, newStatus: job.status },
+    });
 
     // Notify Real-time
     const io = req.app.get('io');
@@ -314,9 +651,21 @@ async function updatePaymentRequest(req, res, next) {
 
     job.paymentStatus = action === 'approve' ? 'paid' : 'rejected';
     if (action === 'approve') {
-        job.status = 'completed';
+      job.status = 'completed';
     }
     await job.save();
+
+    await recordAudit({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      action: 'update_payment_request',
+      entityType: 'job',
+      entityId: job._id.toString(),
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+      details: { action, paymentStatus: job.paymentStatus, status: job.status },
+    });
 
     const updated = await Job.findById(job._id)
       .populate('assignedTechnician', 'name email status isOnline specialty')
@@ -335,7 +684,9 @@ async function updatePaymentRequest(req, res, next) {
 
 async function createManager(req, res, next) {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone, mobileNumber } = req.body;
+    const mobile = mobileNumber || phone;
+
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -343,17 +694,39 @@ async function createManager(req, res, next) {
       });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: passwordValidation.message,
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
     const user = await User.create({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
+      mobileNumber: mobile ? String(mobile).trim() : `999${Math.floor(1000000 + Math.random() * 9000000)}`,
       password,
       role: 'manager',
-      phone,
+      phone: mobile,
+    });
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'create_manager',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+      details: { email: user.email, name: user.name },
     });
 
     return res.status(201).json({
@@ -368,7 +741,9 @@ async function createManager(req, res, next) {
 
 async function createTechnician(req, res, next) {
   try {
-    const { name, email, password, phone, specialty, assignedManager } = req.body;
+    const { name, email, password, phone, mobileNumber, specialty, assignedManager } = req.body;
+    const mobile = mobileNumber || phone;
+
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -376,19 +751,41 @@ async function createTechnician(req, res, next) {
       });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: passwordValidation.message,
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ success: false, message: 'Email already registered' });
     }
 
     const user = await User.create({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
+      mobileNumber: mobile ? String(mobile).trim() : `999${Math.floor(1000000 + Math.random() * 9000000)}`,
       password,
       role: 'technician',
-      phone,
+      phone: mobile,
       specialty,
       assignedManager: assignedManager || null,
+    });
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'create_technician',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+      details: { email: user.email, name: user.name, specialty },
     });
 
     return res.status(201).json({
@@ -437,6 +834,8 @@ async function getTracking(req, res, next) {
 
 module.exports = {
   adminLogin,
+  verifyAdminMfa,
+  resendAdminMfa,
   dashboard,
   listUsers,
   listTechnicians,

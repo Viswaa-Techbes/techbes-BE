@@ -8,7 +8,8 @@ function getBearerToken(req) {
 }
 
 /**
- * Verifies JWT and attaches req.user { id, role } and full user doc on req.authUser when needed.
+ * Verifies JWT and attaches req.user { id, role } and full user doc on req.authUser.
+ * Enforces session activity, account deletion checks, and role-specific inactivity timeouts.
  */
 async function authenticate(req, res, next) {
   try {
@@ -24,26 +25,42 @@ async function authenticate(req, res, next) {
 
     const decoded = jwt.verify(token, secret);
     const user = await User.findById(decoded.sub).select('-password');
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'User no longer exists' });
+    if (!user || user.isDeleted) {
+      return res.status(401).json({ success: false, message: 'User account does not exist or has been disabled' });
     }
 
     req.user = {
       id: user._id.toString(),
       role: user.role,
+      email: user.email,
     };
     req.authUser = user;
 
-    // Daily Session Check
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
-    const lastSeenStr = user.lastSeen ? user.lastSeen.toISOString().split('T')[0] : '';
-    
+    const lastSeen = user.lastSeen ? new Date(user.lastSeen) : now;
+    const lastSeenStr = lastSeen.toISOString().split('T')[0];
+
+    // Check inactivity timeout for admin accounts (30 minutes)
+    if (user.role === 'admin' && user.lastSeen) {
+      const inactiveMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
+      if (inactiveMinutes > 30) {
+        user.sessionActive = false;
+        user.isOnline = false;
+        await user.save({ validateBeforeSave: false });
+        return res.status(401).json({
+          success: false,
+          message: 'Admin session expired due to inactivity (30 minutes). Please sign in again.',
+        });
+      }
+    }
+
+    // Daily Session Check for standard users
     if (!user.sessionActive || (lastSeenStr !== todayStr)) {
       user.sessionActive = false;
       user.isOnline = false;
-      await user.save();
-      return res.status(401).json({ success: false, message: 'Session expired. Please login daily.' });
+      await user.save({ validateBeforeSave: false });
+      return res.status(401).json({ success: false, message: 'Session expired. Please sign in again.' });
     }
 
     user.lastSeen = now;
@@ -51,7 +68,7 @@ async function authenticate(req, res, next) {
     next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+      return res.status(401).json({ success: false, message: 'Invalid or expired authentication token' });
     }
     next(err);
   }
@@ -63,14 +80,14 @@ function requireRoles(...allowedRoles) {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Insufficient permissions' });
+      return res.status(403).json({ success: false, message: 'Insufficient permissions to access this resource' });
     }
     next();
   };
 }
 
 /**
- * Like authenticate but never blocks – attaches req.user if token valid, otherwise req.user = null.
+ * Optional authentication: attaches req.user if token is valid without blocking guests.
  */
 async function optionalAuthenticate(req, res, next) {
   try {
@@ -80,8 +97,8 @@ async function optionalAuthenticate(req, res, next) {
     if (!secret) return next();
     const decoded = jwt.verify(token, secret);
     const user = await User.findById(decoded.sub).select('-password');
-    if (user) {
-      req.user = { id: user._id.toString(), role: user.role };
+    if (user && !user.isDeleted) {
+      req.user = { id: user._id.toString(), role: user.role, email: user.email };
       req.authUser = user;
     }
     next();
@@ -91,9 +108,37 @@ async function optionalAuthenticate(req, res, next) {
   }
 }
 
+/**
+ * CSRF defense for browser-initiated state changes (POST, PUT, PATCH, DELETE).
+ * Requires custom header or bearer authorization.
+ */
+function verifyCsrf(req, res, next) {
+  const method = req.method.toUpperCase();
+  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    return next();
+  }
+
+  const customHeader =
+    req.headers['x-requested-with'] ||
+    req.headers['x-csrf-protection'] ||
+    req.headers['x-csrf-token'];
+
+  const hasBearer = req.headers.authorization?.startsWith('Bearer ');
+
+  if (!customHeader && !hasBearer) {
+    return res.status(403).json({
+      success: false,
+      message: 'Missing required CSRF protection headers for state-changing request.',
+    });
+  }
+
+  next();
+}
+
 module.exports = {
   authenticate,
   optionalAuthenticate,
   requireRoles,
+  verifyCsrf,
   getBearerToken,
 };

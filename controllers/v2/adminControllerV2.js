@@ -8,6 +8,8 @@ const Payment = require('../../models/Payment');
 const Address = require('../../models/Address');
 const ServiceWorksheet = require('../../models/ServiceWorksheet');
 const CourseInquiry = require('../../models/CourseInquiry');
+const { recordAudit } = require('../../services/auditService');
+const { validatePasswordStrength } = require('../../utils/passwordPolicy');
 
 function getV2Metadata(job) {
   if (!job?.v2Metadata) return {};
@@ -707,9 +709,38 @@ async function getUsers(req, res, next) {
 
 async function createUser(req, res, next) {
   try {
-    const user = await User.create({ ...req.body, userType: 'member' });
+    const { password, role, email, mobileNumber, name } = req.body;
+
+    if (password) {
+      const passwordCheck = validatePasswordStrength(password);
+      if (!passwordCheck.valid) {
+        return res.status(400).json({ success: false, message: passwordCheck.message });
+      }
+    }
+
+    const allowedRoles = ['admin', 'manager', 'technician', 'client'];
+    const safeRole = allowedRoles.includes(role) ? role : 'technician';
+
+    const user = await User.create({
+      ...req.body,
+      role: safeRole,
+      userType: 'member',
+    });
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'create_user_v2',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      details: { email: user.email, role: user.role, name: user.name },
+    });
+
     const safeUser = user.toSafeObject();
-    return res.status(201).json({ success: true, data: { ...safeUser, password: req.body.password } });
+    return res.status(201).json({ success: true, data: safeUser });
   } catch (err) {
     next(err);
   }
@@ -1185,12 +1216,21 @@ async function deleteServiceRequest(req, res, next) {
 async function changeUserPassword(req, res, next) {
   try {
     const { id } = req.params;
-    const { newPassword } = req.body;
+    const { newPassword, password } = req.body;
+    const targetPassword = newPassword || password;
 
-    if (!newPassword || newPassword.length < 6) {
+    if (!targetPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters',
+        message: 'New password is required',
+      });
+    }
+
+    const passwordCheck = validatePasswordStrength(targetPassword);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: passwordCheck.message,
       });
     }
 
@@ -1199,8 +1239,21 @@ async function changeUserPassword(req, res, next) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    user.password = newPassword; // Will be hashed by pre-save hook
+    user.password = targetPassword; // Will be hashed by pre-save hook
+    user.sessionActive = false; // Invalidate current session for security
     await user.save();
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'admin_change_user_password',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      details: { targetUserEmail: user.email },
+    });
 
     return res.json({
       success: true,
