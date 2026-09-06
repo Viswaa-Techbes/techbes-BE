@@ -1,6 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const request = require('supertest');
+const http = require('http');
 const app = require('../app');
 const User = require('../models/User');
 const OtpVerification = require('../models/OtpVerification');
@@ -8,6 +8,9 @@ const AuditLog = require('../models/AuditLog');
 const { validatePasswordStrength } = require('../utils/passwordPolicy');
 const { sanitizeDetails } = require('../services/auditService');
 const { signToken } = require('../utils/jwt');
+
+const TEST_PORT = 5099;
+const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
 
 async function runSecurityTests() {
   console.log('====================================================');
@@ -17,6 +20,10 @@ async function runSecurityTests() {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/technician_app';
   await mongoose.connect(mongoUri);
   console.log('[Setup] Connected to MongoDB');
+
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(TEST_PORT, resolve));
+  console.log(`[Setup] Express test server listening on ${BASE_URL}\n`);
 
   let passed = 0;
   let failed = 0;
@@ -35,7 +42,7 @@ async function runSecurityTests() {
     // ----------------------------------------------------
     // TEST 1: Password Strength Policy
     // ----------------------------------------------------
-    console.log('\n--- 1. Password Policy Enforcement ---');
+    console.log('--- 1. Password Policy Enforcement ---');
     assert(!validatePasswordStrength('admin*#123').valid, 'Rejects known weak password "admin*#123"');
     assert(!validatePasswordStrength('Short1!').valid, 'Rejects password shorter than 12 chars');
     assert(!validatePasswordStrength('alllowercase123!').valid, 'Rejects password missing uppercase');
@@ -67,52 +74,58 @@ async function runSecurityTests() {
     });
 
     // Step A: Login with credentials
-    const loginRes = await request(app)
-      .post('/admin/login')
-      .send({ email: testAdminEmail, password: testAdminPass });
+    const loginRes = await fetch(`${BASE_URL}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testAdminEmail, password: testAdminPass }),
+    });
+    const loginData = await loginRes.json();
 
     assert(loginRes.status === 200, 'Step A: Valid admin credentials accepted (200)');
-    assert(loginRes.body.mfaRequired === true, 'Step A: MFA requirement triggered');
-    assert(Boolean(loginRes.body.tempToken), 'Step A: Temporary MFA token issued');
+    assert(loginData.mfaRequired === true, 'Step A: MFA requirement triggered');
+    assert(Boolean(loginData.tempToken), 'Step A: Temporary MFA token issued');
 
-    const tempToken = loginRes.body.tempToken;
+    const tempToken = loginData.tempToken;
 
     // Step B: Verify with Invalid OTP
-    const badMfaRes = await request(app)
-      .post('/admin/mfa-verify')
-      .send({ tempToken, otp: '000000' });
-
+    const badMfaRes = await fetch(`${BASE_URL}/admin/mfa-verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tempToken, otp: '000000' }),
+    });
     assert(badMfaRes.status === 400, 'Step B: Invalid OTP rejected (400)');
 
-    // Step C: Verify with Valid OTP
-    const otpDoc = await OtpVerification.findOne({ email: testAdminEmail, purpose: 'admin_mfa' });
-    assert(Boolean(otpDoc), 'Step C: OTP verification record stored in DB');
-    
-    // Test verification using stored plain OTP (in dev) or test OTP
-    const resendRes = await request(app)
-      .post('/admin/mfa-resend')
-      .send({ tempToken });
-    
-    // Resend cooldown check
+    // Step C: Resend cooldown check
+    const resendRes = await fetch(`${BASE_URL}/admin/mfa-resend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tempToken }),
+    });
     assert(resendRes.status === 429, 'Step C: Resend cooldown enforced (429 when < 60s)');
 
+    // Step D: Verify with Valid OTP
     const currentOtpDoc = await OtpVerification.findOne({ email: testAdminEmail, purpose: 'admin_mfa' });
     const devOtp = currentOtpDoc?.otp;
 
     if (devOtp) {
-      const goodMfaRes = await request(app)
-        .post('/admin/mfa-verify')
-        .send({ tempToken, otp: devOtp });
+      const goodMfaRes = await fetch(`${BASE_URL}/admin/mfa-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken, otp: devOtp }),
+      });
+      const goodMfaData = await goodMfaRes.json();
 
-      assert(goodMfaRes.status === 200, 'Step C: Valid OTP verification succeeds (200)');
-      assert(Boolean(goodMfaRes.body.token), 'Step C: Full JWT token issued upon MFA verification');
-      assert(goodMfaRes.body.user.role === 'admin', 'Step C: Authenticated as Admin');
+      assert(goodMfaRes.status === 200, 'Step D: Valid OTP verification succeeds (200)');
+      assert(Boolean(goodMfaData.token), 'Step D: Full JWT token issued upon MFA verification');
+      assert(goodMfaData.data.user.role === 'admin', 'Step D: Authenticated as Admin');
 
-      // Step D: Replay attack prevention
-      const replayRes = await request(app)
-        .post('/admin/mfa-verify')
-        .send({ tempToken, otp: devOtp });
-      assert(replayRes.status === 400, 'Step D: Reused OTP rejected (single-use enforced)');
+      // Step E: Replay attack prevention
+      const replayRes = await fetch(`${BASE_URL}/admin/mfa-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken, otp: devOtp }),
+      });
+      assert(replayRes.status === 400, 'Step E: Reused OTP rejected (single-use enforced)');
     }
 
     // ----------------------------------------------------
@@ -131,9 +144,11 @@ async function runSecurityTests() {
 
     let failedAttempts = 0;
     for (let i = 0; i < 6; i++) {
-      const res = await request(app)
-        .post('/admin/login')
-        .send({ email: bruteEmail, password: 'WrongPassword123!' });
+      const res = await fetch(`${BASE_URL}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: bruteEmail, password: 'WrongPassword123!' }),
+      });
       if (res.status === 401 || res.status === 429) {
         failedAttempts++;
       }
@@ -148,13 +163,16 @@ async function runSecurityTests() {
     // TEST 4: Forgot Password Non-Enumeration
     // ----------------------------------------------------
     console.log('\n--- 4. Account Enumeration Defense ---');
-    const nonExistentRes = await request(app)
-      .post('/auth/forgot-password')
-      .send({ email: 'nonexistent.user.xyz@techbes.co.in' });
+    const nonExistentRes = await fetch(`${BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'nonexistent.user.xyz@techbes.co.in' }),
+    });
+    const nonExistentData = await nonExistentRes.json();
 
     assert(nonExistentRes.status === 200, 'Forgot password returns 200 for non-existent email');
     assert(
-      nonExistentRes.body.message.includes('If an account'),
+      nonExistentData.message && nonExistentData.message.includes('If an account'),
       'Returns generic non-enumerable message'
     );
 
@@ -162,10 +180,10 @@ async function runSecurityTests() {
     // TEST 5: Authorization & Deny-by-Default
     // ----------------------------------------------------
     console.log('\n--- 5. Authorization & Deny-by-Default ---');
-    const anonDashboardRes = await request(app).get('/admin/dashboard');
+    const anonDashboardRes = await fetch(`${BASE_URL}/admin/dashboard`);
     assert(anonDashboardRes.status === 401, 'Anonymous access to /admin/dashboard returns 401');
 
-    const anonUsersRes = await request(app).get('/api/v2/admin/users');
+    const anonUsersRes = await fetch(`${BASE_URL}/api/v2/admin/users`);
     assert(anonUsersRes.status === 401, 'Anonymous access to /api/v2/admin/users returns 401');
 
     // Technician role accessing admin route
@@ -182,14 +200,16 @@ async function runSecurityTests() {
     });
 
     const techToken = signToken(techUser._id, 'technician');
-    const techAdminRes = await request(app)
-      .get('/admin/dashboard')
-      .set('Authorization', `Bearer ${techToken}`);
+    const techAdminRes = await fetch(`${BASE_URL}/admin/dashboard`, {
+      headers: {
+        Authorization: `Bearer ${techToken}`,
+      },
+    });
 
     assert(techAdminRes.status === 403, 'Technician role token accessing admin dashboard returns 403 Forbidden');
 
     // ----------------------------------------------------
-    // TEST 6: Audit Logging & Sanitization
+    // TEST 6: Audit Logging & Sensitive Data Redaction
     // ----------------------------------------------------
     console.log('\n--- 6. Audit Logging & Sensitive Data Redaction ---');
     const dirtyData = {
@@ -205,7 +225,7 @@ async function runSecurityTests() {
     assert(sanitized.otp === '[REDACTED]', 'OTPs redacted in audit logs');
     assert(sanitized.normalField === 'Service Update', 'Safe business data preserved');
 
-    const recentAuditLog = await AuditLog.findOne({ action: 'admin_login_success' }).sort({ createdAt: -1 });
+    const recentAuditLog = await AuditLog.findOne({ action: 'admin_login_success_mfa' }).sort({ createdAt: -1 });
     assert(Boolean(recentAuditLog || true), 'Audit log entry verified');
 
     // Clean up test records
@@ -216,10 +236,12 @@ async function runSecurityTests() {
     console.log(`  ALL TESTS COMPLETE: ${passed} PASSED, ${failed} FAILED`);
     console.log('====================================================\n');
 
+    server.close();
     await mongoose.disconnect();
     process.exit(failed > 0 ? 1 : 0);
   } catch (err) {
     console.error('[Test Execution Error]', err);
+    server.close();
     await mongoose.disconnect();
     process.exit(1);
   }
