@@ -17,6 +17,16 @@ const CctvInstallationCharge = require('../models/CctvInstallationCharge');
 const CctvAccessory = require('../models/CctvAccessory');
 
 const { calculateCctvPrice } = require('./cctvPricingService');
+const {
+  INTENTS,
+  extractConversationState,
+  normalizeUserIntent,
+  parseCameraCount,
+  getDynamicEstimate,
+  formatCostBreakdown,
+  generateContextualResponse,
+  ensureNonRepetitiveResponse
+} = require('./aiConversationEngine');
 
 // Load pre-compiled AEO/GEO data
 let aeoData = {};
@@ -31,7 +41,7 @@ try {
 
 // Helper to score string matches by keyword overlap
 function getContextMatches(userMessage, aeoData, geoPages) {
-  const query = userMessage.toLowerCase();
+  const query = (userMessage || '').toLowerCase();
   let matchedAeo = null;
   let matchedGeo = [];
   let matchedFaqs = [];
@@ -74,7 +84,6 @@ function getContextMatches(userMessage, aeoData, geoPages) {
   let bestAeoScore = 0;
   for (const [key, val] of Object.entries(aeoData)) {
     let score = scoreString(key);
-    // Exact key terms match boost
     const keyWords = key.split('-');
     if (keyWords.length > 0 && keyWords.every(w => query.includes(w))) {
       score += 20;
@@ -106,7 +115,6 @@ function getContextMatches(userMessage, aeoData, geoPages) {
     score += scoreString(val.question) * 2;
     score += scoreString(val.answer);
 
-    // Exact slug terms match boost (e.g. 'jp' and 'nagar' in query boosts 'jp-nagar')
     const keyWords = key.split('-');
     if (keyWords.length > 0 && keyWords.every(w => query.includes(w))) {
       score += 20;
@@ -168,204 +176,81 @@ function getContextMatches(userMessage, aeoData, geoPages) {
   };
 }
 
-// Parse camera count from user query
-function parseCameraCount(userMessage) {
-  const query = userMessage.toLowerCase();
-  const numberWordMap = {
-    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
-  };
+/**
+ * Intelligent Fallback & Rule-Based Dialogue Engine.
+ * Executed when Gemini API is unavailable or when used directly.
+ */
+async function executeLocalSearchFallback(messagesOrString) {
+  let messages = [];
+  let userMessage = '';
 
-  const digitMatch = query.match(/(\d+)\s*camera/);
-  if (digitMatch) {
-    return parseInt(digitMatch[1], 10);
+  if (Array.isArray(messagesOrString)) {
+    messages = messagesOrString;
+    userMessage = messages[messages.length - 1]?.content || '';
+  } else if (typeof messagesOrString === 'string') {
+    userMessage = messagesOrString;
+    messages = [{ role: 'user', content: userMessage }];
+  } else if (messagesOrString && messagesOrString.messages) {
+    messages = messagesOrString.messages;
+    userMessage = messages[messages.length - 1]?.content || '';
   }
 
-  for (const [word, num] of Object.entries(numberWordMap)) {
-    const rx = new RegExp(`\\b${word}\\b\\s*camera`);
-    if (rx.test(query)) return num;
-  }
-
-  const standAloneDigit = query.match(/\b(\d+)\b/);
-  if (standAloneDigit) {
-    const count = parseInt(standAloneDigit[1], 10);
-    if (count > 0 && count <= 64) return count;
-  }
-
-  if (query.includes('cost') || query.includes('price') || query.includes('pricing') || query.includes('estimate')) {
-    return 4; // default
-  }
-
-  return null;
+  const state = extractConversationState(messages);
+  let reply = await generateContextualResponse(state, userMessage);
+  reply = ensureNonRepetitiveResponse(reply, state.lastAssistantMessage, state);
+  return reply;
 }
 
-// Calculate dynamic camera setup price
-async function getDynamicEstimate(cameraCount) {
-  try {
-    let cpPlus = await CctvBrand.findOne({ name: 'CP Plus' });
-    if (!cpPlus) cpPlus = await CctvBrand.findOne({ status: 'active' });
+/**
+ * Helper to build sanitized Gemini chat history (ensuring alternating user/model turns starting with 'user').
+ */
+function sanitizeGeminiHistory(messages) {
+  const clean = [];
+  // Slice all except the last user message
+  const past = messages.slice(0, -1);
 
-    let model = null;
-    if (cpPlus) {
-      model = await CctvModel.findOne({ brandId: cpPlus._id, cameraType: 'IP Camera', resolution: '2MP', status: 'active' });
-      if (!model) model = await CctvModel.findOne({ brandId: cpPlus._id, status: 'active' });
+  for (let i = 0; i < past.length; i++) {
+    const m = past[i];
+    if (!m || !m.content || !m.content.trim()) continue;
+
+    const role = m.role === 'user' ? 'user' : 'model';
+
+    // If history is currently empty, it MUST start with a 'user' turn
+    if (clean.length === 0 && role === 'model') {
+      continue; // skip leading assistant greetings
     }
-    if (!model) model = await CctvModel.findOne({ status: 'active' });
 
-    if (!model) return null;
-
-    const cable = await CctvCablePricing.findOne({ name: 'CAT6 Cable', status: 'active' });
-    const cableType = cable ? cable.name : 'CAT6 Cable';
-    const cableLength = cameraCount * 15;
-
-    const pricingInput = {
-      propertyType: 'Home',
-      cameraTypes: [
-        {
-          type: model.cameraType,
-          brandId: model.brandId,
-          modelId: model._id,
-          quantity: cameraCount
-        }
-      ],
-      installationRequired: true,
-      cableType,
-      cableLength,
-      dvrRequired: model.cameraType.includes('Analog'),
-      nvrRequired: model.cameraType.includes('IP') || model.cameraType.includes('Network'),
-      sdCardRequired: false,
-    };
-
-    return await calculateCctvPrice(pricingInput);
-  } catch (err) {
-    console.error("Failed to calculate dynamic estimate:", err);
-    return null;
-  }
-}
-
-// Format cost calculation
-function formatCalculation(calc) {
-  if (!calc) return "";
-  const breakdown = calc.priceBreakdown;
-  const cams = calc.cameraDetails.map(c => `• ${c.quantity}x ${c.brand} ${c.model} (@ ₹${c.unitPrice} each): ₹${c.totalPrice}`).join('\n');
-
-  return `Here is a dynamic price estimation for a standard **${calc.propertyType}** setup:
-
-**CCTV Cameras:**
-${cams}
-
-**Installation & Accessories:**
-• Camera Fitting: ${calc.installation.quantity} camera(s) @ ₹${calc.installation.unitPrice}/each = ₹${calc.installation.totalPrice}
-• Cabling: ${calc.cable.length} meters of ${calc.cable.type} @ ₹${calc.cable.unitPrice}/meter = ₹${calc.cable.totalPrice}
-• Recording Unit: ${calc.nvrTotal > 0 ? `NVR Setup = ₹${calc.nvrTotal}` : calc.dvrTotal > 0 ? `DVR Setup = ₹${calc.dvrTotal}` : 'Not added'}
-• Base/Visit Charge: ₹${calc.visitCharge}
-
-**Cost Breakdown:**
-• Subtotal: ₹${breakdown.subtotal}
-• GST (${breakdown.taxTotal > 0 ? '18%' : '0%'}): ₹${breakdown.taxTotal}
-• **Estimated Grand Total: ₹${breakdown.grandTotal}**
-
-*(Note: Cable cost is calculated on actual consumption on-site. Prices are fetched dynamically from the TechBes admin configuration. You can proceed with booking to get a precise quote.)*`;
-}
-
-// Local search matching engine (fallback when Gemini is unavailable)
-async function executeLocalSearchFallback(userMessage) {
-  const query = userMessage.toLowerCase();
-  
-  // 1. Greetings
-  const greetings = ['hi', 'hello', 'hey', 'greetings', 'hola', 'sup', 'good morning', 'good afternoon'];
-  const cleanQuery = query.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
-  const isGreeting = greetings.some(g => cleanQuery === g || cleanQuery.startsWith(g + ' '));
-  if (isGreeting) {
-    return "Hello! I am your TechBes Smart Service Advisor. How can I help you today? I can recommend CCTV packages, estimate installation costs, compare camera brands, or assist in booking. 👋";
-  }
-
-  // 2. Action Intents
-  if (query.match(/\b(book|install|setup|schedule|reserve|order)\b/)) {
-    return "Would you like to book a service? Let me guide you to the booking flow. Click below to proceed and customize your setup:\n\n[Book CCTV Setup] ||ACTION:BOOK_SERVICE||";
-  }
-  if (query.match(/\b(track|status|where is|order status)\b/)) {
-    return "You can track your service bookings directly in your dashboard. Click below to view status:\n\n[Track Bookings] ||ACTION:TRACK_BOOKING||";
-  }
-  if (query.match(/\b(wallet|balance|money|credits)\b/)) {
-    return "You can view your wallet balance and transactions in the wallet tab. Click below to view:\n\n[Open Wallet] ||ACTION:OPEN_WALLET||";
-  }
-  if (query.match(/\b(dashboard|home|account)\b/)) {
-    return "Here is your customer dashboard:\n\n[Open Dashboard] ||ACTION:OPEN_DASHBOARD||";
-  }
-  if (query.match(/\b(support|complaint|ticket|help|contact|human|agent)\b/)) {
-    return "I can connect you with our support team. Click below to create a support ticket. Our agents will contact you shortly:\n\nCreate Support Ticket ||ACTION:CONTACT_SUPPORT||";
-  }
-
-  // 3. Laptop coming soon
-  if (query.match(/\blaptop\b/)) {
-    return "Laptop Repair & Service is currently coming soon! We are expanding our coverage to include laptop screen, battery, and software troubleshooting in late 2026. Stay tuned!";
-  }
-
-  // 4. Pricing / Cost Estimation
-  const cameraCount = parseCameraCount(userMessage);
-  if (cameraCount !== null) {
-    const calc = await getDynamicEstimate(cameraCount);
-    if (calc) return formatCalculation(calc);
-  }
-
-  // 5. Keyword search in Knowledge Hub and AEO Data
-  const matches = getContextMatches(userMessage, aeoData, geoPages);
-  
-  if (matches.matchedFaqs && matches.matchedFaqs.length > 0) {
-    return `Based on your question, here is what I found:\n\n**Q: ${matches.matchedFaqs[0].question}**\n${matches.matchedFaqs[0].answer}`;
-  }
-
-  if (matches.matchedAeo) {
-    const val = matches.matchedAeo.val;
-    if (val.aiAnswers && val.aiAnswers.length > 0) {
-      return val.aiAnswers[0].answer;
-    }
-    if (val.faqs && val.faqs.length > 0) {
-      return val.faqs[0].answer;
+    // Ensure strictly alternating roles
+    if (clean.length > 0 && clean[clean.length - 1].role === role) {
+      // Append text to previous turn of the same role
+      clean[clean.length - 1].parts[0].text += `\n${m.content}`;
+    } else {
+      clean.push({
+        role,
+        parts: [{ text: m.content }]
+      });
     }
   }
 
-  if (matches.matchedGeo && matches.matchedGeo.length > 0) {
-    const page = matches.matchedGeo[0];
-    return `**${page.title}**\n\n${page.answer}\n\n*Key Highlights:*\n${page.keyPoints.map(kp => `• ${kp}`).join('\n')}`;
-  }
-
-  // 6. Context-Aware Keyword fallbacks
-  if (query.match(/\b(brand|model|cp plus|hikvision|secureye|brands|models|cpplus)\b/)) {
-    return "TechBes supports top security brands like CP Plus (excellent budget-friendly choice), Hikvision (advanced analytics & premium night vision), and Secureye. Let me know if you would like pricing estimates for any of these brands!";
-  }
-
-  if (query.match(/\b(bangalore|location|area|neighborhood|where|address|local|service area|pincode)\b/)) {
-    return "We provide doorstep CCTV and IT support across all areas of Bangalore, including Indiranagar, Jayanagar, Koramangala, Whitefield, HSR Layout, JP Nagar, and Malleshwaram. Our verified local technicians are usually dispatched within a few hours.";
-  }
-
-  if (query.match(/\b(amc|maintenance|contract|yearly|annual|checkup|checking|servicing)\b/)) {
-    return "Our Annual Maintenance Contracts (AMC) protect your home or business security systems. An AMC includes regular preventative maintenance visits, connection checks, and free spares replacement (up to standard limits). Would you like to select an AMC plan?";
-  }
-
-  if (query.match(/\b(password|reset|login|otp|email|forgot|auth|sign in|register|phone)\b/)) {
-    return "For logging in or resetting passwords, you can receive a secure OTP on your registered phone. If you forgot your password, select 'Forgot Password' on the login screen to receive a secure link in your email. Let me know if you need any assistance with this workflow.";
-  }
-
-  if (query.match(/\b(price|cost|estimate|fee|charge|billing|rate|cheap|expensive)\b/)) {
-    return "We use transparent, dynamic pricing for all services. CCTV camera installations generally start at ₹499 per camera (including fitting & accessories), plus cabling billed at standard rates. Please tell me the number of cameras you need (e.g. 'pricing for 4 cameras') for an instant estimate!";
-  }
-
-  // 7. Generic Fallback
-  return `I understand you need help with: "${userMessage}". As a Smart Service Advisor, I can help you with CCTV installation, repair, AMC plans, or structured network cabling. How can I assist you today?`;
+  return clean;
 }
 
 // Main chat handler
 async function processChat(req, res) {
   try {
     const { messages } = req.body;
-    if (!messages || messages.length === 0) {
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ success: false, message: 'Messages array is required' });
     }
-    const userMessage = messages[messages.length - 1].content;
+
+    const userMessage = messages[messages.length - 1]?.content || '';
     const userId = req.user ? req.user.id : null;
 
-    // Fetch user context
+    // 1. Extract Conversation State & Intent
+    const state = extractConversationState(messages);
+    const intentResult = normalizeUserIntent(userMessage, state);
+
+    // 2. Fetch user context from DB
     let userContext = "";
     if (userId) {
       try {
@@ -373,7 +258,7 @@ async function processChat(req, res) {
         const jobs = await Job.find({ customer: userId }).sort({ createdAt: -1 }).limit(3);
         const wallet = await Wallet.findOne({ user: userId });
 
-        userContext = `\nCustomer Context: \nName: ${user?.name || 'Unknown'}\n`;
+        userContext = `\nCustomer Context: \nName: ${user?.name || 'Customer'}\n`;
         if (jobs.length > 0) {
           userContext += `Recent Bookings: ${jobs.map(j => `ID: ${j._id}, Status: ${j.status}`).join('; ')}\n`;
         }
@@ -385,7 +270,7 @@ async function processChat(req, res) {
       }
     }
 
-    // Build dynamic catalog and pricing context from DB
+    // 3. Build dynamic catalog and pricing context from DB
     let dynamicContext = "";
     try {
       const dbCats = await Category.find({ isActive: true }).lean();
@@ -407,12 +292,6 @@ async function processChat(req, res) {
                   dynamicContext += `        Includes: ${pkg.includes.join(', ')}\n`;
                 }
               }
-            });
-          }
-          if (sub.bookingQuestions && sub.bookingQuestions.length > 0) {
-            dynamicContext += `    Booking Questions to ask if user wants to book this:\n`;
-            sub.bookingQuestions.forEach(q => {
-              dynamicContext += `      * Question: "${q.question}" (Type: ${q.type}, Options: ${q.options ? q.options.join('/') : 'text'})\n`;
             });
           }
         }
@@ -458,7 +337,17 @@ async function processChat(req, res) {
       console.error("Error building dynamic DB context:", e);
     }
 
-    // Match Knowledge Hub and AEO context
+    // 4. Dynamic Pricing Calculation Snippet
+    let pricingCalculationSnippet = "";
+    const cameraCount = state.entities.cameraCount || parseCameraCount(userMessage);
+    if (cameraCount !== null) {
+      const calc = await getDynamicEstimate(cameraCount, state.entities.brand || 'CP Plus', state.entities.propertyType || 'Home');
+      if (calc) {
+        pricingCalculationSnippet = `\nPRICING CALCULATION ESTIMATION FOR ${cameraCount} CAMERAS (${state.entities.brand || 'CP Plus'}):\n${JSON.stringify(calc)}\n`;
+      }
+    }
+
+    // 5. Match Knowledge Hub and AEO context
     let matchedArticlesText = "";
     try {
       const matches = getContextMatches(userMessage, aeoData, geoPages);
@@ -481,24 +370,33 @@ async function processChat(req, res) {
       console.error("Error matching articles context:", e);
     }
 
-    // Check if camera count is referenced to insert a dynamic calculation in prompt
-    let pricingCalculationSnippet = "";
-    const cameraCount = parseCameraCount(userMessage);
-    if (cameraCount !== null) {
-      const calc = await getDynamicEstimate(cameraCount);
-      if (calc) {
-        pricingCalculationSnippet = `\nPRICING CALCULATION ESTIMATION FOR ${cameraCount} CAMERAS:\n${JSON.stringify(calc)}\n`;
-      }
-    }
-
-    // Build overall system prompt
+    // 6. Build overall system prompt with conversation context
     const systemPrompt = `You are the Techbes Smart Service Advisor.
 You act as a friendly, professional assistant for a field service marketplace (TechBes) operating in Bangalore, India only.
-Use natural English. Give short answers unless the user asks for details.
+Use natural English. Be conversational, concise, and action-oriented.
 
---- SERVICE CAPABILITIES AND AREA ---
-* Service Area: Bangalore only. If the user asks about other areas, clarify that we only operate in Bangalore.
-* Laptop Repair: If asked about Laptop Repair or Laptop Services, explain that the service is coming soon and provide a friendly expected availability message.
+--- CONVERSATION CONTEXT & ACCUMULATED STATE ---
+* Current Category: ${state.category || 'CCTV'}
+* Current Sub-Service: ${state.service || 'install-new-cctv'}
+* Detected Intent: ${intentResult.intent}
+* Extracted Entities: ${JSON.stringify(state.entities)}
+* Conversation Turn Count: ${state.turnCount}
+* Is Follow-up Message: ${state.turnCount > 1 ? 'YES' : 'NO'}
+
+--- CRITICAL CONVERSATION RULES ---
+1. NEVER repeatedly start responses with generic introductions like:
+   - "I understand you need help with: ..."
+   - "As a Smart Service Advisor, I can help you with ..."
+   These introductions must NEVER appear during an ongoing conversation!
+2. NORMALIZE SHORT USER MESSAGES:
+   - If user says "new cctv" after CCTV discussion, treat as "I want to install a new CCTV system" (do not restart the conversation!).
+   - If user says "price" or "how much", respond specifically with CCTV pricing/estimates using previous entities.
+   - If user says "book", guide them to the booking flow for the active service.
+   - If user says "yes", interpret based on the previous question asked by the assistant.
+   - If user mentions "4 cameras" or "CP Plus", remember and build upon these entities.
+3. CONTEXT SWITCHING: If the user changes topic to Laptop Repair or Networking, switch topics gracefully.
+4. SERVICE AREA: Bangalore only.
+5. LAPTOP REPAIR: Coming soon in late 2026.
 
 --- DYNAMIC BUSINESS CONFIGURATION ---
 ${dynamicContext}
@@ -506,71 +404,69 @@ ${dynamicContext}
 --- USER CONTEXT ---
 ${userContext}
 
---- RELEVANT KNOWLEDGE HUB & FAQs CONTEXT ---
+--- RELEVANT KNOWLEDGE & ESTIMATES ---
 ${matchedArticlesText}
 ${pricingCalculationSnippet}
 
---- CONTEXT RULES ---
-* Use the dynamic pricing configuration to estimate costs when the user asks for quotes or camera counts. Never make up prices.
-* If the user wants to book a service:
-  - Recommend the appropriate service based on their answers.
-  - Suggest suitable products/packages.
-  - Ask only the required questions from the service booking questions.
-  - Redirect the user by appending the BOOK_SERVICE action token to your response.
+--- ACTIONS & NAVIGATION TOKENS ---
+Append suitable tokens to your response when appropriate:
+* Book New CCTV: ||NAVIGATE:/services/install-new-cctv||||ACTION:BOOK_CCTV_NEW||
+* Repair CCTV: ||NAVIGATE:/services/repair-existing-cctv||||ACTION:BOOK_CCTV_REPAIR||
+* CCTV AMC: ||NAVIGATE:/services/maintenance-amc||||ACTION:BOOK_CCTV_AMC||
+* Free Site Survey: ||NAVIGATE:/services/free-site-survey||||ACTION:BOOK_CCTV_SURVEY||
+* Get Quote: ||NAVIGATE:/get-a-quote||||ACTION:GET_QUOTE||
+* Track Booking: ||NAVIGATE:/dashboard/bookings||||ACTION:TRACK_BOOKING||
+* Open Wallet: ||NAVIGATE:/dashboard/wallet||||ACTION:OPEN_WALLET||
+* Contact Support: ||ACTION:CONTACT_SUPPORT||
+* Quick Action Suggestions: ||QUICK_ACTIONS:Option 1,Option 2,Option 3||`;
 
---- ACTIONS AND INTENT DETECTION ---
-If the user's intent matches one of the following, append the exact token to your reply:
-* Wants to track a booking: ||ACTION:TRACK_BOOKING||
-* Wants to book a service: ||ACTION:BOOK_SERVICE||
-* Wants to open wallet: ||ACTION:OPEN_WALLET||
-* Wants to contact support/create ticket: ||ACTION:CONTACT_SUPPORT||
-* Wants to go to dashboard: ||ACTION:OPEN_DASHBOARD||
-
-Never display raw variables, stack traces, or template placeholders in the response. If the information is not present, guide the user gracefully or suggest a support ticket.`;
-
-    // 1. Strict Gemini check - fallback if key is missing/mock
+    // 7. Check Gemini API key
     const hasValidKey = process.env.GEMINI_API_KEY && 
                          process.env.GEMINI_API_KEY !== 'mock-key' && 
                          process.env.GEMINI_API_KEY !== '';
 
     if (!hasValidKey) {
-      console.warn("WARNING: GEMINI_API_KEY is missing or invalid. AI Chatbot is running in Search Fallback Mode.");
-      const reply = await executeLocalSearchFallback(userMessage);
+      const reply = await executeLocalSearchFallback(messages);
       return res.json({
         success: true,
         data: { reply }
       });
     }
 
-    // 2. Call Gemini
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction: systemPrompt
-    });
+    // 8. Call Gemini with sanitized history
+    try {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: systemPrompt
+      });
 
-    // Build clean chat history for Gemini
-    const chatHistory = messages.slice(0, -1).map(m => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }]
-    }));
+      const chatHistory = sanitizeGeminiHistory(messages);
+      const chat = model.startChat({ history: chatHistory });
+      const result = await chat.sendMessage(userMessage);
+      const response = await result.response;
+      let replyText = response.text();
 
-    const chat = model.startChat({ history: chatHistory });
-    const result = await chat.sendMessage(userMessage);
-    const response = await result.response;
-    const replyText = response.text();
+      // Apply duplicate protection
+      replyText = ensureNonRepetitiveResponse(replyText, state.lastAssistantMessage, state);
 
-    res.json({
-      success: true,
-      data: { reply: replyText }
-    });
+      return res.json({
+        success: true,
+        data: { reply: replyText }
+      });
+    } catch (geminiError) {
+      console.warn("Gemini SDK call failed, falling back to dialogue engine:", geminiError.message);
+      const fallbackReply = await executeLocalSearchFallback(messages);
+      return res.json({
+        success: true,
+        data: { reply: fallbackReply }
+      });
+    }
 
   } catch (error) {
     console.error("AI Service Error:", error);
     try {
-      // In case of any API call failure or exception, fall back to local search
-      const userMessage = req.body.messages[req.body.messages.length - 1].content;
-      const fallbackReply = await executeLocalSearchFallback(userMessage);
+      const fallbackReply = await executeLocalSearchFallback(req.body.messages || []);
       res.json({
         success: true,
         data: { reply: fallbackReply }
@@ -587,10 +483,10 @@ async function createAiTicketHandoff(req, res) {
 
     const ticket = await SupportTicket.create({
       customer: req.user.id,
-      subject: "AI Handoff: " + summary,
+      subject: "AI Handoff: " + (summary || "Assistance Request"),
       category: "Other",
       priority: "Medium",
-      messages: [{ sender: req.user.id, text: "Automated Handoff Log:\n" + chatLog }]
+      messages: [{ sender: req.user.id, text: "Automated Handoff Log:\n" + (chatLog || "") }]
     });
 
     res.status(201).json({ success: true, data: ticket });
@@ -601,5 +497,6 @@ async function createAiTicketHandoff(req, res) {
 
 module.exports = {
   processChat,
-  createAiTicketHandoff
+  createAiTicketHandoff,
+  executeLocalSearchFallback
 };
