@@ -21,23 +21,34 @@ function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || req.ip || '';
 }
 
+function maskEmail(email) {
+  if (!email) return '***';
+  return String(email).replace(/(.{2})(.*)(@.*)/, '$1***$3');
+}
+
 /**
  * POST /admin/login — Admin authentication with MFA requirement and brute-force lockout protection.
  */
 async function adminLogin(req, res, next) {
+  const reqId = crypto.randomBytes(4).toString('hex');
   try {
     const { email, password } = req.body;
     const ip = getClientIp(req);
     const userAgent = req.headers['user-agent'] || '';
 
     if (!email || !password) {
+      console.warn(`[Admin Auth ${reqId}] Missing email or password in login request`);
       return res.status(400).json({ success: false, message: 'Invalid credentials.' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    const masked = maskEmail(normalizedEmail);
+    console.log(`[Admin Auth ${reqId}] Login request received for email: ${masked}, IP: ${ip}`);
+
     const user = await User.findOne({ email: normalizedEmail, isDeleted: { $ne: true } }).select('+password');
 
     if (!user || user.role !== 'admin') {
+      console.warn(`[Admin Auth ${reqId}] Credential check failed: User not found or role is not admin (role: ${user?.role || 'none'})`);
       await recordAudit({
         actorEmail: normalizedEmail,
         actorRole: 'unknown',
@@ -53,6 +64,7 @@ async function adminLogin(req, res, next) {
     // Check account lockout
     if (user.lockUntil && user.lockUntil > new Date()) {
       const waitMinutes = Math.ceil((user.lockUntil.getTime() - Date.now()) / (1000 * 60));
+      console.warn(`[Admin Auth ${reqId}] Account locked for ${masked}. Lockout expires in ${waitMinutes}m`);
       await recordAudit({
         actorId: user._id,
         actorEmail: user.email,
@@ -70,10 +82,13 @@ async function adminLogin(req, res, next) {
     }
 
     const isMatch = await user.comparePassword(password);
+    console.log(`[Admin Auth ${reqId}] Password verification result: ${isMatch ? 'VALID' : 'INVALID'}`);
+
     if (!isMatch) {
       user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
       if (user.failedLoginAttempts >= 5) {
         user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minute temporary lockout
+        console.warn(`[Admin Auth ${reqId}] 5 consecutive failed attempts reached. Locking account for 15m.`);
       }
       await user.save({ validateBeforeSave: false });
 
@@ -93,6 +108,7 @@ async function adminLogin(req, res, next) {
 
     // Check if MFA is required for this admin (default is enabled)
     const isMfaRequired = user.mfaEnabled !== false;
+    console.log(`[Admin Auth ${reqId}] Password accepted. MFA required: ${isMfaRequired}`);
 
     if (isMfaRequired) {
       const otp = generateOtp();
@@ -115,17 +131,21 @@ async function adminLogin(req, res, next) {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      // Send OTP via Email
-      let emailSent = false;
+      // Send OTP via Email with timeout protection
+      console.log(`[Admin Auth ${reqId}] Dispatching MFA OTP email to ${masked}...`);
       try {
         await sendOtpEmail(normalizedEmail, otp);
-        emailSent = true;
+        console.log(`[Admin Auth ${reqId}] MFA OTP email dispatched successfully.`);
       } catch (mailErr) {
-        console.error('[Admin MFA] Failed to dispatch OTP email:', mailErr.message);
+        console.error(`[Admin Auth ${reqId}] Failed to dispatch OTP email:`, mailErr.message);
+        return res.status(503).json({
+          success: false,
+          message: 'Verification email could not be sent. Please try again.',
+        });
       }
 
       const tempToken = jwt.sign(
-        { sub: user._id.toString(), type: 'admin_mfa', email: normalizedEmail },
+        { sub: user._id.toString(), type: 'admin_mfa', email: normalizedEmail, reqId },
         process.env.JWT_SECRET || 'secret',
         { expiresIn: '10m' }
       );
@@ -140,15 +160,13 @@ async function adminLogin(req, res, next) {
         status: 'success',
       });
 
-      const isDev = process.env.NODE_ENV !== 'production' || process.env.OTP_DEBUG === 'true';
-
+      console.log(`[Admin Auth ${reqId}] MFA challenge successfully issued to client.`);
       return res.json({
         success: true,
         mfaRequired: true,
         tempToken,
-        email: normalizedEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+        email: masked,
         message: 'A 6-digit verification code has been sent to your registered admin email address.',
-        ...(isDev && !emailSent ? { devOtp: otp } : {}),
       });
     }
 
@@ -174,6 +192,7 @@ async function adminLogin(req, res, next) {
       status: 'success',
     });
 
+    console.log(`[Admin Auth ${reqId}] Direct admin authentication successful without MFA.`);
     return res.json({
       success: true,
       data: {
@@ -182,6 +201,7 @@ async function adminLogin(req, res, next) {
       },
     });
   } catch (err) {
+    console.error(`[Admin Auth ${reqId}] Exception during adminLogin:`, err.message);
     next(err);
   }
 }
@@ -190,12 +210,14 @@ async function adminLogin(req, res, next) {
  * POST /admin/mfa-verify — Complete admin authentication after validating OTP.
  */
 async function verifyAdminMfa(req, res, next) {
+  const reqId = crypto.randomBytes(4).toString('hex');
   try {
     const { tempToken, otp, email } = req.body;
     const ip = getClientIp(req);
     const userAgent = req.headers['user-agent'] || '';
 
     if (!otp || (!tempToken && !email)) {
+      console.warn(`[Admin MFA-Verify ${reqId}] Missing OTP or tempToken/email`);
       return res.status(400).json({ success: false, message: 'Verification code and session token are required' });
     }
 
@@ -206,37 +228,48 @@ async function verifyAdminMfa(req, res, next) {
       try {
         const decoded = jwt.verify(tempToken, process.env.JWT_SECRET || 'secret');
         if (decoded.type !== 'admin_mfa') {
+          console.warn(`[Admin MFA-Verify ${reqId}] Invalid token type: ${decoded.type}`);
           return res.status(401).json({ success: false, message: 'Invalid MFA session token' });
         }
         userId = decoded.sub;
         if (!userEmail) userEmail = decoded.email;
-      } catch {
+      } catch (err) {
+        console.warn(`[Admin MFA-Verify ${reqId}] Session token verification failed: ${err.message}`);
         return res.status(401).json({ success: false, message: 'MFA session expired. Please sign in again.' });
       }
     }
+
+    const masked = maskEmail(userEmail);
+    console.log(`[Admin MFA-Verify ${reqId}] Verification attempt for: ${masked}, IP: ${ip}`);
 
     const user = userId
       ? await User.findById(userId).select('+password')
       : await User.findOne({ email: userEmail, role: 'admin', isDeleted: { $ne: true } }).select('+password');
 
     if (!user || user.role !== 'admin') {
+      console.warn(`[Admin MFA-Verify ${reqId}] Admin user not found or not active`);
       return res.status(401).json({ success: false, message: 'Invalid admin account' });
     }
 
     const otpRecord = await OtpVerification.findOne({ email: user.email, purpose: 'admin_mfa' }).select('+otpHash');
     if (!otpRecord) {
+      console.warn(`[Admin MFA-Verify ${reqId}] No OTP record found for: ${masked}`);
       return res.status(400).json({ success: false, message: 'Verification code expired. Please request a new code.' });
     }
 
     if (otpRecord.expiresAt <= new Date() || otpRecord.used) {
+      console.warn(`[Admin MFA-Verify ${reqId}] OTP is expired or already used for: ${masked}`);
       return res.status(400).json({ success: false, message: 'Verification code expired or already used. Please request a new one.' });
     }
 
     if (otpRecord.attempts >= 5) {
+      console.warn(`[Admin MFA-Verify ${reqId}] Too many failed OTP attempts for: ${masked}`);
       return res.status(429).json({ success: false, message: 'Too many incorrect attempts. Please request a new verification code.' });
     }
 
     const isValidOtp = await bcrypt.compare(String(otp).trim(), otpRecord.otpHash);
+    console.log(`[Admin MFA-Verify ${reqId}] OTP match result: ${isValidOtp ? 'VALID' : 'INVALID'}`);
+
     if (!isValidOtp) {
       otpRecord.attempts = (otpRecord.attempts || 0) + 1;
       await otpRecord.save();
@@ -281,6 +314,7 @@ async function verifyAdminMfa(req, res, next) {
       status: 'success',
     });
 
+    console.log(`[Admin MFA-Verify ${reqId}] MFA verification complete, token issued for ${masked}.`);
     return res.json({
       success: true,
       message: 'MFA verification successful',
@@ -291,6 +325,7 @@ async function verifyAdminMfa(req, res, next) {
       },
     });
   } catch (err) {
+    console.error(`[Admin MFA-Verify ${reqId}] Exception during verifyAdminMfa:`, err.message);
     next(err);
   }
 }
@@ -299,6 +334,7 @@ async function verifyAdminMfa(req, res, next) {
  * POST /admin/mfa-resend — Resend Admin MFA OTP with cooldown restriction.
  */
 async function resendAdminMfa(req, res, next) {
+  const reqId = crypto.randomBytes(4).toString('hex');
   try {
     const { tempToken, email } = req.body;
     let targetEmail = email ? email.toLowerCase().trim() : null;
@@ -307,7 +343,8 @@ async function resendAdminMfa(req, res, next) {
       try {
         const decoded = jwt.verify(tempToken, process.env.JWT_SECRET || 'secret');
         if (decoded.email) targetEmail = decoded.email;
-      } catch {
+      } catch (err) {
+        console.warn(`[Admin MFA-Resend ${reqId}] Session token invalid/expired: ${err.message}`);
         return res.status(401).json({ success: false, message: 'MFA session expired. Please sign in again.' });
       }
     }
@@ -316,9 +353,13 @@ async function resendAdminMfa(req, res, next) {
       return res.status(400).json({ success: false, message: 'Valid email or session token required' });
     }
 
+    const masked = maskEmail(targetEmail);
+    console.log(`[Admin MFA-Resend ${reqId}] Resend request received for: ${masked}`);
+
     const existingOtp = await OtpVerification.findOne({ email: targetEmail, purpose: 'admin_mfa' });
     if (existingOtp?.lastSentAt && Date.now() - existingOtp.lastSentAt.getTime() < 60_000) {
       const waitSeconds = Math.ceil((60_000 - (Date.now() - existingOtp.lastSentAt.getTime())) / 1000);
+      console.warn(`[Admin MFA-Resend ${reqId}] Rate limited. Wait ${waitSeconds}s`);
       return res.status(429).json({
         success: false,
         message: `Please wait ${waitSeconds} seconds before requesting another code.`,
@@ -344,22 +385,24 @@ async function resendAdminMfa(req, res, next) {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    let emailSent = false;
+    console.log(`[Admin MFA-Resend ${reqId}] Dispatching new MFA OTP email to ${masked}...`);
     try {
       await sendOtpEmail(targetEmail, otp);
-      emailSent = true;
+      console.log(`[Admin MFA-Resend ${reqId}] New MFA OTP email dispatched successfully.`);
     } catch (mailErr) {
-      console.error('[Admin MFA Resend] Email error:', mailErr.message);
+      console.error(`[Admin MFA-Resend ${reqId}] Email dispatch error:`, mailErr.message);
+      return res.status(503).json({
+        success: false,
+        message: 'Verification email could not be sent. Please try again.',
+      });
     }
-
-    const isDev = process.env.NODE_ENV !== 'production' || process.env.OTP_DEBUG === 'true';
 
     return res.json({
       success: true,
       message: 'New verification code sent successfully to your admin email address.',
-      ...(isDev && !emailSent ? { devOtp: otp } : {}),
     });
   } catch (err) {
+    console.error(`[Admin MFA-Resend ${reqId}] Exception during resendAdminMfa:`, err.message);
     next(err);
   }
 }

@@ -14,9 +14,9 @@ function formatFromAddress(from) {
   return from;
 }
 
-function getTransporter() {
+function getTransporter(customPort, customSecure) {
   const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
+  const port = Number(customPort !== undefined ? customPort : (process.env.SMTP_PORT || 587));
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
@@ -24,11 +24,18 @@ function getTransporter() {
     throw new Error('SMTP is not configured');
   }
 
+  const secure = customSecure !== undefined 
+    ? customSecure 
+    : (String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465);
+
   return nodemailer.createTransport({
     host,
     port,
-    secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465,
+    secure,
     auth: { user, pass },
+    connectionTimeout: 7000, // 7 seconds timeout for TCP connection
+    greetingTimeout: 7000,   // 7 seconds timeout for SMTP greeting
+    socketTimeout: 8000,     // 8 seconds timeout for socket inactivity
   });
 }
 
@@ -50,18 +57,64 @@ function otpTemplate(otp) {
   `;
 }
 
+async function sendMailWithTimeout(transporter, mailOptions, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        try { transporter.close(); } catch {}
+        reject(new Error('SMTP sendMail timed out after ' + timeoutMs + 'ms'));
+      }
+    }, timeoutMs);
+
+    transporter.sendMail(mailOptions)
+      .then((res) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
+      })
+      .catch((err) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+  });
+}
+
 async function sendOtpEmail(email, otp) {
-  const transporter = getTransporter();
   const rawFrom = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
   const from = formatFromAddress(rawFrom);
 
-  await transporter.sendMail({
+  const mailOptions = {
     from,
     to: email,
     subject: 'Your Techbes verification code',
     text: `Your verification code is: ${otp}\n\nThis code expires in 5 minutes.`,
     html: otpTemplate(otp),
-  });
+  };
+
+  try {
+    const transporter = getTransporter();
+    return await sendMailWithTimeout(transporter, mailOptions, 8000);
+  } catch (err) {
+    console.warn(`[SMTP] Primary send attempt failed (${err.message}). Attempting fallback if applicable...`);
+    // Fallback: If port 587 timed out or failed, try port 465 with SSL (or vice-versa)
+    const currentPort = Number(process.env.SMTP_PORT || 587);
+    const fallbackPort = currentPort === 587 ? 465 : 587;
+    const fallbackSecure = fallbackPort === 465;
+    try {
+      const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure);
+      return await sendMailWithTimeout(fallbackTransporter, mailOptions, 8000);
+    } catch (fallbackErr) {
+      console.error(`[SMTP] Fallback send attempt also failed: ${fallbackErr.message}`);
+      throw new Error('Verification email could not be sent. Please try again.');
+    }
+  }
 }
 
 async function verifySmtpConfig() {
@@ -263,6 +316,7 @@ https://techbes.co.in
 
 module.exports = {
   sendOtpEmail,
+  sendMailWithTimeout,
   sendZoomClassEmail,
   verifySmtpConfig,
   formatFromAddress,

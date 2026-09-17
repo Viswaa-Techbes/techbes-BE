@@ -506,15 +506,20 @@ async function forgotPassword(req, res, next) {
     await user.save();
 
     try {
-      const { getTransporter, formatFromAddress } = require('../services/emailService');
+      const { getTransporter, formatFromAddress, sendMailWithTimeout } = require('../services/emailService');
       const transporter = getTransporter();
       const rawFrom = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
       const from = formatFromAddress(rawFrom);
       
-      const baseUrl =
-        process.env.ADMIN_URL ||
-        process.env.FRONTEND_URL ||
-        (process.env.NODE_ENV === 'production' ? 'https://cpad.techbes.co.in' : 'http://localhost:3000');
+      const origin = (req.headers['origin'] || req.headers['referer'] || '').toLowerCase();
+      const isFromAdmin = origin.includes('cpad.techbes.co.in') || user.role === 'admin';
+      
+      let baseUrl;
+      if (isFromAdmin) {
+        baseUrl = (process.env.ADMIN_URL || 'https://cpad.techbes.co.in').replace(/\/$/, '');
+      } else {
+        baseUrl = (process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://techbes.co.in' : 'http://localhost:3000')).replace(/\/$/, '');
+      }
         
       const resetLink = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
       
@@ -523,10 +528,10 @@ async function forgotPassword(req, res, next) {
         console.log(`[Forgot Password] Reset link: ${resetLink}`);
       } else {
         console.log(`[Forgot Password] Reset token generated: [MASKED]`);
-        console.log(`[Forgot Password] Reset email dispatched`);
+        console.log(`[Forgot Password] Reset email dispatched for: ${email.replace(/(.{2})(.*)(@.*)/, '$1***$3')} (domain: ${baseUrl})`);
       }
 
-      await transporter.sendMail({
+      await sendMailWithTimeout(transporter, {
         from,
         to: email,
         subject: 'Reset your Techbes account password',
@@ -545,13 +550,13 @@ async function forgotPassword(req, res, next) {
             </div>
           </div>
         `,
-      });
+      }, 8000);
       return res.json(genericSuccessResponse);
     } catch (emailErr) {
-      console.error('[Forgot Password] Email send failed:', emailErr);
+      console.error('[Forgot Password] Email send failed:', emailErr.message);
       const isDev = process.env.NODE_ENV !== 'production' || process.env.OTP_DEBUG === 'true';
       if (isDev) {
-        const baseUrl = process.env.ADMIN_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+        const baseUrl = process.env.ADMIN_URL || 'https://cpad.techbes.co.in';
         const resetLink = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
         return res.json({
           ...genericSuccessResponse,
