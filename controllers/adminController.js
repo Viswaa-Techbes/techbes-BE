@@ -291,7 +291,7 @@ async function verifyAdminMfa(req, res, next) {
     // OTP Verified Successfully
     otpRecord.verifiedAt = new Date();
     otpRecord.used = true;
-    await otpRecord.save();
+    await otpRecord.save({ validateBeforeSave: false });
 
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
