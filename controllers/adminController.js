@@ -106,8 +106,8 @@ async function adminLogin(req, res, next) {
       return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    // Check if MFA is required for this admin (default is enabled)
-    const isMfaRequired = user.mfaEnabled !== false;
+    // Check if MFA is required for this admin (email verification disabled unless ADMIN_MFA_REQUIRED=true)
+    const isMfaRequired = process.env.ADMIN_MFA_REQUIRED === 'true' && user.mfaEnabled === true;
     console.log(`[Admin Auth ${reqId}] Password accepted. MFA required: ${isMfaRequired}`);
 
     if (isMfaRequired) {
