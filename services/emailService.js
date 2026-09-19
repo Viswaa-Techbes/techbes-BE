@@ -1,4 +1,10 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+
+// Force IPv4 DNS resolution across all email transporter operations
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 function formatFromAddress(from) {
   if (!from) return from;
@@ -35,9 +41,10 @@ function getTransporter(customPort, customSecure) {
     port,
     secure,
     auth: { user, pass },
-    connectionTimeout: 6000, // 6 seconds timeout for TCP connection
-    greetingTimeout: 6000,   // 6 seconds timeout for SMTP greeting
-    socketTimeout: 8000,     // 8 seconds timeout for socket inactivity
+    family: 4,               // Force IPv4 only to prevent Linux VPS ENETUNREACH on unreachable IPv6 routes
+    connectionTimeout: 8000, // 8 seconds timeout for TCP connection
+    greetingTimeout: 8000,   // 8 seconds timeout for SMTP greeting
+    socketTimeout: 10000,    // 10 seconds timeout for socket inactivity
   });
 }
 
