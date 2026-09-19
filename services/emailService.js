@@ -33,9 +33,9 @@ function getTransporter(customPort, customSecure) {
     port,
     secure,
     auth: { user, pass },
-    connectionTimeout: 7000, // 7 seconds timeout for TCP connection
-    greetingTimeout: 7000,   // 7 seconds timeout for SMTP greeting
-    socketTimeout: 8000,     // 8 seconds timeout for socket inactivity
+    connectionTimeout: 4000, // 4 seconds timeout for TCP connection
+    greetingTimeout: 4000,   // 4 seconds timeout for SMTP greeting
+    socketTimeout: 5000,     // 5 seconds timeout for socket inactivity
   });
 }
 
@@ -100,16 +100,16 @@ async function sendOtpEmail(email, otp) {
 
   try {
     const transporter = getTransporter();
-    return await sendMailWithTimeout(transporter, mailOptions, 8000);
+    return await sendMailWithTimeout(transporter, mailOptions, 5000);
   } catch (err) {
     console.warn(`[SMTP] Primary send attempt failed (${err.message}). Attempting fallback if applicable...`);
-    // Fallback: If port 587 timed out or failed, try port 465 with SSL (or vice-versa)
-    const currentPort = Number(process.env.SMTP_PORT || 587);
+    // Fallback: If current port timed out or failed, try alternate port (465 SSL vs 587 STARTTLS)
+    const currentPort = Number(process.env.SMTP_PORT || 465);
     const fallbackPort = currentPort === 587 ? 465 : 587;
     const fallbackSecure = fallbackPort === 465;
     try {
       const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure);
-      return await sendMailWithTimeout(fallbackTransporter, mailOptions, 8000);
+      return await sendMailWithTimeout(fallbackTransporter, mailOptions, 5000);
     } catch (fallbackErr) {
       console.error(`[SMTP] Fallback send attempt also failed: ${fallbackErr.message}`);
       throw new Error('Verification email could not be sent. Please try again.');

@@ -112,7 +112,7 @@ async function adminLogin(req, res, next) {
 
     if (isMfaRequired) {
       const otp = generateOtp();
-      const otpHash = await bcrypt.hash(otp, 12);
+      const otpHash = await bcrypt.hash(otp, 10);
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
       // Store in OtpVerification
@@ -367,7 +367,7 @@ async function resendAdminMfa(req, res, next) {
     }
 
     const otp = generateOtp();
-    const otpHash = await bcrypt.hash(otp, 12);
+    const otpHash = await bcrypt.hash(otp, 10);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await OtpVerification.findOneAndUpdate(
