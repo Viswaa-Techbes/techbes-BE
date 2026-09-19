@@ -49,6 +49,17 @@ const registrationSchema = new mongoose.Schema({
   zoomClassDate: { type: String, default: '' },
   zoomClassTime: { type: String, default: '' },
   lastZoomSentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+  // Class Link Tracking (aliases for system compatibility)
+  classLinkSentAt: { type: Date },
+  classLinkSendStatus: {
+    type: String,
+    enum: ['NOT_SENT', 'SENT', 'FAILED'],
+    default: 'NOT_SENT',
+    index: true,
+  },
+  classLinkSendError: { type: String, default: '' },
+  classLinkSentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
 registrationSchema.index({ email: 1 });

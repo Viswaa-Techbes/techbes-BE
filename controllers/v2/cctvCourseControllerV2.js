@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const crypto = require('crypto');
 const Masterclass = require('../../models/Masterclass');
 const Registration = require('../../models/Registration');
@@ -623,6 +624,23 @@ async function getAdminRegistrationById(req, res, next) {
   }
 }
 
+// Helper to safely check and cast ObjectId
+function getValidObjectId(id) {
+  if (!id) return null;
+  return mongoose.Types.ObjectId.isValid(id) ? id : null;
+}
+
+// Helper to safely mask email for audit/logging (e.g., sp****@gmail.com)
+function maskEmail(email) {
+  if (!email || typeof email !== 'string') return '****';
+  const parts = email.split('@');
+  if (parts.length !== 2) return '****';
+  const name = parts[0];
+  const domain = parts[1];
+  const visible = name.length > 2 ? name.substring(0, 2) : name.substring(0, 1);
+  return `${visible}****@${domain}`;
+}
+
 // ─── 11. POST /api/v2/cctv-course/admin/registrations/bulk-send-zoom ─────────
 async function bulkSendZoomLink(req, res, next) {
   try {
@@ -643,7 +661,8 @@ async function bulkSendZoomLink(req, res, next) {
       return res.status(400).json({ success: false, message: 'Maximum 200 students can be processed in a single batch.' });
     }
 
-    if (!zoomLink || !isValidUrl(zoomLink)) {
+    const cleanZoomLink = String(zoomLink || '').trim();
+    if (!cleanZoomLink || !isValidUrl(cleanZoomLink)) {
       return res.status(400).json({
         success: false,
         message: 'A valid HTTP/HTTPS Zoom meeting URL is required (e.g., https://zoom.us/j/1234567890).',
@@ -670,6 +689,27 @@ async function bulkSendZoomLink(req, res, next) {
 
       await Promise.all(
         batch.map(async (reg) => {
+          // Check for registered email
+          if (!reg.email || !reg.email.includes('@')) {
+            console.error(`[Masterclass Email]\nrecipient: (missing)\ntemplate: CCTV_MASTERCLASS_CLASS_LINK\nstatus: failure\nerror: No valid email address registered`);
+            reg.zoomLinkSent = false;
+            reg.zoomLinkEmailStatus = 'FAILED';
+            reg.zoomLinkEmailError = 'No valid email address registered';
+            reg.classLinkSendStatus = 'FAILED';
+            reg.classLinkSendError = 'No valid email address registered';
+            await reg.save();
+
+            failedCount++;
+            results.push({
+              id: reg._id,
+              name: reg.name,
+              email: reg.email || '(none)',
+              status: 'FAILED',
+              error: 'No valid email address registered',
+            });
+            return;
+          }
+
           try {
             await sendZoomClassEmail({
               to: reg.email,
@@ -677,20 +717,28 @@ async function bulkSendZoomLink(req, res, next) {
               courseName: classTitle || reg.courseName || 'TechBes CCTV Masterclass',
               classDate,
               classTime,
-              zoomLink,
+              zoomLink: cleanZoomLink,
               message,
             });
 
             // Update registration with success status
+            const now = new Date();
             reg.zoomLinkSent = true;
-            reg.zoomLinkSentAt = new Date();
+            reg.zoomLinkSentAt = now;
             reg.zoomLinkEmailStatus = 'SENT';
             reg.zoomLinkEmailError = '';
-            reg.zoomMeetingLink = zoomLink;
+            reg.zoomMeetingLink = cleanZoomLink;
             reg.zoomClassTitle = classTitle;
             reg.zoomClassDate = classDate;
             reg.zoomClassTime = classTime;
-            reg.lastZoomSentBy = req.user?.id || null;
+            const sentBy = getValidObjectId(req.user?.id || req.user?._id);
+            reg.lastZoomSentBy = sentBy;
+
+            // Compatibility status fields
+            reg.classLinkSentAt = now;
+            reg.classLinkSendStatus = 'SENT';
+            reg.classLinkSendError = '';
+            reg.classLinkSentBy = sentBy;
             await reg.save();
 
             sentCount++;
@@ -700,13 +748,17 @@ async function bulkSendZoomLink(req, res, next) {
               email: reg.email,
               status: 'SENT',
             });
+
+            console.log(`[Masterclass Email]\nrecipient: ${maskEmail(reg.email)}\ntemplate: CCTV_MASTERCLASS_CLASS_LINK\nstatus: success`);
           } catch (err) {
-            console.error(`[ZoomEmail] Failed for ${reg.email}:`, err.message);
+            console.error(`[Masterclass Email]\nrecipient: ${maskEmail(reg.email)}\ntemplate: CCTV_MASTERCLASS_CLASS_LINK\nstatus: failure\nerror: ${err.message || 'SMTP delivery failed'}`);
 
             // Record failure on user record
             reg.zoomLinkSent = false;
             reg.zoomLinkEmailStatus = 'FAILED';
             reg.zoomLinkEmailError = err.message || 'SMTP delivery failed';
+            reg.classLinkSendStatus = 'FAILED';
+            reg.classLinkSendError = err.message || 'SMTP delivery failed';
             await reg.save();
 
             failedCount++;
@@ -715,7 +767,7 @@ async function bulkSendZoomLink(req, res, next) {
               name: reg.name,
               email: reg.email,
               status: 'FAILED',
-              error: 'Failed to send email. Please check SMTP settings or retry.',
+              error: err.message || 'Failed to deliver email. Please check SMTP settings or retry.',
             });
           }
         })
@@ -727,10 +779,23 @@ async function bulkSendZoomLink(req, res, next) {
       }
     }
 
+    // Structured lists for detailed reporting
+    const sentList = results.filter((r) => r.status === 'SENT').map((r) => ({
+      studentId: r.id,
+      name: r.name,
+      email: r.email,
+    }));
+    const failedList = results.filter((r) => r.status === 'FAILED').map((r) => ({
+      studentId: r.id,
+      name: r.name,
+      email: r.email,
+      reason: r.error || 'Delivery failed',
+    }));
+
     // Audit Logging
     try {
       await AuditLog.create({
-        actorId: req.user?.id || null,
+        actorId: getValidObjectId(req.user?.id || req.user?._id),
         actorEmail: req.user?.email || 'admin',
         actorRole: req.user?.role || 'admin',
         action: 'BULK_SEND_ZOOM',
@@ -741,7 +806,7 @@ async function bulkSendZoomLink(req, res, next) {
           sent: sentCount,
           failed: failedCount,
           course: classTitle,
-          zoomLink,
+          zoomLink: cleanZoomLink,
         },
       });
     } catch (auditErr) {
@@ -755,6 +820,8 @@ async function bulkSendZoomLink(req, res, next) {
       sent: sentCount,
       failed: failedCount,
       results,
+      sentList,
+      failedList,
     });
   } catch (err) {
     next(err);
@@ -772,7 +839,8 @@ async function sendSingleZoomLink(req, res, next) {
       message = '',
     } = req.body;
 
-    if (!zoomLink || !isValidUrl(zoomLink)) {
+    const cleanZoomLink = String(zoomLink || '').trim();
+    if (!cleanZoomLink || !isValidUrl(cleanZoomLink)) {
       return res.status(400).json({
         success: false,
         message: 'A valid HTTP/HTTPS Zoom meeting URL is required.',
@@ -784,6 +852,13 @@ async function sendSingleZoomLink(req, res, next) {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
+    if (!reg.email || !reg.email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student has no valid registered email address.',
+      });
+    }
+
     try {
       await sendZoomClassEmail({
         to: reg.email,
@@ -791,32 +866,41 @@ async function sendSingleZoomLink(req, res, next) {
         courseName: classTitle || reg.courseName || 'TechBes CCTV Masterclass',
         classDate,
         classTime,
-        zoomLink,
+        zoomLink: cleanZoomLink,
         message,
       });
 
+      const now = new Date();
       reg.zoomLinkSent = true;
-      reg.zoomLinkSentAt = new Date();
+      reg.zoomLinkSentAt = now;
       reg.zoomLinkEmailStatus = 'SENT';
       reg.zoomLinkEmailError = '';
-      reg.zoomMeetingLink = zoomLink;
+      reg.zoomMeetingLink = cleanZoomLink;
       reg.zoomClassTitle = classTitle;
       reg.zoomClassDate = classDate;
       reg.zoomClassTime = classTime;
-      reg.lastZoomSentBy = req.user?.id || null;
+      const sentBy = getValidObjectId(req.user?.id || req.user?._id);
+      reg.lastZoomSentBy = sentBy;
+
+      reg.classLinkSentAt = now;
+      reg.classLinkSendStatus = 'SENT';
+      reg.classLinkSendError = '';
+      reg.classLinkSentBy = sentBy;
       await reg.save();
+
+      console.log(`[Masterclass Email]\nrecipient: ${maskEmail(reg.email)}\ntemplate: CCTV_MASTERCLASS_CLASS_LINK\nstatus: success`);
 
       // Audit Log
       try {
         await AuditLog.create({
-          actorId: req.user?.id || null,
+          actorId: getValidObjectId(req.user?.id || req.user?._id),
           actorEmail: req.user?.email || 'admin',
           actorRole: req.user?.role || 'admin',
           action: 'SEND_ZOOM_SINGLE',
           entityType: 'cctv_course',
           entityId: reg._id.toString(),
           status: 'success',
-          details: { student: reg.name, email: reg.email, zoomLink },
+          details: { student: reg.name, email: reg.email, zoomLink: cleanZoomLink },
         });
       } catch (_) {}
 
@@ -825,11 +909,16 @@ async function sendSingleZoomLink(req, res, next) {
         message: `Zoom link sent successfully to ${reg.name}`,
         zoomLinkSent: true,
         zoomLinkEmailStatus: 'SENT',
+        classLinkSendStatus: 'SENT',
       });
     } catch (err) {
+      console.error(`[Masterclass Email]\nrecipient: ${maskEmail(reg.email)}\ntemplate: CCTV_MASTERCLASS_CLASS_LINK\nstatus: failure\nerror: ${err.message || 'SMTP delivery failed'}`);
+
       reg.zoomLinkSent = false;
       reg.zoomLinkEmailStatus = 'FAILED';
       reg.zoomLinkEmailError = err.message || 'SMTP delivery failed';
+      reg.classLinkSendStatus = 'FAILED';
+      reg.classLinkSendError = err.message || 'SMTP delivery failed';
       await reg.save();
 
       return res.status(500).json({
@@ -837,6 +926,7 @@ async function sendSingleZoomLink(req, res, next) {
         message: `Failed to deliver email: ${err.message}`,
         zoomLinkSent: false,
         zoomLinkEmailStatus: 'FAILED',
+        classLinkSendStatus: 'FAILED',
       });
     }
   } catch (err) {

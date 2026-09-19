@@ -15,8 +15,10 @@ function formatFromAddress(from) {
 }
 
 function getTransporter(customPort, customSecure) {
-  const host = process.env.SMTP_HOST;
-  const port = Number(customPort !== undefined ? customPort : (process.env.SMTP_PORT || 587));
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const isGmail = host.includes('gmail');
+  const defaultPort = isGmail ? 465 : 587;
+  const port = Number(customPort !== undefined ? customPort : (process.env.SMTP_PORT || defaultPort));
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
@@ -33,9 +35,9 @@ function getTransporter(customPort, customSecure) {
     port,
     secure,
     auth: { user, pass },
-    connectionTimeout: 4000, // 4 seconds timeout for TCP connection
-    greetingTimeout: 4000,   // 4 seconds timeout for SMTP greeting
-    socketTimeout: 5000,     // 5 seconds timeout for socket inactivity
+    connectionTimeout: 6000, // 6 seconds timeout for TCP connection
+    greetingTimeout: 6000,   // 6 seconds timeout for SMTP greeting
+    socketTimeout: 8000,     // 8 seconds timeout for socket inactivity
   });
 }
 
@@ -64,7 +66,7 @@ async function sendMailWithTimeout(transporter, mailOptions, timeoutMs = 8000) {
       if (!settled) {
         settled = true;
         try { transporter.close(); } catch {}
-        reject(new Error('SMTP sendMail timed out after ' + timeoutMs + 'ms'));
+        reject(new Error(`SMTP connection timeout after ${timeoutMs}ms`));
       }
     }, timeoutMs);
 
@@ -86,6 +88,39 @@ async function sendMailWithTimeout(transporter, mailOptions, timeoutMs = 8000) {
   });
 }
 
+/**
+ * Sends an email with automatic dual-port fallback between port 465 (SSL) and port 587 (STARTTLS).
+ * Ensures resilient delivery on cloud VPS instances where port 587 can experience socket negotiation latency.
+ */
+async function sendMailWithResilience(mailOptions, timeoutMs = 8000) {
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const isGmail = host.includes('gmail');
+  
+  // Prefer port 465 (SSL direct) for Gmail on cloud servers unless specifically configured otherwise
+  const envPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
+  const primaryPort = envPort !== undefined ? envPort : (isGmail ? 465 : 587);
+  const primarySecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || primaryPort === 465;
+
+  const fallbackPort = primaryPort === 465 ? 587 : 465;
+  const fallbackSecure = fallbackPort === 465;
+
+  try {
+    const primaryTransporter = getTransporter(primaryPort, primarySecure);
+    return await sendMailWithTimeout(primaryTransporter, mailOptions, timeoutMs);
+  } catch (primaryErr) {
+    console.warn(`[SMTP] Primary attempt on port ${primaryPort} failed (${primaryErr.message}). Attempting fallback on port ${fallbackPort}...`);
+    try {
+      const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure);
+      const result = await sendMailWithTimeout(fallbackTransporter, mailOptions, timeoutMs);
+      console.log(`[SMTP] Fallback delivery on port ${fallbackPort} succeeded.`);
+      return result;
+    } catch (fallbackErr) {
+      console.error(`[SMTP] Fallback attempt on port ${fallbackPort} also failed: ${fallbackErr.message}`);
+      throw new Error(`SMTP delivery failed on both ports (${primaryPort}: ${primaryErr.message}; ${fallbackPort}: ${fallbackErr.message})`);
+    }
+  }
+}
+
 async function sendOtpEmail(email, otp) {
   const rawFrom = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
   const from = formatFromAddress(rawFrom);
@@ -98,28 +133,13 @@ async function sendOtpEmail(email, otp) {
     html: otpTemplate(otp),
   };
 
-  try {
-    const transporter = getTransporter();
-    return await sendMailWithTimeout(transporter, mailOptions, 5000);
-  } catch (err) {
-    console.warn(`[SMTP] Primary send attempt failed (${err.message}). Attempting fallback if applicable...`);
-    // Fallback: If current port timed out or failed, try alternate port (465 SSL vs 587 STARTTLS)
-    const currentPort = Number(process.env.SMTP_PORT || 465);
-    const fallbackPort = currentPort === 587 ? 465 : 587;
-    const fallbackSecure = fallbackPort === 465;
-    try {
-      const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure);
-      return await sendMailWithTimeout(fallbackTransporter, mailOptions, 5000);
-    } catch (fallbackErr) {
-      console.error(`[SMTP] Fallback send attempt also failed: ${fallbackErr.message}`);
-      throw new Error('Verification email could not be sent. Please try again.');
-    }
-  }
+  return await sendMailWithResilience(mailOptions, 6000);
 }
 
 async function verifySmtpConfig() {
   const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
+  const isGmail = (host || '').includes('gmail');
+  const port = Number(process.env.SMTP_PORT || (isGmail ? 465 : 587));
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
@@ -135,21 +155,22 @@ async function verifySmtpConfig() {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465,
-      auth: { user, pass },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-    });
-
+    const transporter = getTransporter(port);
     await transporter.verify();
-    console.log('✅ SMTP email transporter configured and verified successfully.');
+    console.log(`✅ SMTP email transporter configured and verified successfully on port ${port}.`);
     return true;
   } catch (error) {
-    console.warn(`⚠️ WARNING: SMTP verification failed during startup: ${error.message}. The server will remain active but email delivery might fail.`);
-    return false;
+    console.warn(`⚠️ WARNING: SMTP verification failed on port ${port}: ${error.message}. Testing alternate port...`);
+    const altPort = port === 465 ? 587 : 465;
+    try {
+      const altTransporter = getTransporter(altPort);
+      await altTransporter.verify();
+      console.log(`✅ Alternate SMTP port ${altPort} verified successfully.`);
+      return true;
+    } catch (altErr) {
+      console.warn(`⚠️ WARNING: Alternate SMTP port ${altPort} also failed: ${altErr.message}. The server will remain active but email delivery might fail.`);
+      return false;
+    }
   }
 }
 
@@ -165,33 +186,26 @@ async function sendZoomClassEmail({
   zoomLink,
   message = '',
 }) {
-  const transporter = getTransporter();
   const rawFrom = process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
   const from = formatFromAddress(rawFrom);
 
-  const subject = `${courseName} – Online Class Link`;
+  const subject = 'TechBes CCTV Masterclass – Live Class Link';
 
   const plainText = `Hello ${name},
 
-Thank you for registering for the ${courseName}.
+Your CCTV Masterclass live class details are ready.
 
-Your online class details are below:
+Join the live session using the link below:
 
-Course:
-${courseName}
-${classDate ? `\nDate:\n${classDate}` : ''}
-${classTime ? `\nTime:\n${classTime}` : ''}
-
-Join the online class:
 ${zoomLink}
-
-${message ? `Note from instructor:\n${message}\n\n` : ''}Please join a few minutes before the scheduled class.
+${classDate ? `\nDate:\n${classDate}` : ''}${classTime ? `\nTime:\n${classTime}` : ''}
+${message ? `\nNote from instructor:\n${message}\n` : ''}
+Please join a few minutes before the scheduled session.
 
 Regards,
 TechBes Team
 
-TechBes
-IT Services & CCTV Solutions
+TechBes IT Services & CCTV Solutions
 https://techbes.co.in
 `;
 
@@ -229,37 +243,47 @@ https://techbes.co.in
               <tr>
                 <td style="padding:32px 32px 24px 32px;">
                   <p style="margin:0 0 16px 0;font-size:16px;color:#f3f4f6;line-height:1.6;">Hello <strong style="color:#ffffff;">${name}</strong>,</p>
-                  <p style="margin:0 0 24px 0;font-size:15px;color:#cbd5e1;line-height:1.6;">Thank you for registering for the <strong>${courseName}</strong>. Your online class details and Zoom access link are ready below.</p>
+                  <p style="margin:0 0 20px 0;font-size:15px;color:#cbd5e1;line-height:1.6;">Your CCTV Masterclass live class details are ready.</p>
+                  <p style="margin:0 0 24px 0;font-size:15px;color:#cbd5e1;line-height:1.6;">Join the live session using the link below:</p>
+
+                  <!-- CTA Button -->
+                  <div style="text-align:center;margin:28px 0 24px 0;">
+                    <a href="${zoomLink}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:#e5a833;color:#0b0f19;font-size:15px;font-weight:800;letter-spacing:0.5px;padding:15px 36px;border-radius:8px;text-decoration:none;box-shadow:0 4px 14px rgba(229,168,51,0.35);">JOIN LIVE SESSION</a>
+                  </div>
+
+                  <!-- Direct Link -->
+                  <p style="margin:0 0 24px 0;font-size:12.5px;color:#94a3b8;text-align:center;word-break:break-all;">
+                    Or click or copy this direct meeting link:<br>
+                    <a href="${zoomLink}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:underline;">${zoomLink}</a>
+                  </p>
 
                   <!-- Details Box -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:28px;">
+                  ${(classDate || classTime) ? `
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:24px;">
                     <tr>
-                      <td style="padding:20px 24px;">
+                      <td style="padding:16px 20px;">
                         <table width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tr>
-                            <td style="padding-bottom:12px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Course</td>
-                            <td style="padding-bottom:12px;color:#ffffff;font-size:14px;font-weight:700;text-align:right;">${courseName}</td>
+                            <td style="padding-bottom:8px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Course</td>
+                            <td style="padding-bottom:8px;color:#ffffff;font-size:13.5px;font-weight:700;text-align:right;">${courseName}</td>
                           </tr>
                           ${classDate ? `
                           <tr>
-                            <td style="padding-bottom:12px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Date</td>
-                            <td style="padding-bottom:12px;color:#ffffff;font-size:14px;font-weight:700;text-align:right;">${classDate}</td>
+                            <td style="padding-bottom:8px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Date</td>
+                            <td style="padding-bottom:8px;color:#ffffff;font-size:13.5px;font-weight:700;text-align:right;">${classDate}</td>
                           </tr>
                           ` : ''}
                           ${classTime ? `
                           <tr>
-                            <td style="padding-bottom:12px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Time</td>
-                            <td style="padding-bottom:12px;color:#ffffff;font-size:14px;font-weight:700;text-align:right;">${classTime}</td>
+                            <td style="color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Time</td>
+                            <td style="color:#ffffff;font-size:13.5px;font-weight:700;text-align:right;">${classTime}</td>
                           </tr>
                           ` : ''}
-                          <tr>
-                            <td style="color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform</td>
-                            <td style="color:#38bdf8;font-size:14px;font-weight:700;text-align:right;">Zoom Video Meeting</td>
-                          </tr>
                         </table>
                       </td>
                     </tr>
                   </table>
+                  ` : ''}
 
                   <!-- Custom Message -->
                   ${message ? `
@@ -269,19 +293,8 @@ https://techbes.co.in
                   </div>
                   ` : ''}
 
-                  <!-- CTA Button -->
-                  <div style="text-align:center;margin:32px 0 24px 0;">
-                    <a href="${zoomLink}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background-color:#e5a833;color:#0b0f19;font-size:15px;font-weight:800;letter-spacing:0.5px;padding:14px 32px;border-radius:8px;text-decoration:none;box-shadow:0 4px 14px rgba(229,168,51,0.35);">JOIN ONLINE CLASS</a>
-                  </div>
-
-                  <!-- Direct Link -->
-                  <p style="margin:0 0 20px 0;font-size:12px;color:#94a3b8;text-align:center;word-break:break-all;">
-                    Or copy & paste this direct URL:<br>
-                    <a href="${zoomLink}" style="color:#38bdf8;text-decoration:underline;">${zoomLink}</a>
-                  </p>
-
                   <p style="margin:24px 0 0 0;font-size:13px;color:#cbd5e1;line-height:1.6;border-top:1px solid #1f2937;padding-top:20px;">
-                    Please join a few minutes before the scheduled class start time. Ensure you have Zoom installed on your phone or laptop.
+                    Please join a few minutes before the scheduled session. Ensure you have the Zoom app installed on your smartphone or laptop.
                   </p>
                 </td>
               </tr>
@@ -305,18 +318,19 @@ https://techbes.co.in
     </html>
   `;
 
-  return transporter.sendMail({
+  return await sendMailWithResilience({
     from,
     to,
     subject,
     text: plainText,
     html,
-  });
+  }, 10000);
 }
 
 module.exports = {
   sendOtpEmail,
   sendMailWithTimeout,
+  sendMailWithResilience,
   sendZoomClassEmail,
   verifySmtpConfig,
   formatFromAddress,
