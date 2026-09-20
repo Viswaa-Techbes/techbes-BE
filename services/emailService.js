@@ -6,6 +6,43 @@ if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
 }
 
+// Suppress IPv6 inside Nodemailer's internal shared resolver
+// (Prevents ENETUNREACH on Linux VPS servers without external IPv6 routes)
+try {
+  const nodemailerShared = require('nodemailer/lib/shared');
+  if (nodemailerShared) {
+    // 1. Strip IPv6 interfaces so isFamilySupported(6) returns false
+    if (nodemailerShared.networkInterfaces) {
+      const v4Only = {};
+      for (const [key, addrs] of Object.entries(nodemailerShared.networkInterfaces)) {
+        v4Only[key] = (addrs || []).filter(a => a.family === 'IPv4' || a.family === 4);
+      }
+      nodemailerShared.networkInterfaces = v4Only;
+    }
+
+    // 2. Intercept resolveHostname to strictly filter out any IPv6 addresses returned
+    const origResolveHostname = nodemailerShared.resolveHostname;
+    if (typeof origResolveHostname === 'function') {
+      nodemailerShared.resolveHostname = function (options, callback) {
+        origResolveHostname(options, (err, resolved) => {
+          if (err || !resolved) return callback(err, resolved);
+          if (Array.isArray(resolved._addresses)) {
+            resolved._addresses = resolved._addresses.filter(a => typeof a === 'string' && !a.includes(':'));
+          }
+          if (resolved.host && typeof resolved.host === 'string' && resolved.host.includes(':')) {
+            resolved.host = resolved._addresses && resolved._addresses.length > 0
+              ? resolved._addresses[0]
+              : options.host;
+          }
+          callback(null, resolved);
+        });
+      };
+    }
+  }
+} catch (e) {
+  console.warn('[SMTP] Could not patch nodemailer/lib/shared for IPv4 enforcement:', e.message);
+}
+
 function formatFromAddress(from) {
   if (!from) return from;
   from = from.trim();
@@ -45,6 +82,9 @@ function getTransporter(customPort, customSecure) {
     connectionTimeout: 8000, // 8 seconds timeout for TCP connection
     greetingTimeout: 8000,   // 8 seconds timeout for SMTP greeting
     socketTimeout: 10000,    // 10 seconds timeout for socket inactivity
+    tls: {
+      servername: host,
+    },
   });
 }
 
