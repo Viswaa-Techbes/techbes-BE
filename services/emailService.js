@@ -175,15 +175,20 @@ async function sendMailWithResilience(mailOptions, timeoutMs = 20000) {
   const fallbackPort = primaryPort === 465 ? 587 : 465;
   const fallbackSecure = fallbackPort === 465;
 
-  // Pre-resolve host to IPv4 to prevent Nodemailer internal resolver from selecting unreachable IPv6 routes
+  console.log(`[SMTP] Resolving host ${baseHost}...`);
   const resolvedHost = await resolveIpv4Host(baseHost);
+  console.log(`[SMTP] Resolved IPv4: ${resolvedHost}`);
 
   try {
+    console.log(`[SMTP] Connecting to port ${primaryPort} (secure: ${primarySecure})...`);
     const primaryTransporter = getTransporter(primaryPort, primarySecure, resolvedHost);
-    return await sendMailWithTimeout(primaryTransporter, mailOptions, timeoutMs);
+    const result = await sendMailWithTimeout(primaryTransporter, mailOptions, timeoutMs);
+    console.log(`[SMTP] Primary SMTP delivery on port ${primaryPort} succeeded.`);
+    return result;
   } catch (primaryErr) {
-    console.warn(`[SMTP] Primary attempt on port ${primaryPort} failed (${primaryErr.message}). Attempting fallback on port ${fallbackPort}...`);
+    console.warn(`[SMTP] Primary attempt on port ${primaryPort} failed (${primaryErr.message}). Trying fallback port ${fallbackPort}...`);
     try {
+      console.log(`[SMTP] Connecting to fallback port ${fallbackPort} (secure: ${fallbackSecure})...`);
       const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure, resolvedHost);
       const result = await sendMailWithTimeout(fallbackTransporter, mailOptions, timeoutMs);
       console.log(`[SMTP] Fallback delivery on port ${fallbackPort} succeeded.`);
@@ -207,39 +212,39 @@ async function sendOtpEmail(email, otp) {
     html: otpTemplate(otp),
   };
 
-  return await sendMailWithResilience(mailOptions, 6000);
+  return await sendMailWithResilience(mailOptions, 10000);
 }
 
 async function verifySmtpConfig() {
-  const host = process.env.SMTP_HOST;
-  const isGmail = (host || '').includes('gmail');
-  const port = Number(process.env.SMTP_PORT || (isGmail ? 465 : 587));
+  const baseHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
   const isPlaceholder = !user || !pass || 
-    user.includes('your-email@gmail.com') || 
-    user.includes('your_email@gmail.com') || 
-    pass.includes('your-app-password') || 
-    pass.includes('your_app_password');
+    user.includes('your-email') || 
+    user.includes('your_email') || 
+    pass.includes('your-app-password');
 
-  if (!host || !user || !pass || isPlaceholder) {
+  if (!baseHost || !user || !pass || isPlaceholder) {
     console.warn('⚠️ WARNING: SMTP email environment variables are missing, incomplete, or contain placeholder values. Email service will be unavailable.');
     return false;
   }
 
+  const resolvedHost = await resolveIpv4Host(baseHost);
+
   try {
-    const transporter = getTransporter(port);
+    const transporter = getTransporter(port, undefined, resolvedHost);
     await transporter.verify();
-    console.log(`✅ SMTP email transporter configured and verified successfully on port ${port}.`);
+    console.log(`✅ SMTP email transporter configured and verified successfully on port ${port} (IPv4: ${resolvedHost}).`);
     return true;
   } catch (error) {
     console.warn(`⚠️ WARNING: SMTP verification failed on port ${port}: ${error.message}. Testing alternate port...`);
     const altPort = port === 465 ? 587 : 465;
     try {
-      const altTransporter = getTransporter(altPort);
+      const altTransporter = getTransporter(altPort, undefined, resolvedHost);
       await altTransporter.verify();
-      console.log(`✅ Alternate SMTP port ${altPort} verified successfully.`);
+      console.log(`✅ Alternate SMTP port ${altPort} verified successfully (IPv4: ${resolvedHost}).`);
       return true;
     } catch (altErr) {
       console.warn(`⚠️ WARNING: Alternate SMTP port ${altPort} also failed: ${altErr.message}. The server will remain active but email delivery might fail.`);
