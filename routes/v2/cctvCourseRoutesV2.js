@@ -19,11 +19,25 @@ const bulkEmailRateLimit = rateLimit({
   message: 'Bulk email dispatch in progress. Please wait a minute before sending again.',
 });
 
+const orderCreationRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyPrefix: 'cctv-course-order',
+  message: 'Too many payment order attempts. Please wait a few minutes before trying again.',
+});
+
+const paymentVerifyRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  keyPrefix: 'cctv-course-verify',
+  message: 'Too many payment verification attempts. Please wait a few minutes before trying again.',
+});
+
 // ─── Public Routes ───────────────────────────────────────────────────────────
 router.post('/registrations', registrationRateLimit, cctvCourseControllerV2.createRegistration);
 router.get('/registrations/:id', cctvCourseControllerV2.getPublicRegistrationDetails);
-router.post('/razorpay/create-order', cctvCourseControllerV2.createRazorpayOrder);
-router.post('/razorpay/verify', cctvCourseControllerV2.verifyRazorpayPayment);
+router.post('/razorpay/create-order', orderCreationRateLimit, cctvCourseControllerV2.createRazorpayOrder);
+router.post('/razorpay/verify', paymentVerifyRateLimit, cctvCourseControllerV2.verifyRazorpayPayment);
 router.post('/cancel-payment', cctvCourseControllerV2.cancelPayment);
 router.post('/razorpay/webhook', cctvCourseControllerV2.webhookHandler);
 router.get('/certificates/:id', cctvCourseControllerV2.getCertificateDetails);

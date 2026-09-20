@@ -42,20 +42,39 @@ function rateLimit({
       .toLowerCase()
       .trim();
 
-    const key = `${keyPrefix}:${rawIp}:${accountIdentifier}`;
     const now = Date.now();
-    const bucket = buckets.get(key) || { count: 0, resetAt: now + windowMs };
 
-    if (bucket.resetAt <= now) {
-      bucket.count = 0;
-      bucket.resetAt = now + windowMs;
+    // 1. Mandatory IP-level bucket to prevent IP-based bot abuse regardless of email rotation
+    const ipKey = `${keyPrefix}:ip:${rawIp}`;
+    const ipBucket = buckets.get(ipKey) || { count: 0, resetAt: now + windowMs };
+    if (ipBucket.resetAt <= now) {
+      ipBucket.count = 0;
+      ipBucket.resetAt = now + windowMs;
+    }
+    ipBucket.count += 1;
+    buckets.set(ipKey, ipBucket);
+
+    // 2. Secondary account-level bucket if account identifier is provided
+    let accountBucket = null;
+    let accKey = null;
+    if (accountIdentifier) {
+      accKey = `${keyPrefix}:acc:${accountIdentifier}`;
+      accountBucket = buckets.get(accKey) || { count: 0, resetAt: now + windowMs };
+      if (accountBucket.resetAt <= now) {
+        accountBucket.count = 0;
+        accountBucket.resetAt = now + windowMs;
+      }
+      accountBucket.count += 1;
+      buckets.set(accKey, accountBucket);
     }
 
-    bucket.count += 1;
-    buckets.set(key, bucket);
+    // 3. Enforce limit if either IP or account exceeds threshold
+    const isIpBlocked = ipBucket.count > max;
+    const isAccBlocked = accountBucket && accountBucket.count > max;
 
-    if (bucket.count > max) {
-      const retryAfterSec = Math.ceil((bucket.resetAt - now) / 1000);
+    if (isIpBlocked || isAccBlocked) {
+      const resetTime = isIpBlocked ? ipBucket.resetAt : accountBucket.resetAt;
+      const retryAfterSec = Math.max(Math.ceil((resetTime - now) / 1000), 1);
       res.setHeader('Retry-After', retryAfterSec);
       return res.status(429).json({
         success: false,
@@ -66,8 +85,9 @@ function rateLimit({
 
     if (skipSuccessfulRequests) {
       res.on('finish', () => {
-        if (res.statusCode < 400 && bucket.count > 0) {
-          bucket.count -= 1;
+        if (res.statusCode < 400) {
+          if (ipBucket.count > 0) ipBucket.count -= 1;
+          if (accountBucket && accountBucket.count > 0) accountBucket.count -= 1;
         }
       });
     }

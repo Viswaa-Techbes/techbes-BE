@@ -130,8 +130,10 @@ async function createRazorpayOrder(req, res, next) {
       return res.status(404).json({ success: false, message: 'Masterclass not found' });
     }
 
-    const price = reg.amount || mc.price || 499;
-    const amountInPaise = Math.round(price * 100);
+    // Authoritative pricing from Masterclass record (defaults to ₹499)
+    const authoritativePrice = mc.price || 499;
+    reg.amount = authoritativePrice;
+    const amountInPaise = Math.round(authoritativePrice * 100);
     const description = `Enrollment fee for ${mc.title}`;
     const receipt = `reg_${reg._id}`;
 
@@ -207,7 +209,8 @@ async function verifyRazorpayPayment(req, res, next) {
     }
 
     const mc = await Masterclass.findById(reg.masterclassId);
-    const amountNum = reg.amount || (mc ? mc.price : 499);
+    const amountNum = mc ? (mc.price || 499) : 499;
+    reg.amount = amountNum;
 
     // Record payment attempt
     await CctvPayment.create({
