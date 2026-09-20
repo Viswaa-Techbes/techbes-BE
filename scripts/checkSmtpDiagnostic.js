@@ -102,7 +102,9 @@ async function runDiagnostics() {
     requireTLS: true,
     auth: { user, pass },
     family: 4,
-    connectionTimeout: 7000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
     tls: { servername: host },
   });
 
@@ -121,7 +123,9 @@ async function runDiagnostics() {
     secure: true,
     auth: { user, pass },
     family: 4,
-    connectionTimeout: 7000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
     tls: { servername: host },
   });
 

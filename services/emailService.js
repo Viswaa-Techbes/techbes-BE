@@ -104,9 +104,9 @@ function getTransporter(customPort, customSecure, customHost) {
     auth: { user, pass },
     family: 4,               // Force IPv4 only to prevent Linux VPS ENETUNREACH on unreachable IPv6 routes
     requireTLS: !secure,     // require STARTTLS on port 587
-    connectionTimeout: 8000, // 8 seconds timeout for TCP connection
-    greetingTimeout: 8000,   // 8 seconds timeout for SMTP greeting
-    socketTimeout: 10000,    // 10 seconds timeout for socket inactivity
+    connectionTimeout: 20000, // 20 seconds timeout for TCP connection
+    greetingTimeout: 20000,   // 20 seconds timeout for SMTP greeting
+    socketTimeout: 30000,    // 30 seconds timeout for socket inactivity
     tls: {
       servername: baseHost,  // Always verify against canonical hostname e.g. smtp.gmail.com for TLS
     },
@@ -164,7 +164,7 @@ async function sendMailWithTimeout(transporter, mailOptions, timeoutMs = 8000) {
  * Sends an email with automatic dual-port fallback between port 465 (SSL) and port 587 (STARTTLS).
  * Ensures resilient delivery on cloud VPS instances where port 587 can experience socket negotiation latency.
  */
-async function sendMailWithResilience(mailOptions, timeoutMs = 8000) {
+async function sendMailWithResilience(mailOptions, timeoutMs = 20000) {
   const baseHost = process.env.SMTP_HOST || 'smtp.gmail.com';
   
   // Primary port 587 (STARTTLS) or explicit SMTP_PORT, with fallback to 465 (SSL)
@@ -398,7 +398,7 @@ https://techbes.co.in
     subject,
     text: plainText,
     html,
-  }, 10000);
+  }, 20000);
 }
 
 module.exports = {
