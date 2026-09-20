@@ -59,8 +59,7 @@ function formatFromAddress(from) {
 
 function getTransporter(customPort, customSecure) {
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const isGmail = host.includes('gmail');
-  const defaultPort = isGmail ? 465 : 587;
+  const defaultPort = 587;
   const port = Number(customPort !== undefined ? customPort : (process.env.SMTP_PORT || defaultPort));
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
@@ -79,6 +78,7 @@ function getTransporter(customPort, customSecure) {
     secure,
     auth: { user, pass },
     family: 4,               // Force IPv4 only to prevent Linux VPS ENETUNREACH on unreachable IPv6 routes
+    requireTLS: !secure,     // require STARTTLS on port 587
     connectionTimeout: 8000, // 8 seconds timeout for TCP connection
     greetingTimeout: 8000,   // 8 seconds timeout for SMTP greeting
     socketTimeout: 10000,    // 10 seconds timeout for socket inactivity
@@ -143,9 +143,9 @@ async function sendMailWithResilience(mailOptions, timeoutMs = 8000) {
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
   const isGmail = host.includes('gmail');
   
-  // Prefer port 465 (SSL direct) for Gmail on cloud servers unless specifically configured otherwise
+  // Primary port 587 (STARTTLS) or explicit SMTP_PORT, with fallback to 465 (SSL)
   const envPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
-  const primaryPort = envPort !== undefined ? envPort : (isGmail ? 465 : 587);
+  const primaryPort = envPort !== undefined ? envPort : 587;
   const primarySecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || primaryPort === 465;
 
   const fallbackPort = primaryPort === 465 ? 587 : 465;

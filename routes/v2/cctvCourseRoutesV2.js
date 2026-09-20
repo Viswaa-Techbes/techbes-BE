@@ -60,5 +60,11 @@ router.post(
   requireRoles('admin'),
   cctvCourseControllerV2.sendSingleZoomLink
 );
+router.get(
+  '/admin/smtp-health',
+  authenticate,
+  requireRoles('admin'),
+  cctvCourseControllerV2.checkSmtpHealth
+);
 
 module.exports = router;

@@ -923,7 +923,9 @@ async function sendSingleZoomLink(req, res, next) {
 
       return res.status(500).json({
         success: false,
-        message: `Failed to deliver email: ${err.message}`,
+        reason: 'SMTP_CONNECTION_FAILED',
+        message: 'Email service is temporarily unavailable. Please try again later.',
+        error: err.message,
         zoomLinkSent: false,
         zoomLinkEmailStatus: 'FAILED',
         classLinkSendStatus: 'FAILED',
@@ -931,6 +933,82 @@ async function sendSingleZoomLink(req, res, next) {
     }
   } catch (err) {
     next(err);
+  }
+}
+
+/**
+ * Diagnostic health check for SMTP connection status (safe for administrators).
+ * Never exposes secrets, passwords, or tokens.
+ */
+async function checkSmtpHealth(req, res) {
+  try {
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const port = Number(process.env.SMTP_PORT || 587);
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+
+    const isConfigured = Boolean(
+      host && user && pass && 
+      !user.includes('your-email') && 
+      !user.includes('your_email') && 
+      !pass.includes('your-app-password')
+    );
+
+    if (!isConfigured) {
+      return res.json({
+        success: false,
+        smtpConfigured: 'NO',
+        smtpHost: host,
+        smtpPort: port,
+        smtpConnectivity: 'FAIL',
+        error: 'SMTP credentials not configured or using placeholders in environment',
+      });
+    }
+
+    const { getTransporter } = require('../../services/emailService');
+    const transporter = getTransporter(port);
+    try {
+      await transporter.verify();
+      return res.json({
+        success: true,
+        smtpConfigured: 'YES',
+        smtpHost: host,
+        smtpPort: port,
+        smtpConnectivity: 'PASS',
+      });
+    } catch (verifyErr) {
+      const altPort = port === 465 ? 587 : 465;
+      try {
+        const altTransporter = getTransporter(altPort);
+        await altTransporter.verify();
+        return res.json({
+          success: true,
+          smtpConfigured: 'YES',
+          smtpHost: host,
+          smtpPort: altPort,
+          smtpConnectivity: 'PASS',
+          note: `Port ${port} failed (${verifyErr.message}), but alternate port ${altPort} passed.`,
+        });
+      } catch (altErr) {
+        return res.json({
+          success: false,
+          smtpConfigured: 'YES',
+          smtpHost: host,
+          smtpPort: port,
+          smtpConnectivity: 'FAIL',
+          error: `Port ${port} failed (${verifyErr.message}); Port ${altPort} failed (${altErr.message})`,
+        });
+      }
+    }
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      smtpConfigured: 'YES',
+      smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+      smtpPort: Number(process.env.SMTP_PORT || 587),
+      smtpConnectivity: 'FAIL',
+      error: err.message,
+    });
   }
 }
 
@@ -947,4 +1025,5 @@ module.exports = {
   getAdminRegistrationById,
   bulkSendZoomLink,
   sendSingleZoomLink,
+  checkSmtpHealth,
 };
