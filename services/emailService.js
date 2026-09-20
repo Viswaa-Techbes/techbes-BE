@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+const net = require('net');
 
 // Force IPv4 DNS resolution across all email transporter operations
 if (typeof dns.setDefaultResultOrder === 'function') {
@@ -43,6 +44,29 @@ try {
   console.warn('[SMTP] Could not patch nodemailer/lib/shared for IPv4 enforcement:', e.message);
 }
 
+// In-memory IPv4 DNS cache to bypass Nodemailer's internal DNS picker
+let cachedIpv4Host = null;
+let lastIpv4Resolve = 0;
+
+async function resolveIpv4Host(hostname) {
+  if (!hostname || net.isIP(hostname)) return hostname;
+  const now = Date.now();
+  if (cachedIpv4Host && (now - lastIpv4Resolve < 300000)) {
+    return cachedIpv4Host;
+  }
+  try {
+    const { address } = await dns.promises.lookup(hostname, { family: 4 });
+    if (address && !address.includes(':')) {
+      cachedIpv4Host = address;
+      lastIpv4Resolve = now;
+      return address;
+    }
+  } catch (err) {
+    console.warn(`[SMTP DNS] Pre-resolving IPv4 for ${hostname} failed: ${err.message}`);
+  }
+  return hostname;
+}
+
 function formatFromAddress(from) {
   if (!from) return from;
   from = from.trim();
@@ -57,14 +81,15 @@ function formatFromAddress(from) {
   return from;
 }
 
-function getTransporter(customPort, customSecure) {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+function getTransporter(customPort, customSecure, customHost) {
+  const baseHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const host = customHost || baseHost;
   const defaultPort = 587;
   const port = Number(customPort !== undefined ? customPort : (process.env.SMTP_PORT || defaultPort));
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
-  if (!host || !user || !pass) {
+  if (!baseHost || !user || !pass) {
     throw new Error('SMTP is not configured');
   }
 
@@ -83,7 +108,7 @@ function getTransporter(customPort, customSecure) {
     greetingTimeout: 8000,   // 8 seconds timeout for SMTP greeting
     socketTimeout: 10000,    // 10 seconds timeout for socket inactivity
     tls: {
-      servername: host,
+      servername: baseHost,  // Always verify against canonical hostname e.g. smtp.gmail.com for TLS
     },
   });
 }
@@ -140,8 +165,7 @@ async function sendMailWithTimeout(transporter, mailOptions, timeoutMs = 8000) {
  * Ensures resilient delivery on cloud VPS instances where port 587 can experience socket negotiation latency.
  */
 async function sendMailWithResilience(mailOptions, timeoutMs = 8000) {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const isGmail = host.includes('gmail');
+  const baseHost = process.env.SMTP_HOST || 'smtp.gmail.com';
   
   // Primary port 587 (STARTTLS) or explicit SMTP_PORT, with fallback to 465 (SSL)
   const envPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
@@ -151,13 +175,16 @@ async function sendMailWithResilience(mailOptions, timeoutMs = 8000) {
   const fallbackPort = primaryPort === 465 ? 587 : 465;
   const fallbackSecure = fallbackPort === 465;
 
+  // Pre-resolve host to IPv4 to prevent Nodemailer internal resolver from selecting unreachable IPv6 routes
+  const resolvedHost = await resolveIpv4Host(baseHost);
+
   try {
-    const primaryTransporter = getTransporter(primaryPort, primarySecure);
+    const primaryTransporter = getTransporter(primaryPort, primarySecure, resolvedHost);
     return await sendMailWithTimeout(primaryTransporter, mailOptions, timeoutMs);
   } catch (primaryErr) {
     console.warn(`[SMTP] Primary attempt on port ${primaryPort} failed (${primaryErr.message}). Attempting fallback on port ${fallbackPort}...`);
     try {
-      const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure);
+      const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure, resolvedHost);
       const result = await sendMailWithTimeout(fallbackTransporter, mailOptions, timeoutMs);
       console.log(`[SMTP] Fallback delivery on port ${fallbackPort} succeeded.`);
       return result;
