@@ -111,6 +111,74 @@ const quoteRequestSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    subcategory: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    items: [
+      {
+        productName: { type: String, required: true, trim: true },
+        quantity: { type: Number, required: true, min: 1 },
+        unitPrice: { type: Number, default: null },
+        lineTotal: { type: Number, default: null },
+      },
+    ],
+    voiceNote: {
+      url: { type: String, default: '' },
+      duration: { type: Number, default: 0 },
+      filename: { type: String, default: '' },
+      mimeType: { type: String, default: '' },
+    },
+    subtotal: {
+      type: Number,
+      default: 0,
+    },
+    gstRate: {
+      type: Number,
+      default: 18,
+    },
+    gstAmount: {
+      type: Number,
+      default: 0,
+    },
+    finalAmount: {
+      type: Number,
+      default: 0,
+    },
+    validityDays: {
+      type: Number,
+      default: 15,
+    },
+    validUntil: {
+      type: Date,
+      default: null,
+    },
+    sentAt: {
+      type: Date,
+      default: null,
+    },
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+    paymentDetails: {
+      razorpayOrderId: { type: String, default: '' },
+      razorpayPaymentId: { type: String, default: '' },
+      razorpaySignature: { type: String, default: '' },
+      paymentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment', default: null },
+      amountPaid: { type: Number, default: 0 },
+    },
+    orderNumber: {
+      type: String,
+      default: '',
+      sparse: true,
+    },
+    orderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+      default: null,
+    },
     preferredVisitDate: {
       type: Date,
       default: null,
@@ -122,6 +190,15 @@ const quoteRequestSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
+        'quotation_requested',
+        'quotation_draft',
+        'quotation_sent',
+        'quotation_accepted',
+        'payment_pending',
+        'paid',
+        'converted_to_order',
+        'cancelled',
+        'expired',
         'New',
         'Contacted',
         'Requirement Verified',
@@ -134,9 +211,8 @@ const quoteRequestSchema = new mongoose.Schema(
         'Converted',
         'Closed',
         'Rejected',
-        'Cancelled',
       ],
-      default: 'New',
+      default: 'quotation_requested',
     },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,

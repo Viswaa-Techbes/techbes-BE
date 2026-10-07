@@ -246,6 +246,8 @@ router.put('/catalog/subcategories/:id/questions', async (req, res) => {
 router.get('/quotes', quoteControllerV2.getQuoteRequests);
 router.get('/quotes/:id', quoteControllerV2.getQuoteRequestDetails);
 router.put('/quotes/:id', quoteControllerV2.updateQuoteRequest);
+router.post('/quotes/:id/price', quoteControllerV2.priceQuotation);
+router.post('/quotes/:id/send', quoteControllerV2.sendQuotation);
 router.post('/quotes/:id/convert', quoteControllerV2.convertToBooking);
 
 module.exports = router;

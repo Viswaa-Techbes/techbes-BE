@@ -9,10 +9,12 @@ router.use(authenticate);
 router.get('/wallet', customerController.getWallet);
 router.post('/wallet/add', customerController.addFunds);
 
-// Tickets
-router.get('/tickets', customerController.getTickets);
-router.post('/tickets', customerController.createTicket);
-router.put('/tickets/:id/reply', customerController.replyTicket);
+// Tickets (Unified Role-Scoped: Customer, Association, Resident)
+const apartmentController = require('../../controllers/v2/apartmentControllerV2');
+router.get('/tickets', apartmentController.getTickets);
+router.post('/tickets', apartmentController.createTicket);
+router.get('/tickets/:id', apartmentController.getTicketById);
+router.put('/tickets/:id/reply', apartmentController.replyToTicket);
 
 // Dashboard
 router.get('/dashboard-stats', customerController.getDashboardStats);

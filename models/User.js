@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const ROLES = ['admin', 'manager', 'technician', 'client'];
+const ROLES = ['admin', 'manager', 'technician', 'client', 'association', 'resident'];
 
 const userSchema = new mongoose.Schema(
   {
@@ -34,6 +34,16 @@ const userSchema = new mongoose.Schema(
       enum: ROLES,
       required: true,
       default: 'technician',
+    },
+    apartmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Apartment',
+      default: null,
+    },
+    flatNumber: {
+      type: String,
+      default: '',
+      trim: true,
     },
     phone: String,
     isOnline: {
@@ -426,6 +436,8 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     employeeId: this.employeeId,
     employeeCode: this.employeeCode,
     customerId: this.customerId,
+    apartmentId: this.apartmentId ? this.apartmentId.toString() : null,
+    flatNumber: this.flatNumber || '',
     address: this.address,
     pincode: this.pincode,
     skills: this.skills,

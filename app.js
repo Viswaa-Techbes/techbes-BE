@@ -48,6 +48,7 @@ const walletRoutesV2 = require('./routes/v2/walletRoutesV2');
 const amcRoutesV2 = require('./routes/v2/amcRoutesV2');
 const cctvCourseRoutesV2 = require('./routes/v2/cctvCourseRoutesV2');
 const quoteRoutesV2 = require('./routes/v2/quoteRoutesV2');
+const apartmentRoutesV2 = require('./routes/v2/apartmentRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -223,6 +224,7 @@ app.use('/api/v2/dispatch/otp', otpRoutesV2);
 app.use('/api/v2/catalog', categoryRoutesV2);
 app.use('/api/v2/kyc', kycRoutesV2);
 app.use('/api/v2/cctv-course', cctvCourseRoutesV2);
+app.use('/api/v2/apartments', apartmentRoutesV2);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
