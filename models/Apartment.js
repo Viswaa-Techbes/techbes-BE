@@ -43,7 +43,6 @@ const apartmentSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Apartment/Company name is required'],
       trim: true,
-      index: true,
     },
     address: {
       type: String,
