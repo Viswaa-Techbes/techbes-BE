@@ -130,6 +130,10 @@ const quoteRequestSchema = new mongoose.Schema(
       filename: { type: String, default: '' },
       mimeType: { type: String, default: '' },
     },
+    images: {
+      type: [String],
+      default: [],
+    },
     subtotal: {
       type: Number,
       default: 0,
