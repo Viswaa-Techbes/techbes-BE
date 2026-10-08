@@ -495,15 +495,16 @@ async function getCertificateDetails(req, res, next) {
 // ─── 8. GET /api/v2/cctv-course/admin/masterclass/stats ──────────────────────
 async function getAdminStats(req, res, next) {
   try {
-    const total = await Registration.countDocuments();
-    const paid = await Registration.countDocuments({ paymentStatus: 'PAID' });
-    const pending = await Registration.countDocuments({ paymentStatus: 'PENDING' });
-    const failed = await Registration.countDocuments({ paymentStatus: { $in: ['FAILED', 'CANCELLED'] } });
-    const zoomSent = await Registration.countDocuments({ zoomLinkSent: true });
+    const notDeleted = { isDeleted: { $ne: true } };
+    const total = await Registration.countDocuments(notDeleted);
+    const paid = await Registration.countDocuments({ ...notDeleted, paymentStatus: 'PAID' });
+    const pending = await Registration.countDocuments({ ...notDeleted, paymentStatus: 'PENDING' });
+    const failed = await Registration.countDocuments({ ...notDeleted, paymentStatus: { $in: ['FAILED', 'CANCELLED'] } });
+    const zoomSent = await Registration.countDocuments({ ...notDeleted, zoomLinkSent: true });
 
-    // Revenue: sum amount for PAID registrations
+    // Revenue: sum amount for PAID non-deleted registrations
     const revenueAgg = await Registration.aggregate([
-      { $match: { paymentStatus: 'PAID' } },
+      { $match: { ...notDeleted, paymentStatus: 'PAID' } },
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]);
     const revenue = revenueAgg.length > 0 ? revenueAgg[0].total : 0;
@@ -525,7 +526,7 @@ async function getAdminRegistrations(req, res, next) {
     const limit = Math.min(100, parseInt(req.query.limit) || 20);
     const skip = (page - 1) * limit;
 
-    const filter = {};
+    const filter = { isDeleted: { $ne: true } };
 
     // Payment Status filter
     if (req.query.status && req.query.status !== 'ALL') {
@@ -607,7 +608,7 @@ async function getAdminRegistrationById(req, res, next) {
       .populate('lastZoomSentBy', 'name email')
       .lean();
 
-    if (!reg) {
+    if (!reg || reg.isDeleted) {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
@@ -621,6 +622,117 @@ async function getAdminRegistrationById(req, res, next) {
         payments,
         certificate,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * PUT /api/v2/cctv-course/admin/registrations/:id
+ * Edit registration details by admin
+ */
+async function updateAdminRegistration(req, res, next) {
+  try {
+    const { id } = req.params;
+    const reg = await Registration.findById(id);
+
+    if (!reg || reg.isDeleted) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    const {
+      name,
+      mobile,
+      email,
+      courseName,
+      location,
+      qualification,
+      whatsapp,
+      paymentStatus,
+      attended,
+    } = req.body;
+
+    if (name !== undefined) reg.name = String(name).trim();
+    if (mobile !== undefined) reg.mobile = String(mobile).trim();
+    if (email !== undefined) reg.email = String(email).trim().toLowerCase();
+    if (courseName !== undefined) reg.courseName = String(courseName).trim();
+    if (location !== undefined) reg.location = String(location).trim();
+    if (qualification !== undefined) reg.qualification = String(qualification).trim();
+    if (whatsapp !== undefined) reg.whatsapp = String(whatsapp).trim();
+    if (attended !== undefined) reg.attended = Boolean(attended);
+
+    // Payment status update with security checks
+    if (paymentStatus && ['PENDING', 'PAID', 'FAILED', 'CANCELLED', 'REFUNDED'].includes(paymentStatus)) {
+      // If student was already verified with real Razorpay payment ID, prevent arbitrary changing to PENDING without reason
+      if (reg.razorpayPaymentId && paymentStatus === 'PENDING') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot revert a verified Razorpay payment transaction to PENDING.',
+        });
+      }
+      reg.paymentStatus = paymentStatus;
+      if (paymentStatus === 'PAID' && !reg.paidAt) {
+        reg.paidAt = new Date();
+      }
+    }
+
+    await reg.save();
+
+    try {
+      if (AuditLog) {
+        await AuditLog.create({
+          adminId: req.user?._id || req.user?.id,
+          action: 'UPDATE_CCTV_REGISTRATION',
+          targetId: reg._id,
+          details: { name: reg.name, email: reg.email, mobile: reg.mobile, paymentStatus: reg.paymentStatus },
+        });
+      }
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      message: 'Student registration updated successfully',
+      data: reg,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * DELETE /api/v2/cctv-course/admin/registrations/:id
+ * Soft delete registration by admin
+ */
+async function deleteAdminRegistration(req, res, next) {
+  try {
+    const { id } = req.params;
+    const reg = await Registration.findById(id);
+
+    if (!reg || reg.isDeleted) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    reg.isDeleted = true;
+    reg.deletedAt = new Date();
+    reg.deletedBy = req.user?._id || req.user?.id;
+    await reg.save();
+
+    try {
+      if (AuditLog) {
+        await AuditLog.create({
+          adminId: req.user?._id || req.user?.id,
+          action: 'DELETE_CCTV_REGISTRATION',
+          targetId: reg._id,
+          details: { name: reg.name, email: reg.email, enrollmentId: reg.enrollmentId, registrationId: reg.registrationId },
+        });
+      }
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      message: 'Registration deleted successfully.',
+      data: { id: reg._id, enrollmentId: reg.enrollmentId, registrationId: reg.registrationId },
     });
   } catch (err) {
     next(err);
@@ -1026,6 +1138,8 @@ module.exports = {
   getAdminStats,
   getAdminRegistrations,
   getAdminRegistrationById,
+  updateAdminRegistration,
+  deleteAdminRegistration,
   bulkSendZoomLink,
   sendSingleZoomLink,
   checkSmtpHealth,

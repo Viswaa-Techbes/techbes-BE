@@ -61,6 +61,18 @@ router.get(
   requireRoles('admin'),
   cctvCourseControllerV2.getAdminRegistrationById
 );
+router.put(
+  '/admin/registrations/:id',
+  authenticate,
+  requireRoles('admin'),
+  cctvCourseControllerV2.updateAdminRegistration
+);
+router.delete(
+  '/admin/registrations/:id',
+  authenticate,
+  requireRoles('admin'),
+  cctvCourseControllerV2.deleteAdminRegistration
+);
 router.post(
   '/admin/registrations/bulk-send-zoom',
   authenticate,

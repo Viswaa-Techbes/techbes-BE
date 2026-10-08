@@ -60,11 +60,17 @@ const registrationSchema = new mongoose.Schema({
   },
   classLinkSendError: { type: String, default: '' },
   classLinkSentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+  // Soft Delete Support
+  isDeleted: { type: Boolean, default: false, index: true },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
 registrationSchema.index({ email: 1 });
 registrationSchema.index({ mobile: 1 });
 registrationSchema.index({ createdAt: -1 });
 registrationSchema.index({ masterclassId: 1, paymentStatus: 1 });
+registrationSchema.index({ isDeleted: 1 });
 
 module.exports = mongoose.models.Registration || mongoose.model('Registration', registrationSchema);
