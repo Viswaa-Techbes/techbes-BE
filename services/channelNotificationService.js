@@ -153,6 +153,11 @@ async function sendPush({ userId, title, body, data = {} }) {
 // ─── Notification Types & Templates ────────────────────────────────────────────
 
 const NOTIFICATION_TEMPLATES = {
+  quote_request_created: {
+    subject: '📋 New Service Quotation Enquiry – TechBes',
+    getBody: (data) =>
+      `Admin Alert: New quotation enquiry #${data.requestId || ''} received from ${data.customerName || data.fullName || 'Customer'} (${data.mobile || ''}) for ${data.category || data.serviceCategory || ''} - ${data.subcategory || data.serviceName || ''}. Location: ${data.address || data.locality || 'Bangalore'}. Submitted: ${data.submissionTime || new Date().toLocaleString('en-IN')}.`,
+  },
   dispatch_failed: {
     subject: '⚠️ Dispatch Failed – TechBes',
     getBody: (data) =>

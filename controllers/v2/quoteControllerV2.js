@@ -59,18 +59,25 @@ async function uploadVoiceNote(req, res, next) {
  */
 async function submitQuoteRequest(req, res, next) {
   try {
+    const { validateCategory, validateSubcategory } = require('../../utils/serviceQuotationConfig');
+    const { sendEmail } = require('../../services/channelNotificationService');
+
     const {
       fullName,
       mobile,
       email,
       whatsapp,
       serviceCategory,
+      category,
       subcategory,
+      service,
+      serviceName,
       items,
       companyName,
       googleMapsUrl,
       source,
       locality,
+      location,
       pincode,
       address,
       latitude,
@@ -83,30 +90,106 @@ async function submitQuoteRequest(req, res, next) {
       recorder,
       storage,
       additionalRequirements,
+      message,
       voiceNote,
       preferredContact,
       preferredVisitDate,
       preferredVisitTime,
     } = req.body;
 
-    // Validate required fields
+    // 1. Validate required contact & address fields
     if (!fullName || !fullName.trim()) {
-      return res.status(400).json({ success: false, message: 'Full Name is required' });
+      return res.status(400).json({ success: false, message: 'Full name is required' });
     }
     if (!mobile || !mobile.trim()) {
-      return res.status(400).json({ success: false, message: 'Mobile Number is required' });
-    }
-    if (!address || !address.trim()) {
-      return res.status(400).json({ success: false, message: 'Address / Area is required' });
+      return res.status(400).json({ success: false, message: 'Mobile number is required' });
     }
 
-    // Validate Indian mobile number
+    // Validate and normalize Indian mobile number
+    const rawMobile = mobile.trim();
+    const mobileDigits = rawMobile.replace(/[^\d]/g, '');
     const mobileRegex = /^(?:\+91|0)?[6-9]\d{9}$/;
-    if (!mobileRegex.test(mobile.trim())) {
-      return res.status(400).json({ success: false, message: 'Please enter a valid Indian mobile number' });
+    if (!mobileRegex.test(rawMobile) || (mobileDigits.length !== 10 && mobileDigits.length !== 12)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit Indian mobile number' });
+    }
+    const cleanedMobile = mobileDigits.length === 12 && mobileDigits.startsWith('91')
+      ? mobileDigits.slice(2)
+      : mobileDigits.slice(-10);
+
+    const rawAddress = (address || location || locality || '').trim();
+    if (!rawAddress) {
+      return res.status(400).json({ success: false, message: 'Location / address is required' });
+    }
+    const finalLocality = (locality || location || rawAddress).trim();
+
+    // 2. Validate and sanitize Category
+    const categoryInput = (serviceCategory || category || '').trim();
+    if (!categoryInput) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select a service category (CCTV, Networking, or Web Designing)',
+      });
+    }
+    const categoryValidation = validateCategory(categoryInput);
+    if (!categoryValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid service category. Please choose CCTV, Networking, or Web Designing.',
+      });
+    }
+    const canonicalCategory = categoryValidation.canonicalName;
+
+    // 3. Validate and sanitize Subcategory / Service
+    const subcategoryInput = (subcategory || service || serviceName || '').trim();
+    if (!subcategoryInput) {
+      return res.status(400).json({
+        success: false,
+        message: `Please select a service under ${canonicalCategory}`,
+      });
+    }
+    const subcategoryValidation = validateSubcategory(
+      categoryValidation.categoryConfig,
+      subcategoryInput
+    );
+    if (!subcategoryValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid service "${subcategoryInput}" for category "${canonicalCategory}". Please select a valid service from the catalogue.`,
+      });
+    }
+    const canonicalSubcategory = subcategoryValidation.canonicalName;
+
+    // 4. Prevent duplicate submissions caused by repeated button clicks (within 60 seconds)
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+    const existingQuote = await QuoteRequest.findOne({
+      mobile: { $regex: new RegExp(cleanedMobile + '$') },
+      serviceCategory: canonicalCategory,
+      subcategory: canonicalSubcategory,
+      createdAt: { $gte: oneMinuteAgo },
+    });
+
+    if (existingQuote) {
+      return res.status(200).json({
+        success: true,
+        message: 'Quotation request already received and is being processed.',
+        data: {
+          id: existingQuote._id,
+          requestId: existingQuote.requestId,
+          fullName: existingQuote.fullName,
+          mobile: existingQuote.mobile,
+          email: existingQuote.email,
+          serviceCategory: existingQuote.serviceCategory,
+          subcategory: existingQuote.subcategory,
+          locality: existingQuote.locality,
+          address: existingQuote.address,
+          status: existingQuote.status,
+          createdAt: existingQuote.createdAt,
+        },
+        duplicatePrevented: true,
+      });
     }
 
-    // Process quotation items (quantities only, NO pricing)
+    // 5. Construct items array (quantities only, NO pricing)
     let processedItems = [];
     if (Array.isArray(items) && items.length > 0) {
       processedItems = items
@@ -118,24 +201,13 @@ async function submitQuoteRequest(req, res, next) {
         }))
         .filter((item) => item.productName.length > 0);
     }
-
-    // Fallback: if no items array was passed, construct default item from legacy fields
     if (processedItems.length === 0) {
-      if (cameraCount || cameraRequirement) {
-        processedItems.push({
-          productName: `${cameraRequirement || 'Indoor/Outdoor'} CCTV Setup (${cameraCount || '4 Cameras'})`,
-          quantity: 1,
-          unitPrice: null,
-          lineTotal: null,
-        });
-      } else {
-        processedItems.push({
-          productName: `${subcategory || serviceCategory || 'General'} Service Requirement`,
-          quantity: 1,
-          unitPrice: null,
-          lineTotal: null,
-        });
-      }
+      processedItems.push({
+        productName: canonicalSubcategory,
+        quantity: 1,
+        unitPrice: null,
+        lineTotal: null,
+      });
     }
 
     // Process voice note if provided
@@ -153,36 +225,36 @@ async function submitQuoteRequest(req, res, next) {
 
     // Check if client is logged in
     const customerId = req.user ? req.user.id : null;
-    const finalLocality = locality?.trim() || address.trim();
+    const finalRequirements = (additionalRequirements || message || '').trim();
 
     const quoteData = {
       fullName: fullName.trim(),
-      mobile: mobile.trim(),
-      email: email?.trim() || '',
-      whatsapp: whatsapp?.trim() || '',
-      serviceCategory: serviceCategory?.trim() || 'CCTV',
-      subcategory: subcategory?.trim() || '',
+      mobile: cleanedMobile,
+      email: (email || '').trim().toLowerCase(),
+      whatsapp: (whatsapp || '').trim(),
+      serviceCategory: canonicalCategory,
+      subcategory: canonicalSubcategory,
       items: processedItems,
       subtotal: 0,
       gstRate: 18,
       gstAmount: 0,
       finalAmount: 0,
-      companyName: companyName?.trim() || '',
-      googleMapsUrl: googleMapsUrl?.trim() || '',
-      source: source?.trim() || 'Website Quote Request',
+      companyName: (companyName || '').trim(),
+      googleMapsUrl: (googleMapsUrl || '').trim(),
+      source: (source || 'Website Quotation Request').trim(),
       locality: finalLocality,
-      pincode: pincode?.trim() || '',
-      address: address.trim(),
+      pincode: (pincode || '').trim(),
+      address: rawAddress,
       latitude: Number(latitude) || null,
       longitude: Number(longitude) || null,
       propertyType: propertyType || '',
-      requirementType: requirementType || '',
+      requirementType: requirementType || `${canonicalCategory} - ${canonicalSubcategory}`,
       cameraCount: cameraCount || '',
       cameraRequirement: cameraRequirement || '',
       features: Array.isArray(features) ? features : [],
       recorder: recorder || '',
       storage: storage || '',
-      additionalRequirements: additionalRequirements || '',
+      additionalRequirements: finalRequirements,
       voiceNote: processedVoiceNote,
       preferredContact: preferredContact || '',
       preferredVisitDate: preferredVisitDate ? new Date(preferredVisitDate) : null,
@@ -193,19 +265,87 @@ async function submitQuoteRequest(req, res, next) {
 
     const quoteRequest = await QuoteRequest.create(quoteData);
 
-    // Notify admins asynchronously
+    // 6. Admin Notification
+    const submissionTimeFormatted = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+
+    const notifTitle = `New ${canonicalCategory} Quote Request #${quoteRequest.requestId}`;
+    const notifMessage = `Quotation #${quoteRequest.requestId} requested by ${quoteRequest.fullName} (${quoteRequest.mobile}) for ${canonicalCategory} - ${canonicalSubcategory}. Location: ${quoteRequest.address}. Submitted at: ${submissionTimeFormatted}.`;
+
+    const extraNotifData = {
+      requestId: quoteRequest.requestId,
+      customerName: quoteRequest.fullName,
+      fullName: quoteRequest.fullName,
+      mobile: quoteRequest.mobile,
+      email: quoteRequest.email,
+      category: canonicalCategory,
+      serviceCategory: canonicalCategory,
+      subcategory: canonicalSubcategory,
+      serviceName: canonicalSubcategory,
+      address: quoteRequest.address,
+      locality: quoteRequest.locality,
+      preferredVisitDate: quoteRequest.preferredVisitDate
+        ? new Date(quoteRequest.preferredVisitDate).toLocaleDateString('en-IN')
+        : null,
+      additionalRequirements: quoteRequest.additionalRequirements,
+      submissionTime: submissionTimeFormatted,
+    };
+
+    // Track channels and missing configuration
+    const notificationReport = {
+      inAppDispatched: false,
+      emailDispatched: false,
+      missingChannels: [],
+    };
+
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      notificationReport.missingChannels.push('Email: SMTP credentials (SMTP_USER/SMTP_PASS) missing in .env');
+    }
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_SMS_FROM) {
+      notificationReport.missingChannels.push('SMS: Twilio credentials (TWILIO_ACCOUNT_SID/TWILIO_SMS_FROM) missing in .env');
+    }
+    if (!process.env.TWILIO_WA_FROM) {
+      notificationReport.missingChannels.push('WhatsApp: TWILIO_WA_FROM missing in .env');
+    }
+
     try {
-      const admins = await User.find({ role: 'admin' }).select('_id');
-      for (const admin of admins) {
-        await notificationService.createNotification(
-          admin._id,
-          `New ${quoteRequest.serviceCategory} Quote Request`,
-          `A new ${quoteRequest.serviceCategory} quote request ${quoteRequest.requestId} with ${quoteRequest.items.length} items submitted by ${quoteRequest.fullName}.`,
-          'quote_request_created'
-        );
+      // Find all admin and manager users to dispatch in-app notifications
+      const admins = await User.find({ role: { $in: ['admin', 'manager'] } }).select('_id name email phone mobileNumber role');
+      if (admins.length > 0) {
+        for (const admin of admins) {
+          await notificationService.createNotification(
+            admin._id,
+            notifTitle,
+            notifMessage,
+            'quote_request_created',
+            null,
+            extraNotifData
+          );
+        }
+        notificationReport.inAppDispatched = true;
       }
-    } catch (err) {
-      console.error('Failed to dispatch admin notifications for quote request:', err.message);
+
+      // If SMTP is configured, ensure an alert email is delivered to the designated admin inbox
+      const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER || 'viswaatechbes@gmail.com';
+      if (process.env.SMTP_USER && adminEmail) {
+        const { getEmailTemplate } = require('../../utils/emailTemplates');
+        const emailResult = await sendEmail({
+          to: adminEmail,
+          subject: notifTitle,
+          html: getEmailTemplate('quote_request_created', notifTitle, notifMessage, extraNotifData),
+          text: notifMessage,
+        });
+        notificationReport.emailDispatched = Boolean(emailResult?.success);
+        if (!emailResult?.success && emailResult?.reason) {
+          notificationReport.emailError = emailResult.reason;
+        }
+      }
+    } catch (notifErr) {
+      console.error('[QuoteController] Failed to dispatch admin notifications:', notifErr.message);
+      notificationReport.error = notifErr.message;
     }
 
     return res.status(201).json({
@@ -215,11 +355,16 @@ async function submitQuoteRequest(req, res, next) {
         id: quoteRequest._id,
         requestId: quoteRequest.requestId,
         fullName: quoteRequest.fullName,
+        mobile: quoteRequest.mobile,
+        email: quoteRequest.email,
         serviceCategory: quoteRequest.serviceCategory,
+        subcategory: quoteRequest.subcategory,
         locality: quoteRequest.locality,
-        itemsCount: quoteRequest.items.length,
+        address: quoteRequest.address,
         status: quoteRequest.status,
+        createdAt: quoteRequest.createdAt,
       },
+      notifications: notificationReport,
     });
   } catch (err) {
     next(err);

@@ -49,6 +49,25 @@ function getEmailTemplate(type, subject, bodyText, data = {}) {
 
 function getBodyContent(type, bodyText, data) {
   switch (type) {
+    case 'quote_request_created':
+      return `
+        <p>Dear <strong>Admin</strong>,</p>
+        <p>A new service quotation enquiry has been submitted through the TechBes portal.</p>
+        <div class="highlight-box">
+          <p>🔖 <strong>Enquiry Reference:</strong> #${data.requestId || 'N/A'}</p>
+          <p>👤 <strong>Customer Name:</strong> ${data.customerName || data.fullName || 'N/A'}</p>
+          <p>📞 <strong>Mobile Number:</strong> ${data.mobile || 'N/A'}</p>
+          ${data.email ? `<p>✉️ <strong>Email:</strong> ${data.email}</p>` : ''}
+          <p>🏷️ <strong>Category:</strong> ${data.category || data.serviceCategory || 'N/A'}</p>
+          <p>🛠️ <strong>Selected Service:</strong> ${data.subcategory || data.serviceName || 'N/A'}</p>
+          <p>📍 <strong>Location / Address:</strong> ${data.address || data.locality || 'N/A'}</p>
+          ${data.preferredVisitDate ? `<p>📅 <strong>Preferred Date:</strong> ${data.preferredVisitDate}</p>` : ''}
+          ${data.additionalRequirements ? `<p>📝 <strong>Requirements:</strong> ${data.additionalRequirements}</p>` : ''}
+          <p>⏰ <strong>Submission Time:</strong> ${data.submissionTime || new Date().toLocaleString('en-IN')}</p>
+        </div>
+        <p>This enquiry is now available in your Admin Quotation Management dashboard.</p>
+      `;
+
     case 'booking_confirmed':
       return `
         <p>Dear <strong>${data.customerName || 'Customer'}</strong>,</p>
