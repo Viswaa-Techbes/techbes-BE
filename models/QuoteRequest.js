@@ -118,9 +118,15 @@ const quoteRequestSchema = new mongoose.Schema(
     },
     items: [
       {
+        productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Material', default: null },
+        brand: { type: String, default: '', trim: true },
+        sku: { type: String, default: '', trim: true },
+        variant: { type: String, default: '', trim: true },
         productName: { type: String, required: true, trim: true },
         quantity: { type: Number, required: true, min: 1 },
         unitPrice: { type: Number, default: null },
+        gstRate: { type: Number, default: 18 },
+        gstAmount: { type: Number, default: 0 },
         lineTotal: { type: Number, default: null },
       },
     ],

@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const QuoteRequest = require('../../models/QuoteRequest');
+const Material = require('../../models/Material');
 const User = require('../../models/User');
 const Address = require('../../models/Address');
 const Job = require('../../models/Job');
@@ -189,23 +190,97 @@ async function submitQuoteRequest(req, res, next) {
       });
     }
 
-    // 5. Construct items array (quantities only, NO pricing)
+    // 5. Construct items array with authoritative inventory product lookup & GST calculation
     let processedItems = [];
+    let calculatedSubtotal = 0;
+    let calculatedGstAmount = 0;
+    let hasAuthoritativePricing = false;
+
     if (Array.isArray(items) && items.length > 0) {
-      processedItems = items
-        .map((item) => ({
-          productName: String(item.productName || item.name || '').trim(),
-          quantity: Math.max(1, parseInt(item.quantity, 10) || 1),
-          unitPrice: null,
-          lineTotal: null,
-        }))
-        .filter((item) => item.productName.length > 0);
+      for (const item of items) {
+        const rawName = String(item.productName || item.name || '').trim();
+        if (!rawName) continue;
+        const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+
+        let authoritativeMat = null;
+        if (item.productId) {
+          try {
+            authoritativeMat = await Material.findById(item.productId).lean();
+          } catch (_) {}
+        }
+
+        if (authoritativeMat) {
+          hasAuthoritativePricing = true;
+          let basePrice = typeof authoritativeMat.basePrice === 'number'
+            ? authoritativeMat.basePrice
+            : (authoritativeMat.price || 0);
+          const gstRate = typeof authoritativeMat.gstRate === 'number' ? authoritativeMat.gstRate : 18;
+          let variantName = String(item.variant || authoritativeMat.variant || '').trim();
+
+          if (variantName && Array.isArray(authoritativeMat.variants)) {
+            const vMatch = authoritativeMat.variants.find((v) => v.name === variantName || v.sku === variantName);
+            if (vMatch && typeof vMatch.price === 'number') {
+              basePrice = vMatch.price;
+            }
+          }
+
+          let taxableAmount = 0;
+          let lineGst = 0;
+          let lineTotal = 0;
+
+          if (authoritativeMat.isTaxInclusive) {
+            lineTotal = Math.round((basePrice * qty) * 100) / 100;
+            taxableAmount = Math.round((lineTotal / (1 + gstRate / 100)) * 100) / 100;
+            lineGst = Math.round((lineTotal - taxableAmount) * 100) / 100;
+          } else {
+            taxableAmount = Math.round((basePrice * qty) * 100) / 100;
+            lineGst = Math.round(((taxableAmount * gstRate) / 100) * 100) / 100;
+            lineTotal = Math.round((taxableAmount + lineGst) * 100) / 100;
+          }
+
+          calculatedSubtotal += taxableAmount;
+          calculatedGstAmount += lineGst;
+
+          processedItems.push({
+            productId: authoritativeMat._id,
+            brand: authoritativeMat.brand || '',
+            sku: authoritativeMat.sku || '',
+            variant: variantName,
+            productName: authoritativeMat.name || rawName,
+            quantity: qty,
+            unitPrice: basePrice,
+            gstRate,
+            gstAmount: lineGst,
+            lineTotal,
+          });
+        } else {
+          // Standard service-only item or unlinked custom note
+          processedItems.push({
+            productId: null,
+            brand: '',
+            sku: '',
+            variant: '',
+            productName: rawName,
+            quantity: qty,
+            unitPrice: null,
+            gstRate: 18,
+            gstAmount: 0,
+            lineTotal: null,
+          });
+        }
+      }
     }
     if (processedItems.length === 0) {
       processedItems.push({
+        productId: null,
+        brand: '',
+        sku: '',
+        variant: '',
         productName: canonicalSubcategory,
         quantity: 1,
         unitPrice: null,
+        gstRate: 18,
+        gstAmount: 0,
         lineTotal: null,
       });
     }
@@ -235,10 +310,10 @@ async function submitQuoteRequest(req, res, next) {
       serviceCategory: canonicalCategory,
       subcategory: canonicalSubcategory,
       items: processedItems,
-      subtotal: 0,
+      subtotal: hasAuthoritativePricing ? Math.round(calculatedSubtotal * 100) / 100 : 0,
       gstRate: 18,
-      gstAmount: 0,
-      finalAmount: 0,
+      gstAmount: hasAuthoritativePricing ? Math.round(calculatedGstAmount * 100) / 100 : 0,
+      finalAmount: hasAuthoritativePricing ? Math.round((calculatedSubtotal + calculatedGstAmount) * 100) / 100 : 0,
       companyName: (companyName || '').trim(),
       googleMapsUrl: (googleMapsUrl || '').trim(),
       source: (source || 'Website Quotation Request').trim(),
