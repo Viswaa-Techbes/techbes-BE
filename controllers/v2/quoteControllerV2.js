@@ -609,13 +609,30 @@ async function getQuoteRequests(req, res, next) {
 
 /**
  * Quote request details (Admin only)
+ * Supports lookup by MongoDB ObjectId or requestId (e.g. QT-2026-00001)
  */
 async function getQuoteRequestDetails(req, res, next) {
   try {
-    const quote = await QuoteRequest.findById(req.params.id)
+    const { id } = req.params;
+    const mongoose = require('mongoose');
+    let query;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = QuoteRequest.findById(id);
+    } else {
+      query = QuoteRequest.findOne({ requestId: id });
+    }
+
+    let quote = await query
       .populate('assignedTo', 'name email role')
       .populate('customerId', 'name email mobileNumber customerId')
       .populate('orderId');
+
+    if (!quote && mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findOne({ requestId: id })
+        .populate('assignedTo', 'name email role')
+        .populate('customerId', 'name email mobileNumber customerId')
+        .populate('orderId');
+    }
 
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quote Request not found' });
@@ -635,8 +652,15 @@ async function priceQuotation(req, res, next) {
   try {
     const { id } = req.params;
     const { items, gstRate = 18, validityDays = 15, adminNotes, saveAsDraft } = req.body;
+    const mongoose = require('mongoose');
 
-    const quote = await QuoteRequest.findById(id);
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quote Request not found' });
     }
@@ -695,7 +719,14 @@ async function priceQuotation(req, res, next) {
 async function sendQuotation(req, res, next) {
   try {
     const { id } = req.params;
-    const quote = await QuoteRequest.findById(id);
+    const mongoose = require('mongoose');
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quote Request not found' });
     }
@@ -1055,7 +1086,14 @@ async function verifyQuotePayment(req, res, next) {
 async function updateQuoteRequest(req, res, next) {
   try {
     const { id } = req.params;
-    const quote = await QuoteRequest.findById(id);
+    const mongoose = require('mongoose');
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quote Request not found' });
     }
@@ -1063,7 +1101,7 @@ async function updateQuoteRequest(req, res, next) {
     Object.assign(quote, req.body);
     await quote.save();
 
-    const populated = await QuoteRequest.findById(id)
+    const populated = await QuoteRequest.findById(quote._id)
       .populate('assignedTo', 'name email role')
       .populate('customerId', 'name email mobileNumber customerId');
 
@@ -1079,7 +1117,14 @@ async function updateQuoteRequest(req, res, next) {
 async function convertToBooking(req, res, next) {
   try {
     const { id } = req.params;
-    const quote = await QuoteRequest.findById(id);
+    const mongoose = require('mongoose');
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quote Request not found' });
     }
