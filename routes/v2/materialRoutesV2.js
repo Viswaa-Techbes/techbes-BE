@@ -4,6 +4,9 @@ const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
 
+const inventoryControllerV2 = require('../../controllers/v2/inventoryControllerV2');
+
+router.get('/search', inventoryControllerV2.searchInventory);
 router.get('/', materialController.listMaterials);
 router.get('/:id', materialController.getMaterial);
 

@@ -49,6 +49,7 @@ const amcRoutesV2 = require('./routes/v2/amcRoutesV2');
 const cctvCourseRoutesV2 = require('./routes/v2/cctvCourseRoutesV2');
 const quoteRoutesV2 = require('./routes/v2/quoteRoutesV2');
 const apartmentRoutesV2 = require('./routes/v2/apartmentRoutesV2');
+const inventoryRoutesV2 = require('./routes/v2/inventoryRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -196,6 +197,7 @@ app.use('/api/v2/wallet', walletRoutesV2);
 app.use('/api/v2/ai', aiRoutesV2);
 app.use('/api/v2/amc', amcRoutesV2);
 app.use('/api/v2/quotes', quoteRoutesV2);
+app.use('/api/v2/inventory', inventoryRoutesV2);
 
 // Backwards-compatible API aliases used by frontends
 app.use('/api/bookings', bookingRoutesV2);

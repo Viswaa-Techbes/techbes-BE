@@ -6,6 +6,7 @@ const technicianControllerV2 = require('../../controllers/v2/technicianControlle
 const attendanceControllerV2 = require('../../controllers/v2/attendanceControllerV2');
 const { authenticate, requireRoles } = require('../../middlewares/auth');
 const quoteControllerV2 = require('../../controllers/v2/quoteControllerV2');
+const inventoryControllerV2 = require('../../controllers/v2/inventoryControllerV2');
 
 const router = express.Router();
 
@@ -82,6 +83,13 @@ router.get('/materials', materialControllerV2.listMaterials);
 router.post('/materials', materialControllerV2.admin.create);
 router.put('/materials/:id', materialControllerV2.admin.update);
 router.delete('/materials/:id', materialControllerV2.admin.remove);
+
+// Inventory Management
+router.get('/inventory/products', inventoryControllerV2.listProductsAdmin);
+router.post('/inventory/products', inventoryControllerV2.createProductAdmin);
+router.put('/inventory/products/:id', inventoryControllerV2.updateProductAdmin);
+router.patch('/inventory/products/:id/status', inventoryControllerV2.toggleStatusAdmin);
+router.delete('/inventory/products/:id', inventoryControllerV2.deleteProductAdmin);
 router.get('/services/cctv/products', cctvControllerV2.listProducts);
 router.post('/services/cctv/products', cctvControllerV2.productAdmin.create);
 router.put('/services/cctv/products/:id', cctvControllerV2.productAdmin.update);
