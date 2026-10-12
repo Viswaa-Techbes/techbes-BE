@@ -30,6 +30,12 @@ router.post('/', requireRoles('admin'), apartmentController.createApartment);
 // View apartment details (Admin & Association)
 router.get('/:id', requireRoles('admin', 'association'), apartmentController.getApartmentById);
 
+// View apartment tickets
+router.get('/:id/tickets', requireRoles('admin', 'association'), (req, res, next) => {
+  req.query.apartmentId = req.params.id;
+  apartmentController.getTickets(req, res, next);
+});
+
 // Update apartment (Admin only)
 router.put('/:id', requireRoles('admin'), apartmentController.updateApartment);
 

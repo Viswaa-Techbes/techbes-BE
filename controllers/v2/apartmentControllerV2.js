@@ -291,7 +291,7 @@ async function deleteApartment(req, res, next) {
 async function createAssociationUser(req, res, next) {
   try {
     const { id } = req.params;
-    const { name, mobileNumber, email, password } = req.body;
+    const { name, mobileNumber, mobile, phone, email, password } = req.body;
 
     const apartment = await Apartment.findById(id);
     if (!apartment) {
@@ -309,14 +309,13 @@ async function createAssociationUser(req, res, next) {
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Name is required' });
     }
-    if (!mobileNumber || !mobileNumber.trim()) {
+    const rawMobile = mobileNumber || mobile || phone;
+    if (!rawMobile || !rawMobile.trim()) {
       return res.status(400).json({ success: false, message: 'Mobile number is required' });
     }
-    if (!password || password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
-    }
+    const userPassword = (password && password.length >= 6) ? password : Math.random().toString(36).slice(-8) + 'Ab#1';
 
-    const cleanMobile = mobileNumber.trim();
+    const cleanMobile = rawMobile.trim();
     let existingUser = await User.findOne({ mobileNumber: cleanMobile });
     if (existingUser) {
       return res.status(409).json({
@@ -330,7 +329,7 @@ async function createAssociationUser(req, res, next) {
       name: name.trim(),
       mobileNumber: cleanMobile,
       email: email?.trim() || undefined,
-      password, // hashed automatically by User pre-save hook
+      password: userPassword, // hashed automatically by User pre-save hook
       role: 'association',
       apartmentId: apartment._id,
       userType: 'web_user',
@@ -503,6 +502,23 @@ async function addResident(req, res, next) {
   }
 }
 
+function findResident(apartment, residentId) {
+  if (!apartment || !Array.isArray(apartment.residents)) return null;
+  // Try subdocument id if valid ObjectId
+  let res = null;
+  try {
+    res = apartment.residents.id(residentId);
+  } catch (e) {
+    res = null;
+  }
+  if (!res) {
+    res = apartment.residents.find(
+      r => r.residentId === residentId || r._id.toString() === residentId
+    );
+  }
+  return res;
+}
+
 /**
  * Update resident in Apartment Registry
  */
@@ -532,7 +548,7 @@ async function updateResident(req, res, next) {
       return res.status(404).json({ success: false, message: 'Apartment not found' });
     }
 
-    const resident = apartment.residents.id(residentId);
+    const resident = findResident(apartment, residentId);
     if (!resident) {
       return res.status(404).json({ success: false, message: 'Resident record not found' });
     }
@@ -592,7 +608,7 @@ async function removeResident(req, res, next) {
       return res.status(404).json({ success: false, message: 'Apartment not found' });
     }
 
-    const resident = apartment.residents.id(residentId);
+    const resident = findResident(apartment, residentId);
     if (!resident) {
       return res.status(404).json({ success: false, message: 'Resident record not found' });
     }
@@ -602,7 +618,9 @@ async function removeResident(req, res, next) {
       await User.findByIdAndDelete(resident.userId).catch(() => {});
     }
 
-    apartment.residents = apartment.residents.filter(r => r._id.toString() !== residentId);
+    apartment.residents = apartment.residents.filter(
+      r => r._id.toString() !== resident._id.toString() && r.residentId !== residentId
+    );
     await apartment.save();
 
     return res.json({ success: true, message: 'Resident removed from registry successfully' });
@@ -622,7 +640,7 @@ async function inviteResident(req, res, next) {
       return res.status(404).json({ success: false, message: 'Apartment not found' });
     }
 
-    const resident = apartment.residents.id(residentId);
+    const resident = findResident(apartment, residentId);
     if (!resident) {
       return res.status(404).json({ success: false, message: 'Resident not found' });
     }
@@ -1009,12 +1027,15 @@ async function getTicketById(req, res, next) {
       }
     }
 
-    // Hide internal notes from resident/customer
-    if (user.role === 'resident' || user.role === 'client') {
-      ticket.internalNotes = [];
+    // Convert to plain object to properly delete private fields
+    const ticketObj = ticket.toObject ? ticket.toObject() : JSON.parse(JSON.stringify(ticket));
+
+    // Hide internal notes from resident/customer/client
+    if (user.role === 'resident' || user.role === 'client' || user.role === 'customer') {
+      delete ticketObj.internalNotes;
     }
 
-    return res.json({ success: true, data: ticket });
+    return res.json({ success: true, data: ticketObj });
   } catch (err) {
     next(err);
   }
@@ -1154,7 +1175,7 @@ async function assignStaff(req, res, next) {
   try {
     const user = req.authUser || (await User.findById(req.user.id));
     const { id } = req.params;
-    const { staffId, notes } = req.body;
+    const { staffId, staffName, staffPhone, notes } = req.body;
 
     const ticket = await SupportTicket.findById(id);
     if (!ticket) {
@@ -1165,25 +1186,38 @@ async function assignStaff(req, res, next) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const staff = await User.findById(staffId);
-    if (!staff) {
-      return res.status(404).json({ success: false, message: 'Maintenance staff not found' });
+    let staffDoc = null;
+    if (staffId) {
+      staffDoc = await User.findById(staffId);
+      if (!staffDoc) {
+        return res.status(404).json({ success: false, message: 'Maintenance staff not found' });
+      }
     }
 
-    ticket.assignedStaff = staff._id;
-    ticket.assignedStaffName = staff.name;
-    ticket.assignedStaffPhone = staff.mobileNumber || staff.phone || '';
+    if (staffDoc) {
+      ticket.assignedStaff = staffDoc._id;
+      ticket.assignedStaffName = staffDoc.name;
+      ticket.assignedStaffPhone = staffDoc.mobileNumber || staffDoc.phone || '';
+    } else if (staffName) {
+      ticket.assignedStaff = undefined;
+      ticket.assignedStaffName = staffName.trim();
+      ticket.assignedStaffPhone = (staffPhone || '').trim();
+    } else {
+      return res.status(400).json({ success: false, message: 'Either staffId or staffName must be provided' });
+    }
+
     ticket.assignedAt = new Date();
 
     if (ticket.status === 'New' || ticket.status === 'Acknowledged') {
       ticket.status = 'Assigned';
     }
 
+    const assignedName = staffDoc ? staffDoc.name : staffName.trim();
     ticket.statusHistory.push({
       status: ticket.status,
       changedBy: user._id,
       changedByName: user.name || 'Admin',
-      reason: `Assigned to maintenance technician ${staff.name}${notes ? ` (${notes})` : ''}`,
+      reason: `Assigned to maintenance technician ${assignedName}${notes ? ` (${notes})` : ''}`,
       timestamp: new Date(),
     });
 
@@ -1194,20 +1228,22 @@ async function assignStaff(req, res, next) {
       await notificationService.createNotification(
         ticket.customer,
         `Technician Assigned to #${ticket.ticketId}`,
-        `Technician ${staff.name} has been assigned to inspect and resolve your complaint.`,
+        `Technician ${assignedName} has been assigned to inspect and resolve your complaint.`,
         'ticket_assigned'
       ).catch(() => {});
     }
 
-    // Notify technician
-    await notificationService.createNotification(
-      staff._id,
-      `New Maintenance Task: #${ticket.ticketId}`,
-      `You have been assigned to resolve a ${ticket.category} complaint at ${ticket.apartmentName}, Flat ${ticket.flatNumber}.`,
-      'job_assigned'
-    ).catch(() => {});
+    // Notify technician if registered user
+    if (staffDoc) {
+      await notificationService.createNotification(
+        staffDoc._id,
+        `New Maintenance Task: #${ticket.ticketId}`,
+        `You have been assigned to resolve a ${ticket.category} complaint at ${ticket.apartmentName}, Flat ${ticket.flatNumber}.`,
+        'job_assigned'
+      ).catch(() => {});
+    }
 
-    return res.json({ success: true, message: `Ticket assigned to ${staff.name}`, data: ticket });
+    return res.json({ success: true, message: `Ticket assigned to ${assignedName}`, data: ticket });
   } catch (err) {
     next(err);
   }
