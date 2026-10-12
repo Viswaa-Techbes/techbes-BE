@@ -233,6 +233,10 @@ const quoteRequestSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    terms: {
+      type: String,
+      default: '',
+    },
     followUpDate: {
       type: Date,
       default: null,

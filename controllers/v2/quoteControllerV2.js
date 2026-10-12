@@ -651,7 +651,7 @@ async function getQuoteRequestDetails(req, res, next) {
 async function priceQuotation(req, res, next) {
   try {
     const { id } = req.params;
-    const { items, gstRate = 18, validityDays = 15, adminNotes, saveAsDraft } = req.body;
+    const { items, gstRate = 18, validityDays = 15, adminNotes, terms, saveAsDraft } = req.body;
     const mongoose = require('mongoose');
 
     let quote = null;
@@ -697,6 +697,9 @@ async function priceQuotation(req, res, next) {
 
     if (adminNotes !== undefined) {
       quote.adminNotes = adminNotes;
+    }
+    if (terms !== undefined) {
+      quote.terms = terms;
     }
 
     quote.status = saveAsDraft ? 'quotation_draft' : 'quotation_draft';
