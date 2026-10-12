@@ -78,8 +78,14 @@ async function createApartment(req, res, next) {
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Apartment name is required' });
     }
-    if (!address || !address.trim()) {
-      return res.status(400).json({ success: false, message: 'Apartment address is required' });
+    let addressStr = '';
+    if (typeof address === 'string') {
+      addressStr = address.trim();
+    } else if (address && typeof address === 'object') {
+      addressStr = [address.street, address.locality || locality, address.city || city, address.state, address.pincode || pincode].filter(Boolean).join(', ');
+    }
+    if (!addressStr) {
+      addressStr = (locality || city || 'Bangalore').trim();
     }
 
     const existing = await Apartment.findOne({ name: new RegExp(`^${name.trim()}$`, 'i') });
@@ -89,10 +95,10 @@ async function createApartment(req, res, next) {
 
     const apartment = await Apartment.create({
       name: name.trim(),
-      address: address.trim(),
-      locality: locality?.trim() || '',
-      city: city?.trim() || 'Bangalore',
-      pincode: pincode?.trim() || '',
+      address: addressStr,
+      locality: locality?.trim() || (typeof address === 'object' ? address.locality || '' : ''),
+      city: city?.trim() || (typeof address === 'object' ? address.city || 'Bangalore' : 'Bangalore'),
+      pincode: pincode?.trim() || (typeof address === 'object' ? address.pincode || '' : ''),
       contactPerson: contactPerson?.trim() || '',
       contactPhone: contactPhone?.trim() || '',
       contactEmail: contactEmail?.trim() || '',
@@ -111,7 +117,18 @@ async function createApartment(req, res, next) {
  */
 async function updateApartment(req, res, next) {
   try {
-    const apartment = await Apartment.findByIdAndUpdate(req.params.id, req.body, {
+    const updateData = { ...req.body };
+    if (updateData.address && typeof updateData.address === 'object') {
+      updateData.address = [
+        updateData.address.street,
+        updateData.address.locality || updateData.locality,
+        updateData.address.city || updateData.city,
+        updateData.address.state,
+        updateData.address.pincode || updateData.pincode
+      ].filter(Boolean).join(', ');
+    }
+
+    const apartment = await Apartment.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
     });

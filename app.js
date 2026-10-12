@@ -198,6 +198,7 @@ app.use('/api/v2/ai', aiRoutesV2);
 app.use('/api/v2/amc', amcRoutesV2);
 app.use('/api/v2/quotes', quoteRoutesV2);
 app.use('/api/v2/inventory', inventoryRoutesV2);
+app.use('/api/v2/apartments', apartmentRoutesV2);
 
 // Backwards-compatible API aliases used by frontends
 app.use('/api/bookings', bookingRoutesV2);
