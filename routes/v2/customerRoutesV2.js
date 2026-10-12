@@ -15,6 +15,7 @@ router.get('/tickets', apartmentController.getTickets);
 router.post('/tickets', apartmentController.createTicket);
 router.get('/tickets/:id', apartmentController.getTicketById);
 router.put('/tickets/:id/reply', apartmentController.replyToTicket);
+router.put('/tickets/:id/reopen', apartmentController.reopenTicket);
 
 // Dashboard
 router.get('/dashboard-stats', customerController.getDashboardStats);

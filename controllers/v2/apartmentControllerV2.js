@@ -2,30 +2,73 @@ const Apartment = require('../../models/Apartment');
 const User = require('../../models/User');
 const SupportTicket = require('../../models/SupportTicket');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { signToken } = require('../../utils/jwt');
+const notificationService = require('../../services/notificationService');
 
-// ─── APARTMENT MASTER (ADMIN) ──────────────────────────────────────────────────
+// Helper to generate 6-digit activation code
+function generateActivationCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Helper to generate a unique Resident ID
+function generateResidentId(apartment, flatNumber) {
+  const prefix = (apartment?.name || 'APT')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(0, 3)
+    .toUpperCase();
+  const cleanFlat = String(flatNumber || '').replace(/[^A-Za-z0-9]/g, '');
+  const rand = Math.floor(100 + Math.random() * 900);
+  return `RES-${prefix}-${cleanFlat}-${rand}`;
+}
+
+// ─── APARTMENT MASTER (ADMIN & ASSOCIATION) ───────────────────────────────────
 
 /**
- * List all apartments
+ * List all apartments with comprehensive statistics (residents, committee users, open complaints)
  */
 async function getApartments(req, res, next) {
   try {
-    const apartments = await Apartment.find()
+    const user = req.authUser || (await User.findById(req.user.id));
+    const filter = {};
+
+    // Association members are scoped strictly to their own apartment
+    if (user.role === 'association') {
+      if (!user.apartmentId) {
+        return res.json({ success: true, data: [] });
+      }
+      filter._id = user.apartmentId;
+    }
+
+    const { search } = req.query;
+    if (search && search.trim()) {
+      filter.$or = [
+        { name: new RegExp(search.trim(), 'i') },
+        { address: new RegExp(search.trim(), 'i') },
+        { city: new RegExp(search.trim(), 'i') },
+        { locality: new RegExp(search.trim(), 'i') },
+      ];
+    }
+
+    const apartments = await Apartment.find(filter)
       .populate('associationUsers', 'name mobileNumber email role')
       .sort({ name: 1 })
       .lean();
 
-    // Attach count statistics
+    // Attach accurate counts
     const withCounts = await Promise.all(
       apartments.map(async (apt) => {
         const ticketCount = await SupportTicket.countDocuments({ apartmentId: apt._id });
         const openTickets = await SupportTicket.countDocuments({
           apartmentId: apt._id,
-          status: { $in: ['Open', 'In Progress'] },
+          status: { $in: ['New', 'Open', 'Acknowledged', 'Assigned', 'In Progress', 'Reopened'] },
         });
+        const activeResidentsCount = (apt.residents || []).filter(r => r.status === 'active').length;
+
         return {
           ...apt,
           residentsCount: (apt.residents || []).length,
+          activeResidentsCount,
           associationCount: (apt.associationUsers || []).length,
           ticketCount,
           openTickets,
@@ -40,11 +83,21 @@ async function getApartments(req, res, next) {
 }
 
 /**
- * Get apartment details
+ * Get apartment details by ID (with IDOR check for association users)
  */
 async function getApartmentById(req, res, next) {
   try {
-    const apartment = await Apartment.findById(req.params.id)
+    const user = req.authUser || (await User.findById(req.user.id));
+    const { id } = req.params;
+
+    // IDOR check: association users can ONLY view their own apartment
+    if (user.role === 'association') {
+      if (!user.apartmentId || user.apartmentId.toString() !== id) {
+        return res.status(403).json({ success: false, message: 'Access denied to other apartment records' });
+      }
+    }
+
+    const apartment = await Apartment.findById(id)
       .populate('associationUsers', 'name mobileNumber email role')
       .lean();
 
@@ -52,14 +105,22 @@ async function getApartmentById(req, res, next) {
       return res.status(404).json({ success: false, message: 'Apartment not found' });
     }
 
+    // Fetch tickets for this apartment
     const tickets = await SupportTicket.find({ apartmentId: apartment._id })
+      .populate('assignedStaff', 'name mobileNumber phone')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(100)
+      .lean();
+
+    const openTicketsCount = tickets.filter(t =>
+      ['New', 'Open', 'Acknowledged', 'Assigned', 'In Progress', 'Reopened'].includes(t.status)
+    ).length;
 
     return res.json({
       success: true,
       data: {
         ...apartment,
+        openTicketsCount,
         tickets,
       },
     });
@@ -69,20 +130,43 @@ async function getApartmentById(req, res, next) {
 }
 
 /**
- * Create apartment
+ * Create apartment (Admin only)
  */
 async function createApartment(req, res, next) {
   try {
-    const { name, address, locality, city = 'Bangalore', pincode, contactPerson, contactPhone, contactEmail } = req.body;
+    const {
+      name,
+      address,
+      locality,
+      city = 'Bangalore',
+      state = 'Karnataka',
+      pincode,
+      contactPerson,
+      contactPhone,
+      contactMobile,
+      contactEmail,
+      blocks,
+      totalFlats,
+      notes,
+    } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Apartment name is required' });
     }
+
     let addressStr = '';
     if (typeof address === 'string') {
       addressStr = address.trim();
     } else if (address && typeof address === 'object') {
-      addressStr = [address.street, address.locality || locality, address.city || city, address.state, address.pincode || pincode].filter(Boolean).join(', ');
+      addressStr = [
+        address.street,
+        address.locality || locality,
+        address.city || city,
+        address.state || state,
+        address.pincode || pincode,
+      ]
+        .filter(Boolean)
+        .join(', ');
     }
     if (!addressStr) {
       addressStr = (locality || city || 'Bangalore').trim();
@@ -93,15 +177,27 @@ async function createApartment(req, res, next) {
       return res.status(409).json({ success: false, message: 'An apartment with this name already exists' });
     }
 
+    const cleanBlocks = Array.isArray(blocks)
+      ? blocks.map(b => ({
+          name: String(b.name || '').trim(),
+          floors: parseInt(b.floors, 10) || 1,
+          flatsCount: parseInt(b.flatsCount, 10) || 0,
+        })).filter(b => Boolean(b.name))
+      : [];
+
     const apartment = await Apartment.create({
       name: name.trim(),
       address: addressStr,
       locality: locality?.trim() || (typeof address === 'object' ? address.locality || '' : ''),
       city: city?.trim() || (typeof address === 'object' ? address.city || 'Bangalore' : 'Bangalore'),
+      state: state?.trim() || (typeof address === 'object' ? address.state || 'Karnataka' : 'Karnataka'),
       pincode: pincode?.trim() || (typeof address === 'object' ? address.pincode || '' : ''),
       contactPerson: contactPerson?.trim() || '',
-      contactPhone: contactPhone?.trim() || '',
+      contactPhone: (contactPhone || contactMobile)?.trim() || '',
       contactEmail: contactEmail?.trim() || '',
+      blocks: cleanBlocks,
+      totalFlats: parseInt(totalFlats, 10) || 0,
+      notes: notes?.trim() || '',
       associationUsers: [],
       residents: [],
     });
@@ -113,7 +209,7 @@ async function createApartment(req, res, next) {
 }
 
 /**
- * Update apartment
+ * Update apartment (Admin only)
  */
 async function updateApartment(req, res, next) {
   try {
@@ -123,9 +219,25 @@ async function updateApartment(req, res, next) {
         updateData.address.street,
         updateData.address.locality || updateData.locality,
         updateData.address.city || updateData.city,
-        updateData.address.state,
-        updateData.address.pincode || updateData.pincode
-      ].filter(Boolean).join(', ');
+        updateData.address.state || updateData.state,
+        updateData.address.pincode || updateData.pincode,
+      ]
+        .filter(Boolean)
+        .join(', ');
+    }
+
+    if (updateData.contactMobile && !updateData.contactPhone) {
+      updateData.contactPhone = updateData.contactMobile;
+    }
+
+    if (Array.isArray(updateData.blocks)) {
+      updateData.blocks = updateData.blocks
+        .map(b => ({
+          name: String(b.name || '').trim(),
+          floors: parseInt(b.floors, 10) || 1,
+          flatsCount: parseInt(b.flatsCount, 10) || 0,
+        }))
+        .filter(b => Boolean(b.name));
     }
 
     const apartment = await Apartment.findByIdAndUpdate(req.params.id, updateData, {
@@ -142,7 +254,7 @@ async function updateApartment(req, res, next) {
 }
 
 /**
- * Delete apartment
+ * Delete apartment safely
  */
 async function deleteApartment(req, res, next) {
   try {
@@ -151,12 +263,14 @@ async function deleteApartment(req, res, next) {
       return res.status(404).json({ success: false, message: 'Apartment not found' });
     }
 
-    // Clean up association users and residents
+    // Clean up associated committee user logins
     if (apartment.associationUsers && apartment.associationUsers.length > 0) {
       await User.deleteMany({ _id: { $in: apartment.associationUsers } });
     }
+
+    // Clean up resident user accounts
     const residentUserIds = (apartment.residents || [])
-      .map((r) => r.userId)
+      .map(r => r.userId)
       .filter(Boolean);
     if (residentUserIds.length > 0) {
       await User.deleteMany({ _id: { $in: residentUserIds } });
@@ -169,10 +283,10 @@ async function deleteApartment(req, res, next) {
   }
 }
 
-// ─── ASSOCIATION USERS (ADMIN) ────────────────────────────────────────────────
+// ─── ASSOCIATION COMMITTEE USERS (MAX 3 ACCOUNTS PER APARTMENT) ───────────────
 
 /**
- * Create or assign Association User (Max 3 per apartment)
+ * Create or assign Association User (strictly max 3 per apartment)
  */
 async function createAssociationUser(req, res, next) {
   try {
@@ -184,10 +298,11 @@ async function createAssociationUser(req, res, next) {
       return res.status(404).json({ success: false, message: 'Apartment not found' });
     }
 
+    // Enforce 3-user limit strictly on backend
     if ((apartment.associationUsers || []).length >= 3) {
       return res.status(400).json({
         success: false,
-        message: 'Maximum limit reached: each apartment association supports exactly 3 association login users.',
+        message: 'Maximum limit reached: each apartment association is strictly limited to 3 committee accounts.',
       });
     }
 
@@ -201,7 +316,6 @@ async function createAssociationUser(req, res, next) {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
     }
 
-    // Check if user already exists
     const cleanMobile = mobileNumber.trim();
     let existingUser = await User.findOne({ mobileNumber: cleanMobile });
     if (existingUser) {
@@ -211,7 +325,7 @@ async function createAssociationUser(req, res, next) {
       });
     }
 
-    // Create new association user
+    // Create association committee user
     const user = await User.create({
       name: name.trim(),
       mobileNumber: cleanMobile,
@@ -227,7 +341,7 @@ async function createAssociationUser(req, res, next) {
 
     return res.status(201).json({
       success: true,
-      message: 'Association user created successfully',
+      message: 'Association committee account created successfully',
       data: user.toSafeObject(),
     });
   } catch (err) {
@@ -247,7 +361,7 @@ async function removeAssociationUser(req, res, next) {
     }
 
     apartment.associationUsers = (apartment.associationUsers || []).filter(
-      (uId) => uId.toString() !== userId
+      uId => uId.toString() !== userId
     );
     await apartment.save();
 
@@ -259,15 +373,32 @@ async function removeAssociationUser(req, res, next) {
   }
 }
 
-// ─── RESIDENTS (ADMIN & ASSOCIATION) ──────────────────────────────────────────
+// ─── RESIDENT REGISTRY (ADMIN & ASSOCIATION) ──────────────────────────────────
 
 /**
- * Add Resident to Apartment
+ * Add Resident to Apartment Registry
  */
 async function addResident(req, res, next) {
   try {
+    const authUser = req.authUser || (await User.findById(req.user.id));
     const { id } = req.params;
-    const { flatNumber, name, phone, email, password } = req.body;
+    const {
+      flatNumber,
+      block = '',
+      floor = '',
+      name,
+      phone,
+      email,
+      residentType = 'owner',
+      moveInDate,
+      emergencyContact,
+      password,
+    } = req.body;
+
+    // IDOR check: association users can ONLY add to their own apartment
+    if (authUser.role === 'association' && authUser.apartmentId.toString() !== id) {
+      return res.status(403).json({ success: false, message: 'Access denied: cannot add residents to other apartments' });
+    }
 
     const apartment = await Apartment.findById(id);
     if (!apartment) {
@@ -287,20 +418,32 @@ async function addResident(req, res, next) {
     const cleanFlat = flatNumber.trim().toUpperCase();
     const cleanPhone = phone.trim();
 
-    // Check duplicate flat
-    const existingFlat = (apartment.residents || []).find((r) => r.flatNumber === cleanFlat);
-    if (existingFlat) {
-      return res.status(409).json({ success: false, message: `Flat ${cleanFlat} is already registered in this apartment` });
+    // Prevent duplicate active resident in the same flat of this apartment
+    const existingActiveFlat = (apartment.residents || []).find(
+      r => r.flatNumber === cleanFlat && r.status === 'active'
+    );
+    if (existingActiveFlat) {
+      return res.status(409).json({
+        success: false,
+        message: `Flat ${cleanFlat} currently has an active resident (${existingActiveFlat.name}). Please mark them as Vacated before assigning a new active resident.`,
+      });
     }
 
-    // Create resident user login account if password provided
+    const uniqueResidentId = generateResidentId(apartment, cleanFlat);
+
     let residentUserId = null;
+    let accountStatus = 'unregistered';
+    let activationCode = '';
+    let activationExpires = null;
+
+    // If admin set password directly, activate immediately
     if (password && password.length >= 6) {
-      const existingUser = await User.findOne({ mobileNumber: cleanPhone });
+      let existingUser = await User.findOne({ mobileNumber: cleanPhone });
       if (existingUser) {
         existingUser.role = 'resident';
         existingUser.apartmentId = apartment._id;
         existingUser.flatNumber = cleanFlat;
+        existingUser.block = block?.trim() || '';
         await existingUser.save();
         residentUserId = existingUser._id;
       } else {
@@ -312,19 +455,39 @@ async function addResident(req, res, next) {
           role: 'resident',
           apartmentId: apartment._id,
           flatNumber: cleanFlat,
+          block: block?.trim() || '',
           userType: 'web_user',
         });
         residentUserId = newUser._id;
       }
+      accountStatus = 'active';
+    } else {
+      // Secure Invitation / Activation code flow (7 days expiry)
+      activationCode = generateActivationCode();
+      activationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      accountStatus = 'invited';
     }
 
     const residentRecord = {
+      residentId: uniqueResidentId,
       flatNumber: cleanFlat,
+      block: block?.trim() || '',
+      floor: floor?.trim() || '',
       name: name.trim(),
       phone: cleanPhone,
       email: email?.trim() || '',
-      userId: residentUserId,
+      residentType: residentType === 'tenant' ? 'tenant' : 'owner',
       status: 'active',
+      moveInDate: moveInDate ? new Date(moveInDate) : new Date(),
+      emergencyContact: {
+        name: emergencyContact?.name?.trim() || '',
+        phone: emergencyContact?.phone?.trim() || '',
+        relation: emergencyContact?.relation?.trim() || '',
+      },
+      userId: residentUserId,
+      accountStatus,
+      activationCode,
+      activationExpires,
     };
 
     apartment.residents.push(residentRecord);
@@ -332,7 +495,7 @@ async function addResident(req, res, next) {
 
     return res.status(201).json({
       success: true,
-      message: 'Resident added successfully',
+      message: 'Resident added to apartment registry successfully',
       data: residentRecord,
     });
   } catch (err) {
@@ -341,9 +504,117 @@ async function addResident(req, res, next) {
 }
 
 /**
- * Remove Resident from Apartment
+ * Update resident in Apartment Registry
+ */
+async function updateResident(req, res, next) {
+  try {
+    const authUser = req.authUser || (await User.findById(req.user.id));
+    const { id, residentId } = req.params;
+    const {
+      name,
+      phone,
+      email,
+      block,
+      floor,
+      flatNumber,
+      residentType,
+      status,
+      moveInDate,
+      emergencyContact,
+    } = req.body;
+
+    if (authUser.role === 'association' && authUser.apartmentId.toString() !== id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const apartment = await Apartment.findById(id);
+    if (!apartment) {
+      return res.status(404).json({ success: false, message: 'Apartment not found' });
+    }
+
+    const resident = apartment.residents.id(residentId);
+    if (!resident) {
+      return res.status(404).json({ success: false, message: 'Resident record not found' });
+    }
+
+    if (name) resident.name = name.trim();
+    if (phone) resident.phone = phone.trim();
+    if (email !== undefined) resident.email = email.trim();
+    if (block !== undefined) resident.block = block.trim();
+    if (floor !== undefined) resident.floor = floor.trim();
+    if (flatNumber) resident.flatNumber = flatNumber.trim().toUpperCase();
+    if (residentType) resident.residentType = residentType === 'tenant' ? 'tenant' : 'owner';
+    if (moveInDate) resident.moveInDate = new Date(moveInDate);
+    if (emergencyContact) {
+      resident.emergencyContact = {
+        name: emergencyContact.name?.trim() || resident.emergencyContact?.name || '',
+        phone: emergencyContact.phone?.trim() || resident.emergencyContact?.phone || '',
+        relation: emergencyContact.relation?.trim() || resident.emergencyContact?.relation || '',
+      };
+    }
+
+    // Handle occupancy status change (e.g. marking as Vacated)
+    if (status && ['active', 'vacated', 'inactive'].includes(status)) {
+      resident.status = status;
+      if (status === 'vacated' && resident.userId) {
+        // Deactivate login but preserve tickets history
+        await User.findByIdAndUpdate(resident.userId, { isOnline: false, sessionActive: false });
+        resident.accountStatus = 'suspended';
+      }
+    }
+
+    await apartment.save();
+
+    return res.json({
+      success: true,
+      message: 'Resident record updated successfully',
+      data: resident,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Remove Resident from Apartment Registry
  */
 async function removeResident(req, res, next) {
+  try {
+    const authUser = req.authUser || (await User.findById(req.user.id));
+    const { id, residentId } = req.params;
+
+    if (authUser.role === 'association' && authUser.apartmentId.toString() !== id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const apartment = await Apartment.findById(id);
+    if (!apartment) {
+      return res.status(404).json({ success: false, message: 'Apartment not found' });
+    }
+
+    const resident = apartment.residents.id(residentId);
+    if (!resident) {
+      return res.status(404).json({ success: false, message: 'Resident record not found' });
+    }
+
+    // If resident has a user account, delete or unlink
+    if (resident.userId) {
+      await User.findByIdAndDelete(resident.userId).catch(() => {});
+    }
+
+    apartment.residents = apartment.residents.filter(r => r._id.toString() !== residentId);
+    await apartment.save();
+
+    return res.json({ success: true, message: 'Resident removed from registry successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Generate fresh activation invitation for a resident
+ */
+async function inviteResident(req, res, next) {
   try {
     const { id, residentId } = req.params;
     const apartment = await Apartment.findById(id);
@@ -352,30 +623,141 @@ async function removeResident(req, res, next) {
     }
 
     const resident = apartment.residents.id(residentId);
-    if (resident && resident.userId) {
-      await User.findByIdAndDelete(resident.userId);
+    if (!resident) {
+      return res.status(404).json({ success: false, message: 'Resident not found' });
     }
 
-    apartment.residents = apartment.residents.filter(
-      (r) => r._id.toString() !== residentId
-    );
+    const activationCode = generateActivationCode();
+    resident.activationCode = activationCode;
+    resident.activationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    resident.accountStatus = 'invited';
     await apartment.save();
 
-    return res.json({ success: true, message: 'Resident removed successfully' });
+    const activationUrl = `${process.env.FRONTEND_URL || 'https://techbes.co.in'}/resident/activate?phone=${encodeURIComponent(resident.phone)}&code=${activationCode}`;
+
+    return res.json({
+      success: true,
+      message: `Activation invitation generated for ${resident.name}`,
+      data: {
+        residentName: resident.name,
+        phone: resident.phone,
+        flatNumber: resident.flatNumber,
+        activationCode,
+        activationUrl,
+        expiresAt: resident.activationExpires,
+      },
+    });
   } catch (err) {
     next(err);
   }
 }
 
-// ─── TICKETING ENGINE & ACCESS RULES (PARTS 18, 19, 21, 22, 24) ───────────────
+/**
+ * Public endpoint: Resident activates their own login account with phone, code, and new password
+ */
+async function activateResident(req, res, next) {
+  try {
+    const { phone, activationCode, password } = req.body;
+
+    if (!phone || !phone.trim()) {
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+    if (!activationCode || !activationCode.trim()) {
+      return res.status(400).json({ success: false, message: 'Activation code is required' });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const cleanPhone = phone.trim();
+    const cleanCode = activationCode.trim();
+
+    // Find apartment containing matching resident
+    const apartment = await Apartment.findOne({
+      'residents.phone': cleanPhone,
+      'residents.activationCode': cleanCode,
+    });
+
+    if (!apartment) {
+      return res.status(400).json({ success: false, message: 'Invalid phone number or activation code' });
+    }
+
+    const resident = apartment.residents.find(
+      r => r.phone === cleanPhone && r.activationCode === cleanCode
+    );
+
+    if (!resident) {
+      return res.status(400).json({ success: false, message: 'Activation record not found' });
+    }
+
+    if (resident.activationExpires && new Date(resident.activationExpires) < new Date()) {
+      return res.status(400).json({ success: false, message: 'Activation code has expired. Please ask your society admin for a fresh code.' });
+    }
+
+    // Create or update resident User login
+    let user = await User.findOne({ mobileNumber: cleanPhone });
+    if (user) {
+      user.password = password; // hashed automatically
+      user.role = 'resident';
+      user.apartmentId = apartment._id;
+      user.flatNumber = resident.flatNumber;
+      user.block = resident.block || '';
+      user.name = resident.name;
+      user.isOnline = true;
+      user.sessionActive = true;
+      await user.save();
+    } else {
+      user = await User.create({
+        name: resident.name,
+        mobileNumber: cleanPhone,
+        email: resident.email || undefined,
+        password,
+        role: 'resident',
+        apartmentId: apartment._id,
+        flatNumber: resident.flatNumber,
+        block: resident.block || '',
+        userType: 'web_user',
+        isOnline: true,
+        sessionActive: true,
+      });
+    }
+
+    // Mark resident as active and clear activation code
+    resident.userId = user._id;
+    resident.accountStatus = 'active';
+    resident.activationCode = '';
+    resident.activationExpires = null;
+    await apartment.save();
+
+    const token = signToken(user._id, user.role);
+
+    return res.json({
+      success: true,
+      message: 'Resident account activated successfully! Welcome to TechBes Society Portal.',
+      token,
+      user: user.toSafeObject(),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── RESIDENT COMPLAINTS & SOCIETY TICKETS ───────────────────────────────────
 
 /**
- * Create ticket (Association, Resident, or Admin)
+ * Create complaint / ticket
  */
 async function createTicket(req, res, next) {
   try {
     const user = req.authUser || (await User.findById(req.user.id));
-    const { subject, description, category = 'Other', priority = 'Medium', voiceNote, attachments } = req.body;
+    const {
+      subject,
+      description,
+      category = 'Other',
+      priority = 'Medium',
+      voiceNote,
+      attachments,
+    } = req.body;
 
     if (!subject || !subject.trim()) {
       return res.status(400).json({ success: false, message: 'Ticket subject is required' });
@@ -385,15 +767,24 @@ async function createTicket(req, res, next) {
       subject: subject.trim(),
       description: description?.trim() || '',
       category,
-      priority,
-      status: 'Open',
+      priority: ['Low', 'Medium', 'High', 'Emergency', 'Urgent'].includes(priority) ? priority : 'Medium',
+      status: 'New',
       messages: [{ sender: user._id, text: description || subject }],
+      statusHistory: [
+        {
+          status: 'New',
+          changedBy: user._id,
+          changedByName: user.name || 'User',
+          reason: 'Complaint submitted',
+          timestamp: new Date(),
+        },
+      ],
     };
 
     if (voiceNote) ticketData.voiceNote = voiceNote;
     if (Array.isArray(attachments)) ticketData.attachments = attachments;
 
-    // Association Member Ticket
+    // 1. Association Member Ticket
     if (user.role === 'association') {
       if (!user.apartmentId) {
         return res.status(400).json({ success: false, message: 'Association user is not linked to an apartment' });
@@ -413,7 +804,7 @@ async function createTicket(req, res, next) {
       ticketData.raisedByName = user.name;
       ticketData.raisedByPhone = user.mobileNumber;
     }
-    // Resident Ticket
+    // 2. Resident Ticket (derived strictly from authenticated resident account)
     else if (user.role === 'resident') {
       if (!user.apartmentId || !user.flatNumber) {
         return res.status(400).json({ success: false, message: 'Resident is not associated with an apartment and flat' });
@@ -424,8 +815,6 @@ async function createTicket(req, res, next) {
         return res.status(404).json({ success: false, message: 'Apartment not found' });
       }
 
-      // RULE 21: Backend derives and enforces flat ownership strictly!
-      // Resident can ONLY raise tickets for their OWN flat.
       ticketData.customer = user._id;
       ticketData.apartmentId = apartment._id;
       ticketData.companyId = apartment._id;
@@ -437,10 +826,11 @@ async function createTicket(req, res, next) {
       ticketData.residentId = user._id;
       ticketData.flatNumber = user.flatNumber;
       ticketData.flatId = user.flatNumber;
+      ticketData.block = user.block || '';
     }
-    // Admin Ticket
+    // 3. Admin Ticket
     else if (user.role === 'admin') {
-      const { apartmentId, raisedByType = 'association', flatNumber, residentName, residentPhone } = req.body;
+      const { apartmentId, raisedByType = 'association', flatNumber, residentName, residentPhone, block } = req.body;
       if (apartmentId) {
         const apartment = await Apartment.findById(apartmentId);
         if (apartment) {
@@ -449,6 +839,7 @@ async function createTicket(req, res, next) {
           ticketData.apartmentName = apartment.name;
           ticketData.raisedByType = raisedByType;
           ticketData.flatNumber = flatNumber || '';
+          ticketData.block = block || '';
           ticketData.raisedByName = residentName || user.name;
           ticketData.raisedByPhone = residentPhone || user.mobileNumber;
         }
@@ -456,7 +847,7 @@ async function createTicket(req, res, next) {
       ticketData.customer = user._id;
       ticketData.raisedByUserId = user._id;
     }
-    // Standard customer
+    // 4. Standard customer
     else {
       ticketData.customer = user._id;
       ticketData.raisedByType = 'customer';
@@ -466,9 +857,24 @@ async function createTicket(req, res, next) {
 
     const ticket = await SupportTicket.create(ticketData);
 
+    // Notify apartment association committee members if raised by resident
+    if (ticket.raisedByType === 'resident' && ticket.apartmentId) {
+      const apt = await Apartment.findById(ticket.apartmentId);
+      if (apt && Array.isArray(apt.associationUsers)) {
+        for (const assocUserId of apt.associationUsers) {
+          await notificationService.createNotification(
+            assocUserId,
+            `New Resident Complaint: Flat ${ticket.flatNumber}`,
+            `Flat ${ticket.flatNumber} logged a ${ticket.category} complaint: "${ticket.subject}"`,
+            'society_ticket'
+          ).catch(() => {});
+        }
+      }
+    }
+
     return res.status(201).json({
       success: true,
-      message: 'Ticket created successfully',
+      message: 'Complaint submitted successfully',
       data: ticket,
     });
   } catch (err) {
@@ -477,19 +883,16 @@ async function createTicket(req, res, next) {
 }
 
 /**
- * List tickets based on user role and apartment scoping
- * RULE 19: All 3 association users belonging to same apartment can view that apartment's tickets.
- * RULE 21: Residents can view ONLY their own flat tickets.
- * RULE 24: IDOR protection enforced on backend.
+ * List tickets based on user role, apartment scoping, filters, and pending ageing
  */
 async function getTickets(req, res, next) {
   try {
     const user = req.authUser || (await User.findById(req.user.id));
     const filter = {};
 
-    // 1. Admin: can view all tickets, with filters
+    // 1. Admin: can view all tickets with filters
     if (user.role === 'admin') {
-      const { apartmentId, raisedByType, flatNumber, status, category, date } = req.query;
+      const { apartmentId, raisedByType, flatNumber, status, category, priority, date, staffId } = req.query;
 
       if (apartmentId && apartmentId !== 'All') {
         filter.apartmentId = apartmentId;
@@ -506,6 +909,12 @@ async function getTickets(req, res, next) {
       if (category && category !== 'All') {
         filter.category = category;
       }
+      if (priority && priority !== 'All') {
+        filter.priority = priority;
+      }
+      if (staffId && staffId !== 'All') {
+        filter.assignedStaff = staffId;
+      }
       if (date) {
         const start = new Date(date);
         start.setHours(0, 0, 0, 0);
@@ -514,14 +923,14 @@ async function getTickets(req, res, next) {
         filter.createdAt = { $gte: start, $lte: end };
       }
     }
-    // 2. Association: ALL 3 association members of that apartment can view all tickets of that apartment
+    // 2. Association: ALL 3 association members can view ALL tickets of their apartment
     else if (user.role === 'association') {
       if (!user.apartmentId) {
         return res.json({ success: true, data: [] });
       }
       filter.apartmentId = user.apartmentId;
     }
-    // 3. Resident: can view ONLY their own flat tickets
+    // 3. Resident: can view ONLY their own flat's tickets
     else if (user.role === 'resident') {
       if (!user.apartmentId || !user.flatNumber) {
         return res.json({ success: true, data: [] });
@@ -530,31 +939,50 @@ async function getTickets(req, res, next) {
       filter.flatNumber = user.flatNumber;
       filter.raisedByType = 'resident';
     }
-    // 4. Regular client: can view only own tickets
+    // 4. Regular client
     else {
       filter.customer = user._id;
     }
 
     const tickets = await SupportTicket.find(filter)
-      .populate('apartmentId', 'name address')
+      .populate('apartmentId', 'name address locality')
       .populate('customer', 'name mobileNumber')
-      .sort({ createdAt: -1 });
+      .populate('assignedStaff', 'name mobileNumber phone')
+      .sort({ createdAt: -1 })
+      .lean();
 
-    return res.json({ success: true, data: tickets });
+    // Attach ageing calculation (days pending)
+    const ticketsWithAgeing = tickets.map(t => {
+      const isClosed = ['Resolved', 'Closed'].includes(t.status);
+      const createdTime = new Date(t.createdAt).getTime();
+      const endTime = isClosed && t.resolvedAt ? new Date(t.resolvedAt).getTime() : Date.now();
+      const ageingDays = Math.max(0, Math.floor((endTime - createdTime) / (1000 * 60 * 60 * 24)));
+
+      return {
+        ...t,
+        ageingDays,
+        isOverdue: !isClosed && ageingDays >= 3,
+      };
+    });
+
+    return res.json({ success: true, data: ticketsWithAgeing });
   } catch (err) {
     next(err);
   }
 }
 
 /**
- * Get ticket details by ID with strict IDOR access control
+ * Get single ticket details by ID with strict IDOR access control
  */
 async function getTicketById(req, res, next) {
   try {
     const user = req.authUser || (await User.findById(req.user.id));
     const ticket = await SupportTicket.findById(req.params.id)
-      .populate('apartmentId', 'name address')
-      .populate('messages.sender', 'name role');
+      .populate('apartmentId', 'name address contactPerson contactPhone')
+      .populate('customer', 'name mobileNumber')
+      .populate('assignedStaff', 'name mobileNumber phone')
+      .populate('messages.sender', 'name role')
+      .lean();
 
     if (!ticket) {
       return res.status(404).json({ success: false, message: 'Ticket not found' });
@@ -562,7 +990,7 @@ async function getTicketById(req, res, next) {
 
     // Role-based IDOR checks
     if (user.role === 'admin') {
-      // Admin has full access
+      // Full admin access
     } else if (user.role === 'association') {
       if (!ticket.apartmentId || ticket.apartmentId._id.toString() !== user.apartmentId.toString()) {
         return res.status(403).json({ success: false, message: 'Access denied to tickets of other apartments' });
@@ -576,9 +1004,14 @@ async function getTicketById(req, res, next) {
         return res.status(403).json({ success: false, message: 'Access denied: residents can view only their own flat tickets' });
       }
     } else {
-      if (ticket.customer.toString() !== user._id.toString()) {
+      if (ticket.customer?._id?.toString() !== user._id.toString()) {
         return res.status(403).json({ success: false, message: 'Access denied' });
       }
+    }
+
+    // Hide internal notes from resident/customer
+    if (user.role === 'resident' || user.role === 'client') {
+      ticket.internalNotes = [];
     }
 
     return res.json({ success: true, data: ticket });
@@ -588,7 +1021,7 @@ async function getTicketById(req, res, next) {
 }
 
 /**
- * Reply to a ticket or update status
+ * Post a resident-visible reply or status update
  */
 async function replyToTicket(req, res, next) {
   try {
@@ -614,25 +1047,328 @@ async function replyToTicket(req, res, next) {
       }
     }
 
-    if (text) {
+    if (text && text.trim()) {
       ticket.messages.push({
         sender: user._id,
-        text,
+        text: text.trim(),
         images: Array.isArray(images) ? images : [],
       });
     }
 
-    if (status && ['Open', 'In Progress', 'Resolved', 'Closed', 'Escalated'].includes(status)) {
-      ticket.status = status;
+    if (status && ['New', 'Acknowledged', 'Assigned', 'In Progress', 'Resolved', 'Closed'].includes(status)) {
+      if (user.role === 'resident' && status !== 'Closed') {
+        // Residents can only close or reply, not arbitrarily change maintenance status
+      } else {
+        ticket.status = status;
+        ticket.statusHistory.push({
+          status,
+          changedBy: user._id,
+          changedByName: user.name || 'User',
+          reason: 'Status updated via ticket response',
+          timestamp: new Date(),
+        });
+      }
     }
 
     await ticket.save();
 
+    // Notify customer/resident if updated by admin/association
+    if ((user.role === 'admin' || user.role === 'association') && ticket.customer) {
+      await notificationService.createNotification(
+        ticket.customer,
+        `New Message on Ticket #${ticket.ticketId}`,
+        `Society support posted an update on your complaint: "${ticket.subject}"`,
+        'ticket_reply'
+      ).catch(() => {});
+    }
+
     const populated = await SupportTicket.findById(ticket._id)
       .populate('apartmentId', 'name address')
+      .populate('assignedStaff', 'name mobileNumber phone')
       .populate('messages.sender', 'name role');
 
     return res.json({ success: true, data: populated });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Update ticket workflow status (Admin / Association)
+ * New → Acknowledged → Assigned → In Progress → Resolved → Closed
+ */
+async function updateTicketStatus(req, res, next) {
+  try {
+    const user = req.authUser || (await User.findById(req.user.id));
+    const { id } = req.params;
+    const { status, reason } = req.body;
+
+    const validStatuses = ['New', 'Acknowledged', 'Assigned', 'In Progress', 'Resolved', 'Closed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+    }
+
+    const ticket = await SupportTicket.findById(id);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    if (user.role === 'association' && ticket.apartmentId?.toString() !== user.apartmentId?.toString()) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    ticket.status = status;
+    if (status === 'Resolved') ticket.resolvedAt = new Date();
+    if (status === 'Closed') ticket.closedAt = new Date();
+
+    ticket.statusHistory.push({
+      status,
+      changedBy: user._id,
+      changedByName: user.name || 'Admin',
+      reason: reason?.trim() || `Status updated to ${status}`,
+      timestamp: new Date(),
+    });
+
+    await ticket.save();
+
+    // Notify resident
+    if (ticket.customer) {
+      await notificationService.createNotification(
+        ticket.customer,
+        `Ticket #${ticket.ticketId} is now ${status}`,
+        `Your complaint regarding "${ticket.subject}" has been marked as ${status}.`,
+        'ticket_status'
+      ).catch(() => {});
+    }
+
+    return res.json({ success: true, message: `Ticket status updated to ${status}`, data: ticket });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Assign maintenance staff to ticket (Admin / Association)
+ */
+async function assignStaff(req, res, next) {
+  try {
+    const user = req.authUser || (await User.findById(req.user.id));
+    const { id } = req.params;
+    const { staffId, notes } = req.body;
+
+    const ticket = await SupportTicket.findById(id);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    if (user.role === 'association' && ticket.apartmentId?.toString() !== user.apartmentId?.toString()) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const staff = await User.findById(staffId);
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Maintenance staff not found' });
+    }
+
+    ticket.assignedStaff = staff._id;
+    ticket.assignedStaffName = staff.name;
+    ticket.assignedStaffPhone = staff.mobileNumber || staff.phone || '';
+    ticket.assignedAt = new Date();
+
+    if (ticket.status === 'New' || ticket.status === 'Acknowledged') {
+      ticket.status = 'Assigned';
+    }
+
+    ticket.statusHistory.push({
+      status: ticket.status,
+      changedBy: user._id,
+      changedByName: user.name || 'Admin',
+      reason: `Assigned to maintenance technician ${staff.name}${notes ? ` (${notes})` : ''}`,
+      timestamp: new Date(),
+    });
+
+    await ticket.save();
+
+    // Notify resident
+    if (ticket.customer) {
+      await notificationService.createNotification(
+        ticket.customer,
+        `Technician Assigned to #${ticket.ticketId}`,
+        `Technician ${staff.name} has been assigned to inspect and resolve your complaint.`,
+        'ticket_assigned'
+      ).catch(() => {});
+    }
+
+    // Notify technician
+    await notificationService.createNotification(
+      staff._id,
+      `New Maintenance Task: #${ticket.ticketId}`,
+      `You have been assigned to resolve a ${ticket.category} complaint at ${ticket.apartmentName}, Flat ${ticket.flatNumber}.`,
+      'job_assigned'
+    ).catch(() => {});
+
+    return res.json({ success: true, message: `Ticket assigned to ${staff.name}`, data: ticket });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Add internal note to ticket (Admin / Association only)
+ */
+async function addInternalNote(req, res, next) {
+  try {
+    const user = req.authUser || (await User.findById(req.user.id));
+    const { id } = req.params;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Note text is required' });
+    }
+
+    const ticket = await SupportTicket.findById(id);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    if (user.role === 'association' && ticket.apartmentId?.toString() !== user.apartmentId?.toString()) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    ticket.internalNotes.push({
+      text: text.trim(),
+      addedBy: user._id,
+      addedByName: user.name || 'Staff',
+      createdAt: new Date(),
+    });
+
+    await ticket.save();
+
+    return res.json({ success: true, message: 'Internal note recorded', data: ticket.internalNotes });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Mark ticket as Resolved with resolution notes and completion photos
+ */
+async function resolveTicket(req, res, next) {
+  try {
+    const user = req.authUser || (await User.findById(req.user.id));
+    const { id } = req.params;
+    const { resolutionNotes, resolutionPhotos } = req.body;
+
+    const ticket = await SupportTicket.findById(id);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    if (user.role === 'association' && ticket.apartmentId?.toString() !== user.apartmentId?.toString()) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    ticket.status = 'Resolved';
+    ticket.resolutionNotes = resolutionNotes?.trim() || '';
+    if (Array.isArray(resolutionPhotos)) {
+      ticket.resolutionPhotos = resolutionPhotos;
+    }
+    ticket.resolvedAt = new Date();
+
+    ticket.statusHistory.push({
+      status: 'Resolved',
+      changedBy: user._id,
+      changedByName: user.name || 'Admin',
+      reason: resolutionNotes ? `Resolved: ${resolutionNotes}` : 'Complaint marked as resolved',
+      timestamp: new Date(),
+    });
+
+    await ticket.save();
+
+    // Notify resident
+    if (ticket.customer) {
+      await notificationService.createNotification(
+        ticket.customer,
+        `Complaint Resolved: Ticket #${ticket.ticketId}`,
+        `Your maintenance ticket for ${ticket.category} has been marked as Resolved. Please inspect and confirm.`,
+        'ticket_resolved'
+      ).catch(() => {});
+    }
+
+    return res.json({ success: true, message: 'Ticket resolved successfully', data: ticket });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Reopen a resolved/closed complaint with reason (Resident or Admin)
+ */
+async function reopenTicket(req, res, next) {
+  try {
+    const user = req.authUser || (await User.findById(req.user.id));
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ success: false, message: 'Reason for reopening the complaint is required' });
+    }
+
+    const ticket = await SupportTicket.findById(id);
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    // Role-based IDOR checks
+    if (user.role === 'resident') {
+      if (
+        ticket.apartmentId?.toString() !== user.apartmentId?.toString() ||
+        ticket.flatNumber !== user.flatNumber
+      ) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    } else if (user.role === 'association') {
+      if (ticket.apartmentId?.toString() !== user.apartmentId?.toString()) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
+    if (!['Resolved', 'Closed'].includes(ticket.status)) {
+      return res.status(400).json({ success: false, message: 'Only resolved or closed complaints can be reopened' });
+    }
+
+    ticket.status = 'Reopened';
+    ticket.isReopened = true;
+    ticket.reopenReason = reason.trim();
+    ticket.reopenedAt = new Date();
+    ticket.reopenedBy = user._id;
+
+    ticket.statusHistory.push({
+      status: 'Reopened',
+      changedBy: user._id,
+      changedByName: user.name || 'User',
+      reason: `Reopened: ${reason.trim()}`,
+      timestamp: new Date(),
+    });
+
+    await ticket.save();
+
+    // Notify apartment committee members and admin
+    if (ticket.apartmentId) {
+      const apt = await Apartment.findById(ticket.apartmentId);
+      if (apt && Array.isArray(apt.associationUsers)) {
+        for (const assocUserId of apt.associationUsers) {
+          await notificationService.createNotification(
+            assocUserId,
+            `Ticket #${ticket.ticketId} Reopened (Flat ${ticket.flatNumber})`,
+            `Complaint reopened by resident: "${reason.trim()}"`,
+            'ticket_reopened'
+          ).catch(() => {});
+        }
+      }
+    }
+
+    return res.json({ success: true, message: 'Complaint has been reopened', data: ticket });
   } catch (err) {
     next(err);
   }
@@ -647,9 +1383,17 @@ module.exports = {
   createAssociationUser,
   removeAssociationUser,
   addResident,
+  updateResident,
   removeResident,
+  inviteResident,
+  activateResident,
   createTicket,
   getTickets,
   getTicketById,
   replyToTicket,
+  updateTicketStatus,
+  assignStaff,
+  addInternalNote,
+  resolveTicket,
+  reopenTicket,
 };

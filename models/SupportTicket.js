@@ -81,6 +81,16 @@ const supportTicketSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    block: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    floor: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     subject: {
       type: String,
       required: true,
@@ -103,19 +113,123 @@ const supportTicketSchema = new mongoose.Schema(
     ],
     category: {
       type: String,
-      enum: ['Technical', 'Payment', 'Booking', 'Complaint', 'AMC', 'CCTV', 'Networking', 'Other'],
+      enum: [
+        'Plumbing/Water',
+        'Electrical',
+        'Lift',
+        'Security',
+        'Cleaning',
+        'Waste Management',
+        'Internet',
+        'Civil Maintenance',
+        'Technical',
+        'Payment',
+        'Booking',
+        'Complaint',
+        'AMC',
+        'CCTV',
+        'Networking',
+        'Other',
+      ],
       default: 'Other',
     },
     status: {
       type: String,
-      enum: ['Open', 'In Progress', 'Resolved', 'Closed', 'Escalated'],
-      default: 'Open',
+      enum: [
+        'New',
+        'Open',
+        'Acknowledged',
+        'Assigned',
+        'In Progress',
+        'Resolved',
+        'Closed',
+        'Escalated',
+        'Reopened',
+      ],
+      default: 'New',
     },
     priority: {
       type: String,
-      enum: ['Low', 'Medium', 'High', 'Urgent'],
+      enum: ['Low', 'Medium', 'High', 'Emergency', 'Urgent'],
       default: 'Medium',
     },
+    // Staff assignment
+    assignedStaff: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    assignedStaffName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    assignedStaffPhone: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    assignedAt: {
+      type: Date,
+      default: null,
+    },
+    // Internal notes (visible only to admin & association committee)
+    internalNotes: [
+      {
+        text: { type: String, required: true },
+        addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        addedByName: { type: String, default: '' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    // Resolution details
+    resolutionNotes: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    resolutionPhotos: [
+      {
+        type: String,
+      },
+    ],
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
+    closedAt: {
+      type: Date,
+      default: null,
+    },
+    // Reopening record
+    isReopened: {
+      type: Boolean,
+      default: false,
+    },
+    reopenReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reopenedAt: {
+      type: Date,
+      default: null,
+    },
+    reopenedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    // Status transition audit history
+    statusHistory: [
+      {
+        status: { type: String, required: true },
+        changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        changedByName: { type: String, default: '' },
+        reason: { type: String, default: '' },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
     bookingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Job',

@@ -45,6 +45,11 @@ const userSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    block: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     phone: String,
     isOnline: {
       type: Boolean,
@@ -438,6 +443,7 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     customerId: this.customerId,
     apartmentId: this.apartmentId ? this.apartmentId.toString() : null,
     flatNumber: this.flatNumber || '',
+    block: this.block || '',
     address: this.address,
     pincode: this.pincode,
     skills: this.skills,
