@@ -55,11 +55,59 @@ const SUPPORTED_CATEGORIES = {
       { name: 'Website Migration', slug: 'web-migration', aliases: ['web-migration', 'website migration'] },
       { name: 'Website Technical Support', slug: 'web-support', aliases: ['web-support', 'website support', 'website technical support'] },
       { name: 'Website AMC', slug: 'web-amc', aliases: ['web-amc', 'website amc'] },
-      { name: 'Digital Marketing & Growth', slug: 'digital-marketing', aliases: ['digital-marketing', 'digital marketing link', 'digital marketing & growth'] },
       { name: 'Web Consultation', slug: 'web-consultation', aliases: ['web-consultation', 'website consultation', 'web consultation'] },
       { name: 'New Website Setup', slug: 'new-website', aliases: ['new-website', 'new website setup'] },
       { name: 'Portfolio Website', slug: 'portfolio-website', aliases: ['portfolio-website', 'portfolio website'] },
       { name: 'Website Development', slug: 'website-development', aliases: ['website-development', 'website development'] },
+    ],
+  },
+  'Digital Marketing': {
+    name: 'Digital Marketing',
+    slug: 'digital-marketing',
+    aliases: ['digital marketing', 'digital-marketing', 'digital_marketing', 'marketing', 'online marketing'],
+    services: [
+      {
+        name: 'Digital Marketing',
+        slug: 'digital-marketing',
+        aliases: ['digital-marketing', 'digital marketing', 'seo', 'google ads', 'meta ads', 'performance marketing', 'social media marketing', 'growth marketing'],
+      },
+      {
+        name: 'Podcasting',
+        slug: 'podcasting',
+        aliases: ['podcasting', 'podcast', 'podcast recording', 'podcast production', 'podcast studio', 'podcast editing'],
+      },
+    ],
+  },
+  AMC: {
+    name: 'AMC',
+    slug: 'amc',
+    aliases: ['amc', 'annual maintenance contract', 'amc plans', 'maintenance', 'amc enquiry', 'it amc', 'amc-plans'],
+    services: [
+      {
+        name: 'Comprehensive AMC',
+        slug: 'comprehensive-amc',
+        aliases: ['comprehensive-amc', 'comprehensive amc', 'amc', 'annual maintenance contract', 'it amc'],
+      },
+      {
+        name: 'Laptop & Desktop AMC',
+        slug: 'laptop-desktop-amc',
+        aliases: ['laptop-desktop-amc', 'laptop amc', 'desktop amc', 'computer amc'],
+      },
+      {
+        name: 'CCTV AMC',
+        slug: 'cctv-amc',
+        aliases: ['cctv-amc', 'cctv amc', 'security camera amc'],
+      },
+      {
+        name: 'Networking AMC',
+        slug: 'networking-amc',
+        aliases: ['networking-amc', 'network amc', 'office network amc'],
+      },
+      {
+        name: 'Website AMC',
+        slug: 'website-amc',
+        aliases: ['website-amc', 'website amc', 'web amc'],
+      },
     ],
   },
 };

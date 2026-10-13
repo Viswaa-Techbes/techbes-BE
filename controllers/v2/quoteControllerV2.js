@@ -128,14 +128,14 @@ async function submitQuoteRequest(req, res, next) {
     if (!categoryInput) {
       return res.status(400).json({
         success: false,
-        message: 'Please select a service category (CCTV, Networking, or Web Designing)',
+        message: 'Please select a valid service category (CCTV, Networking, Web Designing, Digital Marketing, or AMC)',
       });
     }
     const categoryValidation = validateCategory(categoryInput);
     if (!categoryValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid service category. Please choose CCTV, Networking, or Web Designing.',
+        message: 'Invalid service category. Please choose CCTV, Networking, Web Designing, Digital Marketing, or AMC.',
       });
     }
     const canonicalCategory = categoryValidation.canonicalName;
