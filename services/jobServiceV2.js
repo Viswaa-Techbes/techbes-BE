@@ -185,6 +185,42 @@ async function createBookingV2(bookingData) {
     }
   });
 
+  // Auto-save address to customer's saved addresses if not existing
+  if (clientId && (address || bookingData.formattedAddress)) {
+    try {
+      const Address = require('../models/Address');
+      const addressText = (bookingData.formattedAddress || address).trim();
+      const existing = await Address.findOne({
+        userId: clientId,
+        $or: [{ address: addressText }, { formattedAddress: addressText }]
+      }).lean();
+      if (!existing) {
+        await Address.create({
+          userId: clientId,
+          name: customerName || '',
+          mobile: customerPhone || '',
+          address: addressText,
+          landmark: bookingData.landmark || '',
+          city: bookingData.city || 'Bangalore',
+          state: bookingData.state || 'Karnataka',
+          pincode: bookingData.pincode || '',
+          area: bookingData.area || '',
+          label: bookingData.addressType
+            ? (bookingData.addressType.charAt(0).toUpperCase() + bookingData.addressType.slice(1).toLowerCase())
+            : 'Home',
+          latitude: Number(bookingData.latitude || lat || null),
+          longitude: Number(bookingData.longitude || lng || null),
+          manualNotes: bookingData.manualNotes || '',
+          formattedAddress: addressText,
+          googleMapLink: derivedMapsLink,
+          isDefault: false
+        });
+      }
+    } catch (e) {
+      console.error('[jobServiceV2] Could not auto-save address:', e.message);
+    }
+  }
+
   return job;
 }
 

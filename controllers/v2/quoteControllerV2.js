@@ -298,8 +298,18 @@ async function submitQuoteRequest(req, res, next) {
       processedVoiceNote.url = voiceNote.trim();
     }
 
-    // Check if client is logged in
-    const customerId = req.user ? req.user.id : null;
+    // Check if client is logged in or match existing registered user by mobile
+    let customerId = req.user ? req.user.id : null;
+    if (!customerId && cleanedMobile) {
+      try {
+        const matchedUser = await User.findOne({
+          $or: [{ phone: cleanedMobile }, { mobileNumber: cleanedMobile }]
+        }).select('_id').lean();
+        if (matchedUser) {
+          customerId = matchedUser._id;
+        }
+      } catch (_) {}
+    }
     const finalRequirements = (additionalRequirements || message || '').trim();
 
     const quoteData = {
@@ -339,6 +349,45 @@ async function submitQuoteRequest(req, res, next) {
     };
 
     const quoteRequest = await QuoteRequest.create(quoteData);
+
+    // Auto-save & associate address with customer's saved addresses if not already existing
+    if (customerId && (quoteData.address || rawAddress)) {
+      try {
+        const addressText = (quoteData.address || rawAddress).trim();
+        const existingAddress = await Address.findOne({
+          userId: customerId,
+          $or: [
+            { address: addressText },
+            { formattedAddress: addressText }
+          ]
+        }).lean();
+
+        if (!existingAddress) {
+          await Address.create({
+            userId: customerId,
+            name: quoteData.fullName,
+            mobile: quoteData.mobile,
+            address: addressText,
+            landmark: req.body.landmark || '',
+            city: req.body.city || 'Bangalore',
+            state: req.body.state || 'Karnataka',
+            pincode: quoteData.pincode || '',
+            area: quoteData.locality || '',
+            label: req.body.addressType || req.body.label || 'Home',
+            latitude: quoteData.latitude || null,
+            longitude: quoteData.longitude || null,
+            manualNotes: req.body.additionalInstructions || req.body.manualNotes || '',
+            formattedAddress: addressText,
+            googleMapLink: (quoteData.latitude && quoteData.longitude)
+              ? `https://maps.google.com/?q=${quoteData.latitude},${quoteData.longitude}`
+              : (quoteData.googleMapsUrl || ''),
+            isDefault: false,
+          });
+        }
+      } catch (addrErr) {
+        console.error('[QuoteController] Could not auto-save address:', addrErr.message);
+      }
+    }
 
     // 6. Admin Notification
     const submissionTimeFormatted = new Date().toLocaleString('en-IN', {
