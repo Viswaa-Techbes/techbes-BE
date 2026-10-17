@@ -53,6 +53,13 @@ router.get(
   quoteControllerV2.getQuoteDetailsForCustomer
 );
 
+// Download quotation PDF
+router.get(
+  '/:id/pdf',
+  optionalAuthenticate,
+  quoteControllerV2.downloadQuotationPdf
+);
+
 // Customer portal: create payment order for quotation (Pay Now to Book)
 router.post(
   '/:id/create-payment-order',

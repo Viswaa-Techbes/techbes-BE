@@ -10,6 +10,7 @@ const Payment = require('../../models/Payment');
 const notificationService = require('../../services/notificationService');
 const { sendWhatsApp } = require('../../services/channelNotificationService');
 const paymentService = require('../../services/paymentService');
+const { generateQuotationPdfBuffer } = require('../../services/quotationPdfService');
 
 /**
  * Configure voice notes upload directory
@@ -765,7 +766,7 @@ async function priceQuotation(req, res, next) {
 
 /**
  * Admin completes and sends quotation to customer.
- * Marks status as 'quotation_sent' and dispatches WhatsApp notification.
+ * Validates quotation, generates PDF, marks status as 'quotation_sent', and dispatches WhatsApp notification.
  */
 async function sendQuotation(req, res, next) {
   try {
@@ -789,6 +790,31 @@ async function sendQuotation(req, res, next) {
       });
     }
 
+    // Safely check and normalize phone number
+    const rawPhone = String(quote.mobile || quote.whatsapp || '');
+    const cleanPhone = rawPhone.replace(/[^\d]/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Customer mobile number is missing or invalid. Please update the customer phone number before sending.',
+      });
+    }
+
+    // Generate PDF buffer to guarantee PDF validity and catch any generation errors
+    try {
+      await generateQuotationPdfBuffer(quote);
+    } catch (pdfErr) {
+      console.error('[Quotation PDF Error]', pdfErr);
+      return res.status(500).json({
+        success: false,
+        message: `Failed to generate quotation PDF: ${pdfErr.message}`,
+      });
+    }
+
+    // Secure PDF endpoint path
+    const downloadPdfPath = `/api/v2/admin/quotes/${encodeURIComponent(quote.requestId || quote._id)}/pdf`;
+    quote.pdfUrl = downloadPdfPath;
+
     const validity = quote.validityDays || 15;
     const validUntil = new Date(Date.now() + validity * 24 * 60 * 60 * 1000);
 
@@ -798,23 +824,26 @@ async function sendQuotation(req, res, next) {
     await quote.save();
 
     // Prepare WhatsApp Notification content per Part 12
-    const customerPhone = quote.mobile;
-    const formattedAmount = `₹${quote.finalAmount.toLocaleString('en-IN')}`;
+    const customerPhone = cleanPhone.slice(-10);
+    const formattedAmount = `₹${quote.finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const portalUrl = `${process.env.FRONTEND_URL || 'https://techbes.co.in'}/dashboard/quotes`;
 
     const whatsappMessage =
-      `Your quotation has been prepared by TechBes.\n\n` +
-      `Quotation No: ${quote.requestId}\n` +
-      `Total Amount: ${formattedAmount} (incl. GST)\n` +
-      `Valid For: ${validity} days\n\n` +
-      `Please login to your TechBes account to view the quotation and proceed with booking/payment:\n` +
-      `${portalUrl}`;
+      `*TechBes Quotation Ready* 📄\n\n` +
+      `Dear ${quote.fullName || 'Customer'},\n` +
+      `Your itemized quotation for *${quote.serviceCategory || 'CCTV Installation'}* has been prepared.\n\n` +
+      `• *Quotation No:* ${quote.requestId}\n` +
+      `• *Grand Total:* ${formattedAmount} (incl. GST)\n` +
+      `• *Validity:* ${validity} days\n\n` +
+      `Please review your quotation details and proceed with online booking:\n` +
+      `${portalUrl}\n\n` +
+      `TechBes Services | Support: +91 91080 34888`;
 
     // Server-side WhatsApp delivery via channelNotificationService (Twilio)
     let waResult = { success: false };
     try {
       waResult = await sendWhatsApp({
-        to: customerPhone,
+        to: `+91${customerPhone}`,
         body: whatsappMessage,
       });
     } catch (waErr) {
@@ -823,8 +852,7 @@ async function sendQuotation(req, res, next) {
     }
 
     // Generate click-to-chat fallback URL
-    const cleanPhone = customerPhone.replace(/[^\d]/g, '');
-    const clickToChatUrl = `https://wa.me/91${cleanPhone.slice(-10)}?text=${encodeURIComponent(whatsappMessage)}`;
+    const clickToChatUrl = `https://wa.me/91${customerPhone}?text=${encodeURIComponent(whatsappMessage)}`;
 
     // In-app notification if customerId exists
     if (quote.customerId) {
@@ -847,15 +875,47 @@ async function sendQuotation(req, res, next) {
       message: 'Quotation sent successfully to customer',
       data: {
         quote,
-        whatsappSent: waResult.success && !waResult.fallback,
-        whatsappFallback: Boolean(waResult.fallback),
+        whatsappSent: Boolean(waResult.success && !waResult.fallback),
+        whatsappFallback: Boolean(waResult.fallback || !waResult.success),
         clickToChatUrl,
+        pdfUrl: downloadPdfPath,
       },
     });
   } catch (err) {
     next(err);
   }
 }
+
+/**
+ * Streams the generated authoritative Quotation PDF directly.
+ */
+async function downloadQuotationPdf(req, res, next) {
+  try {
+    const { id } = req.params;
+    const mongoose = require('mongoose');
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'Quote Request not found' });
+    }
+
+    const pdfBuffer = await generateQuotationPdfBuffer(quote);
+    const fileName = `TechBes_Quotation_${quote.requestId || id}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    return res.end(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+}
+
 
 /**
  * Pay Now to Book: Create Razorpay Payment Order for Quotation
@@ -1263,4 +1323,6 @@ module.exports = {
   verifyQuotePayment,
   updateQuoteRequest,
   convertToBooking,
+  downloadQuotationPdf,
 };
+

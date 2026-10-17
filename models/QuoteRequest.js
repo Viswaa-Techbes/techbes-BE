@@ -241,6 +241,10 @@ const quoteRequestSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    pdfUrl: {
+      type: String,
+      default: '',
+    },
   },
   { timestamps: true }
 );

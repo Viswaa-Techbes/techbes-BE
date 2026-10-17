@@ -373,15 +373,15 @@ async function generateQuotationPdfBuffer(quote) {
       const pages = doc.bufferedPageRange();
       for (let i = 0; i < pages.count; i++) {
         doc.switchToPage(i);
-        doc.moveTo(36, 804).lineTo(559, 804).strokeColor(borderGray).lineWidth(0.5).stroke();
+        doc.moveTo(36, 775).lineTo(559, 775).strokeColor(borderGray).lineWidth(0.5).stroke();
         doc.fillColor(slateLight).fontSize(7).font('Helvetica');
         doc.text(
           `TechBes Quotation #${quote.requestId || 'QT'} | Computer generated document — no physical signature required.`,
           36,
-          810,
-          { width: 360 }
+          782,
+          { width: 360, lineBreak: false }
         );
-        doc.text(`Page ${i + 1} of ${pages.count}`, 400, 810, { width: 159, align: 'right' });
+        doc.text(`Page ${i + 1} of ${pages.count}`, 400, 782, { width: 159, align: 'right', lineBreak: false });
       }
 
       doc.end();
