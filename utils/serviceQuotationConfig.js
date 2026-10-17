@@ -1,57 +1,155 @@
 /**
  * TechBes Unified Service Catalog Configuration for Quotations
- * Defines the 3 supported customer-facing categories and their verified subcategories.
+ * Defines the supported customer-facing categories and their verified subcategories.
  */
+
+function cleanStr(s) {
+  if (!s || typeof s !== 'string') return '';
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 const SUPPORTED_CATEGORIES = {
   CCTV: {
     name: 'CCTV',
     slug: 'cctv',
-    aliases: ['cctv', 'cctv surveillance', 'security camera'],
+    aliases: ['cctv', 'cctv surveillance', 'security camera', 'security cameras', 'surveillance', 'cctv cameras'],
     services: [
-      { name: 'Install New CCTV', slug: 'install-new-cctv', aliases: ['install-new-cctv', 'cctv-installation'] },
-      { name: 'Repair Existing CCTV', slug: 'repair-existing-cctv', aliases: ['repair-existing-cctv', 'cctv-repair'] },
-      { name: 'Maintenance / AMC', slug: 'maintenance-amc', aliases: ['maintenance-amc', 'cctv-maintenance', 'cctv-amc', 'maintenance (amc)'] },
-      { name: 'Upgrade Existing CCTV', slug: 'upgrade-existing-cctv', aliases: ['upgrade-existing-cctv', 'cctv-upgrade'] },
-      { name: 'Buy CCTV Products', slug: 'buy-cctv-products', aliases: ['buy-cctv-products', 'cctv-products'] },
-      { name: 'Free Site Survey', slug: 'free-site-survey', aliases: ['free-site-survey', 'cctv-survey'] },
+      {
+        name: 'Install New CCTV',
+        slug: 'install-new-cctv',
+        aliases: [
+          'install-new-cctv',
+          'cctv-installation',
+          'cctv installation',
+          'cctv installation & setup',
+          'install new cctv',
+          'install new cctv system',
+          'cctv install',
+          'new cctv installation',
+          'camera installation',
+          'cctv camera installation',
+          'fresh camera installation',
+          'installation',
+        ],
+      },
+      {
+        name: 'Repair Existing CCTV',
+        slug: 'repair-existing-cctv',
+        aliases: [
+          'repair-existing-cctv',
+          'cctv-repair',
+          'cctv repair',
+          'repair cctv',
+          'repair existing cctv',
+          'cctv camera repair',
+          'camera repair',
+          'cctv service',
+          'cctv troubleshooting',
+          'repair',
+        ],
+      },
+      {
+        name: 'Maintenance / AMC',
+        slug: 'maintenance-amc',
+        aliases: [
+          'maintenance-amc',
+          'cctv-maintenance',
+          'cctv-amc',
+          'cctv amc',
+          'cctv maintenance',
+          'maintenance (amc)',
+          'maintenance / amc',
+          'maintenance & amc',
+          'annual maintenance contract',
+          'cctv amc contract',
+          'amc',
+        ],
+      },
+      {
+        name: 'Upgrade Existing CCTV',
+        slug: 'upgrade-existing-cctv',
+        aliases: [
+          'upgrade-existing-cctv',
+          'cctv-upgrade',
+          'cctv upgrade',
+          'upgrade cctv',
+          'upgrade existing cctv',
+          'cctv system upgrade',
+          'camera upgrade',
+          'upgrade',
+        ],
+      },
+      {
+        name: 'Buy CCTV Products',
+        slug: 'buy-cctv-products',
+        aliases: [
+          'buy-cctv-products',
+          'cctv-products',
+          'cctv products',
+          'buy cctv products',
+          'buy cctv',
+          'cctv hardware',
+          'cctv store',
+          'products',
+        ],
+      },
+      {
+        name: 'Free Site Survey',
+        slug: 'free-site-survey',
+        aliases: [
+          'free-site-survey',
+          'cctv-survey',
+          'cctv survey',
+          'site survey',
+          'free site survey',
+          'free survey',
+          'cctv site survey',
+          'cctv site audit',
+          'site audit',
+          'survey',
+        ],
+      },
     ],
   },
   Networking: {
     name: 'Networking',
     slug: 'networking',
-    aliases: ['networking', 'network', 'office network'],
+    aliases: ['networking', 'network', 'office network', 'lan', 'wifi networking'],
     services: [
-      { name: 'New Office Network Setup', slug: 'new-network-setup', aliases: ['new-network-setup', 'new office network setup'] },
-      { name: 'Wi-Fi & Internet Speed Optimization', slug: 'wifi-internet-issues', aliases: ['wifi-internet-issues', 'wi-fi & internet speed optimization', 'wifi optimization'] },
-      { name: 'Router, Switch & Access Point Setup', slug: 'router-modem', aliases: ['router-modem', 'router, switch & access point setup'] },
-      { name: 'Office Network Deployment', slug: 'office-network-deployment', aliases: ['office-network-deployment', 'office-network', 'office network deployment'] },
-      { name: 'Structured Cat6 / Fiber Cabling', slug: 'structured-cabling', aliases: ['structured-cabling', 'structured cat6 / fiber cabling'] },
-      { name: 'Network Hardware Upgrade', slug: 'network-upgrade', aliases: ['network-upgrade', 'network hardware upgrade'] },
-      { name: 'Network Security & Firewall', slug: 'network-security', aliases: ['network-security', 'network security & firewall'] },
-      { name: 'Server & NAS Storage Integration', slug: 'server-storage', aliases: ['server-storage', 'server & storage', 'server & nas storage integration'] },
+      { name: 'New Office Network Setup', slug: 'new-network-setup', aliases: ['new-network-setup', 'new office network setup', 'office network setup'] },
+      { name: 'Wi-Fi & Internet Speed Optimization', slug: 'wifi-internet-issues', aliases: ['wifi-internet-issues', 'wi-fi & internet speed optimization', 'wifi optimization', 'wifi speed optimization'] },
+      { name: 'Router, Switch & Access Point Setup', slug: 'router-modem', aliases: ['router-modem', 'router, switch & access point setup', 'router setup', 'access point setup'] },
+      { name: 'Office Network Deployment', slug: 'office-network-deployment', aliases: ['office-network-deployment', 'office-network', 'office network deployment', 'office network'] },
+      { name: 'Structured Cat6 / Fiber Cabling', slug: 'structured-cabling', aliases: ['structured-cabling', 'structured cat6 / fiber cabling', 'structured cabling', 'cat6 cabling', 'fiber cabling'] },
+      { name: 'Network Hardware Upgrade', slug: 'network-upgrade', aliases: ['network-upgrade', 'network hardware upgrade', 'network upgrade'] },
+      { name: 'Network Security & Firewall', slug: 'network-security', aliases: ['network-security', 'network security & firewall', 'network security', 'firewall setup'] },
+      { name: 'Server & NAS Storage Integration', slug: 'server-storage', aliases: ['server-storage', 'server & storage', 'server & nas storage integration', 'server nas storage'] },
       { name: 'Network AMC', slug: 'network-amc', aliases: ['network-amc', 'network amc'] },
       { name: 'Network Accessories', slug: 'network-accessories', aliases: ['network-accessories', 'network accessories'] },
-      { name: 'Network Troubleshooting', slug: 'network-troubleshooting', aliases: ['network-troubleshooting', 'network troubleshooting'] },
-      { name: 'Free Network Site Audit', slug: 'network-survey', aliases: ['network-survey', 'free survey', 'free network site audit'] },
+      { name: 'Network Troubleshooting', slug: 'network-troubleshooting', aliases: ['network-troubleshooting', 'network troubleshooting', 'network trouble'] },
+      { name: 'Free Network Site Audit', slug: 'network-survey', aliases: ['network-survey', 'free survey', 'free network site audit', 'network site audit'] },
     ],
   },
   'Web Designing': {
     name: 'Web Designing',
     slug: 'website-development',
-    aliases: ['web designing', 'website development', 'website-development', 'web-designing', 'web design'],
+    aliases: ['web designing', 'website development', 'website-development', 'web-designing', 'web design', 'web development', 'websites'],
     services: [
-      { name: 'Business Website', slug: 'business-website', aliases: ['business-website', 'business website'] },
+      { name: 'Business Website', slug: 'business-website', aliases: ['business-website', 'business website', 'corporate website'] },
       { name: 'Landing Page', slug: 'landing-page', aliases: ['landing-page', 'landing page design', 'landing page'] },
-      { name: 'Ecommerce Website', slug: 'ecommerce-website', aliases: ['ecommerce-website', 'ecommerce website'] },
-      { name: 'Custom Web Application', slug: 'web-app', aliases: ['web-app', 'custom web app', 'custom web application'] },
-      { name: 'Website Redesign', slug: 'web-redesign', aliases: ['web-redesign', 'website redesign'] },
+      { name: 'Ecommerce Website', slug: 'ecommerce-website', aliases: ['ecommerce-website', 'ecommerce website', 'e-commerce website', 'online store'] },
+      { name: 'Custom Web Application', slug: 'web-app', aliases: ['web-app', 'custom web app', 'custom web application', 'web application'] },
+      { name: 'Website Redesign', slug: 'web-redesign', aliases: ['web-redesign', 'website redesign', 'web redesign'] },
       { name: 'Website Maintenance', slug: 'web-maintenance', aliases: ['web-maintenance', 'website maintenance'] },
-      { name: 'Speed Optimization', slug: 'speed-optimization', aliases: ['speed-optimization', 'speed optimization'] },
-      { name: 'Website Security & SSL', slug: 'web-security', aliases: ['web-security', 'website security check', 'website security & ssl'] },
-      { name: 'Domain & Hosting Setup', slug: 'domain-hosting', aliases: ['domain-hosting', 'domain & hosting setup'] },
-      { name: 'SEO Optimization', slug: 'seo-optimization', aliases: ['seo-optimization', 'seo optimization'] },
-      { name: 'Website Content & Copywriting', slug: 'web-content', aliases: ['web-content', 'website content setup', 'website content & copywriting'] },
+      { name: 'Speed Optimization', slug: 'speed-optimization', aliases: ['speed-optimization', 'speed optimization', 'website speed'] },
+      { name: 'Website Security & SSL', slug: 'web-security', aliases: ['web-security', 'website security check', 'website security & ssl', 'ssl setup'] },
+      { name: 'Domain & Hosting Setup', slug: 'domain-hosting', aliases: ['domain-hosting', 'domain & hosting setup', 'domain hosting'] },
+      { name: 'SEO Optimization', slug: 'seo-optimization', aliases: ['seo-optimization', 'seo optimization', 'seo'] },
+      { name: 'Website Content & Copywriting', slug: 'web-content', aliases: ['web-content', 'website content setup', 'website content & copywriting', 'copywriting'] },
       { name: 'Website Migration', slug: 'web-migration', aliases: ['web-migration', 'website migration'] },
       { name: 'Website Technical Support', slug: 'web-support', aliases: ['web-support', 'website support', 'website technical support'] },
       { name: 'Website AMC', slug: 'web-amc', aliases: ['web-amc', 'website amc'] },
@@ -118,14 +216,14 @@ const SUPPORTED_CATEGORIES = {
  */
 function validateCategory(input) {
   if (!input || typeof input !== 'string') return { valid: false };
-  const normalized = input.trim().toLowerCase();
+  const cleaned = cleanStr(input);
 
   for (const [key, config] of Object.entries(SUPPORTED_CATEGORIES)) {
     if (
-      key.toLowerCase() === normalized ||
-      config.name.toLowerCase() === normalized ||
-      config.slug.toLowerCase() === normalized ||
-      config.aliases.some((a) => a.toLowerCase() === normalized)
+      cleanStr(key) === cleaned ||
+      cleanStr(config.name) === cleaned ||
+      cleanStr(config.slug) === cleaned ||
+      config.aliases.some((a) => cleanStr(a) === cleaned)
     ) {
       return { valid: true, canonicalName: config.name, categoryConfig: config };
     }
@@ -140,18 +238,51 @@ function validateCategory(input) {
  */
 function validateSubcategory(categoryConfig, subcategoryInput) {
   if (!categoryConfig || !subcategoryInput || typeof subcategoryInput !== 'string') {
+    // If category is CCTV, provide safe fallback
+    if (categoryConfig && cleanStr(categoryConfig.name) === 'cctv') {
+      const defaultSvc = categoryConfig.services[0];
+      return { valid: true, canonicalName: defaultSvc.name, slug: defaultSvc.slug };
+    }
     return { valid: false };
   }
-  const normalized = subcategoryInput.trim().toLowerCase();
+  const cleaned = cleanStr(subcategoryInput);
 
+  // Exact or normalized alias match
   for (const svc of categoryConfig.services) {
     if (
-      svc.name.toLowerCase() === normalized ||
-      svc.slug.toLowerCase() === normalized ||
-      svc.aliases.some((a) => a.toLowerCase() === normalized)
+      cleanStr(svc.name) === cleaned ||
+      cleanStr(svc.slug) === cleaned ||
+      svc.aliases.some((a) => cleanStr(a) === cleaned)
     ) {
       return { valid: true, canonicalName: svc.name, slug: svc.slug };
     }
+  }
+
+  // Keyword-based heuristic matching for CCTV
+  if (cleanStr(categoryConfig.name) === 'cctv') {
+    if (cleaned.includes('repair') || cleaned.includes('fix')) {
+      const svc = categoryConfig.services.find((s) => s.slug === 'repair-existing-cctv');
+      if (svc) return { valid: true, canonicalName: svc.name, slug: svc.slug };
+    }
+    if (cleaned.includes('amc') || cleaned.includes('maintenance')) {
+      const svc = categoryConfig.services.find((s) => s.slug === 'maintenance-amc');
+      if (svc) return { valid: true, canonicalName: svc.name, slug: svc.slug };
+    }
+    if (cleaned.includes('upgrade')) {
+      const svc = categoryConfig.services.find((s) => s.slug === 'upgrade-existing-cctv');
+      if (svc) return { valid: true, canonicalName: svc.name, slug: svc.slug };
+    }
+    if (cleaned.includes('product') || cleaned.includes('buy') || cleaned.includes('store')) {
+      const svc = categoryConfig.services.find((s) => s.slug === 'buy-cctv-products');
+      if (svc) return { valid: true, canonicalName: svc.name, slug: svc.slug };
+    }
+    if (cleaned.includes('survey') || cleaned.includes('audit')) {
+      const svc = categoryConfig.services.find((s) => s.slug === 'free-site-survey');
+      if (svc) return { valid: true, canonicalName: svc.name, slug: svc.slug };
+    }
+    // Default fallback for any CCTV request
+    const defaultSvc = categoryConfig.services[0];
+    return { valid: true, canonicalName: defaultSvc.name, slug: defaultSvc.slug };
   }
 
   return { valid: false };
@@ -159,6 +290,7 @@ function validateSubcategory(categoryConfig, subcategoryInput) {
 
 module.exports = {
   SUPPORTED_CATEGORIES,
+  cleanStr,
   validateCategory,
   validateSubcategory,
 };

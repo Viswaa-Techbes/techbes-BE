@@ -141,24 +141,21 @@ async function submitQuoteRequest(req, res, next) {
     const canonicalCategory = categoryValidation.canonicalName;
 
     // 3. Validate and sanitize Subcategory / Service
-    const subcategoryInput = (subcategory || service || serviceName || '').trim();
-    if (!subcategoryInput) {
-      return res.status(400).json({
-        success: false,
-        message: `Please select a service under ${canonicalCategory}`,
-      });
-    }
+    const subcategoryInput = (subcategory || service || serviceName || req.body.serviceSlug || '').trim();
     const subcategoryValidation = validateSubcategory(
       categoryValidation.categoryConfig,
       subcategoryInput
     );
-    if (!subcategoryValidation.valid) {
+    let canonicalSubcategory = subcategoryValidation.valid
+      ? subcategoryValidation.canonicalName
+      : (canonicalCategory === 'CCTV' ? 'Install New CCTV' : null);
+
+    if (!canonicalSubcategory) {
       return res.status(400).json({
         success: false,
         message: `Invalid service "${subcategoryInput}" for category "${canonicalCategory}". Please select a valid service from the catalogue.`,
       });
     }
-    const canonicalSubcategory = subcategoryValidation.canonicalName;
 
     // 4. Prevent duplicate submissions caused by repeated button clicks (within 60 seconds)
     const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
@@ -185,6 +182,7 @@ async function submitQuoteRequest(req, res, next) {
           address: existingQuote.address,
           status: existingQuote.status,
           createdAt: existingQuote.createdAt,
+          itemsCount: Array.isArray(existingQuote.items) ? existingQuote.items.length : 0,
         },
         duplicatePrevented: true,
       });
@@ -257,9 +255,9 @@ async function submitQuoteRequest(req, res, next) {
           // Standard service-only item or unlinked custom note
           processedItems.push({
             productId: null,
-            brand: '',
-            sku: '',
-            variant: '',
+            brand: String(item.brand || '').trim(),
+            sku: String(item.sku || '').trim(),
+            variant: String(item.variant || '').trim(),
             productName: rawName,
             quantity: qty,
             unitPrice: null,
@@ -487,6 +485,7 @@ async function submitQuoteRequest(req, res, next) {
         address: quoteRequest.address,
         status: quoteRequest.status,
         createdAt: quoteRequest.createdAt,
+        itemsCount: Array.isArray(quoteRequest.items) ? quoteRequest.items.length : 0,
       },
       notifications: notificationReport,
     });
