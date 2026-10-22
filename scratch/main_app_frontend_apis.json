@@ -1,0 +1,55 @@
+{
+  "app/admin/payments/page.tsx": [
+    "/api/v2/payment/admin/list",
+    "/api/v2/payment/admin/refund",
+    "/api/v2/payment/admin/retry"
+  ],
+  "app/amc/page.tsx": [
+    "/api/v2/quotes"
+  ],
+  "app/dashboard/service-report/[jobId]/page.tsx": [
+    "/api/worksheets/job/${jobId}",
+    "/api/worksheets/job/"
+  ],
+  "app/resident/activate/page.tsx": [
+    "/api/v2/apartments/residents/activate"
+  ],
+  "components/booking/LocationPicker.tsx": [
+    "/api/geocode",
+    "/api/geocode?action=reverse&lat=",
+    "/api/geocode?action=search&q="
+  ],
+  "components/booking/service-config-modal.tsx": [
+    "/api/auth/me",
+    "/api/v2/user/addresses",
+    "/api/user/addresses",
+    "/api/v2/cctv/brands",
+    "/api/v2/cctv/models",
+    "/api/v2/quotes"
+  ],
+  "components/cctv/QuoteLocationPicker.tsx": [
+    "/api/geocode",
+    "/api/geocode?action=reverse&lat=",
+    "/api/geocode?action=search&q="
+  ],
+  "components/checkout/cctv-checkout-view.tsx": [
+    "/api/v2/user/addresses",
+    "/api/user/addresses",
+    "/api/auth/me",
+    "/api/v2/payment/${pid}",
+    "/api/v2/payment/"
+  ],
+  "components/quotation/ProductAutocomplete.tsx": [
+    "/api/v2/inventory/search",
+    "/api/v2/inventory/search?"
+  ],
+  "components/quotation/VoiceNoteRecorder.tsx": [
+    "/api/v2/quotes/voice-note"
+  ],
+  "lib/cctv-cart.ts": [
+    "/api/cart",
+    "/api/cart/item/${id}",
+    "/api/cart/clear",
+    "/api/cart/item/"
+  ]
+}

@@ -1,0 +1,5535 @@
+{
+  "totalUnique": 553,
+  "endpoints": [
+    {
+      "method": "POST",
+      "subPath": "/login",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/login",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/mfa-verify",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/mfa-verify",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/mfa-resend",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/mfa-resend",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/dashboard",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard', adminController.dashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/users",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/users",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/users', adminController.listUsers);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/technicians",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/technicians",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/technicians', adminController.listTechnicians);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/jobs",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/jobs",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/jobs', adminController.listJobs);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/jobs",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/jobs",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/jobs', adminController.createJob);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/completion-requests",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/completion-requests",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/completion-requests', adminController.listCompletionRequests);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/completion-requests/:taskId",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/completion-requests/:taskId",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/completion-requests/:taskId', adminController.updateCompletionRequest);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/payment-requests",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/payment-requests",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/payment-requests', adminController.listPaymentRequests);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/payment-requests/:jobId",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/payment-requests/:jobId",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/payment-requests/:jobId', adminController.updatePaymentRequest);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/managers",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/managers",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/managers', adminController.createManager);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/technicians",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/technicians",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/technicians', adminController.createTechnician);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/reviews",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/reviews",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/reviews', adminController.listReviews);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tracking",
+      "mountPrefix": "/admin",
+      "fullPath": "/admin/tracking",
+      "file": "adminRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tracking', adminController.getTracking);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/mark-attendance",
+      "mountPrefix": "/attendance",
+      "fullPath": "/attendance/mark-attendance",
+      "file": "attendanceRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/mark-attendance', authenticate, attendanceController.markAttendance);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/mark-logout",
+      "mountPrefix": "/attendance",
+      "fullPath": "/attendance/mark-logout",
+      "file": "attendanceRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/mark-logout', authenticate, attendanceController.markLogout);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/all",
+      "mountPrefix": "/attendance",
+      "fullPath": "/attendance/all",
+      "file": "attendanceRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/all', authenticate, attendanceController.getAllAttendance);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:userId",
+      "mountPrefix": "/attendance",
+      "fullPath": "/attendance/:userId",
+      "file": "attendanceRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:userId', authenticate, attendanceController.getAttendanceByUser);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/login",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/login",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/login",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/login",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/login",
+      "mountPrefix": "/",
+      "fullPath": "/login",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/login",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/login",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/send-otp",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/send-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/send-otp",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/send-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/send-otp",
+      "mountPrefix": "/",
+      "fullPath": "/send-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/send-otp",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/send-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-otp",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/verify-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-otp",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/verify-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-otp",
+      "mountPrefix": "/",
+      "fullPath": "/verify-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-otp",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/verify-otp",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/register",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/register",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/register",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/register",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/register",
+      "mountPrefix": "/",
+      "fullPath": "/register",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/register",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/register",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "GET",
+      "subPath": "/me",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/me",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/me', authenticate, authController.me);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/me",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/me",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/me', authenticate, authController.me);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/me",
+      "mountPrefix": "/",
+      "fullPath": "/me",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/me', authenticate, authController.me);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/me",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/me",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/me', authenticate, authController.me);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/fcm-token",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/fcm-token",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/fcm-token', authenticate, authController.updateFcmToken);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/fcm-token",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/fcm-token",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/fcm-token', authenticate, authController.updateFcmToken);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/fcm-token",
+      "mountPrefix": "/",
+      "fullPath": "/fcm-token",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/fcm-token', authenticate, authController.updateFcmToken);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/fcm-token",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/fcm-token",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/fcm-token', authenticate, authController.updateFcmToken);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/logout",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/logout",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/logout', authenticate, authController.logout);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/logout",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/logout",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/logout', authenticate, authController.logout);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/logout",
+      "mountPrefix": "/",
+      "fullPath": "/logout",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/logout', authenticate, authController.logout);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/logout",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/logout",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/logout', authenticate, authController.logout);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/forgot-password",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/forgot-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/forgot-password",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/forgot-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/forgot-password",
+      "mountPrefix": "/",
+      "fullPath": "/forgot-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/forgot-password",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/forgot-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/reset-password",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/reset-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/reset-password",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/reset-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/reset-password",
+      "mountPrefix": "/",
+      "fullPath": "/reset-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/reset-password",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/reset-password",
+      "file": "authRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "GET",
+      "subPath": "/session",
+      "mountPrefix": "/auth",
+      "fullPath": "/auth/session",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/session', authenticate, (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/session",
+      "mountPrefix": "/api/auth",
+      "fullPath": "/api/auth/session",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/session', authenticate, (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/session",
+      "mountPrefix": "/",
+      "fullPath": "/session",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/session', authenticate, (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/session",
+      "mountPrefix": "/api/v2/auth",
+      "fullPath": "/api/v2/auth/session",
+      "file": "authRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/session', authenticate, (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "",
+      "fullPath": "/",
+      "file": "customerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', customerController.listCustomers);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "",
+      "fullPath": "/",
+      "file": "customerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', customerController.createCustomer);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/expenses",
+      "fullPath": "/expenses",
+      "file": "expenseRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', expenseController.listExpenses);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/expenses",
+      "fullPath": "/expenses",
+      "file": "expenseRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', requireRoles('technician'), expenseController.createExpense);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/expenses",
+      "fullPath": "/expenses/:id/status",
+      "file": "expenseRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', requireRoles('admin', 'manager'), expenseController.updateExpenseStatus);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/jobs",
+      "fullPath": "/jobs",
+      "file": "jobRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, jobController.listJobs);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/jobs",
+      "fullPath": "/jobs/:id",
+      "file": "jobRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, jobController.getJobDetails);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/jobs",
+      "fullPath": "/jobs",
+      "file": "jobRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', authenticate, requireRoles('manager'), jobController.createJob);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/assign",
+      "mountPrefix": "/jobs",
+      "fullPath": "/jobs/assign",
+      "file": "jobRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/assign', authenticate, requireRoles('manager'), jobController.assignJob);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/jobs",
+      "fullPath": "/jobs/:id/status",
+      "file": "jobRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', authenticate, requireRoles('technician'), jobController.updateJobStatus);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/leads",
+      "fullPath": "/leads",
+      "file": "leadRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', leadController.listLeads);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/leads",
+      "fullPath": "/leads",
+      "file": "leadRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', leadController.createLead);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/technicians",
+      "mountPrefix": "/managers",
+      "fullPath": "/managers/technicians",
+      "file": "managerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/technicians', technicianController.listTechnicians);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/technicians",
+      "mountPrefix": "/manager",
+      "fullPath": "/manager/technicians",
+      "file": "managerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/technicians', technicianController.listTechnicians);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tasks",
+      "mountPrefix": "/managers",
+      "fullPath": "/managers/tasks",
+      "file": "managerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tasks', jobController.listJobs);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tasks",
+      "mountPrefix": "/manager",
+      "fullPath": "/manager/tasks",
+      "file": "managerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tasks', jobController.listJobs);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/team",
+      "mountPrefix": "/managers",
+      "fullPath": "/managers/:id/team",
+      "file": "managerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/team', managerController.listTeam);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/team",
+      "mountPrefix": "/manager",
+      "fullPath": "/manager/:id/team",
+      "file": "managerRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/team', managerController.listTeam);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/notifications",
+      "fullPath": "/notifications",
+      "file": "notificationRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', notificationController.getNotifications);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/read-all",
+      "mountPrefix": "/notifications",
+      "fullPath": "/notifications/read-all",
+      "file": "notificationRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/read-all', notificationController.markAllAsRead);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/read",
+      "mountPrefix": "/notifications",
+      "fullPath": "/notifications/:id/read",
+      "file": "notificationRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/read', notificationController.markAsRead);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create-order",
+      "mountPrefix": "/",
+      "fullPath": "/create-order",
+      "file": "paymentRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create-order', authenticate, requireRoles('manager', 'admin'), paymentController.createOrder);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-payment",
+      "mountPrefix": "/",
+      "fullPath": "/verify-payment",
+      "file": "paymentRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/verify-payment', authenticate, requireRoles('manager', 'admin', 'technician'), paymentController.verifyPayment);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/reviews",
+      "fullPath": "/reviews",
+      "file": "reviewRoutes.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', reviewController.listReviews);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/reviews",
+      "fullPath": "/reviews",
+      "file": "reviewRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', authenticate, reviewController.createReview);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tasks",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians/tasks",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tasks', authenticate, requireRoles('technician'), jobController.listJobs);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tasks",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician/tasks",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tasks', authenticate, requireRoles('technician'), jobController.listJobs);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/tasks/:id/status",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians/tasks/:id/status",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/tasks/:id/status', authenticate, requireRoles('technician', 'manager', 'admin'), jobController.updateJobStatus);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/tasks/:id/status",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician/tasks/:id/status",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/tasks/:id/status', authenticate, requireRoles('technician', 'manager', 'admin'), jobController.updateJobStatus);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/location",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians/location",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/location', authenticate, requireRoles('technician'), (req, res, next) => {"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/location",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician/location",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/location', authenticate, requireRoles('technician'), (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/update-status",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians/update-status",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/update-status', authenticate, requireRoles('technician'), (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/update-status",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician/update-status",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/update-status', authenticate, requireRoles('technician'), (req, res, next) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, requireRoles('manager', 'admin'), technicianController.listTechnicians);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, requireRoles('manager', 'admin'), technicianController.listTechnicians);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians/:id",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, technicianController.getTechnicianDetails);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician/:id",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, technicianController.getTechnicianDetails);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians/:id/status",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', authenticate, technicianController.updateStatus);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician/:id/status",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', authenticate, technicianController.updateStatus);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/jobs",
+      "mountPrefix": "/technicians",
+      "fullPath": "/technicians/:id/jobs",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/jobs', authenticate, technicianController.listTechnicianJobs);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/jobs",
+      "mountPrefix": "/technician",
+      "fullPath": "/technician/:id/jobs",
+      "file": "technicianRoutes.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/jobs', authenticate, technicianController.listTechnicianJobs);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/dashboard",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard', adminControllerV2.getDashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/leads",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/leads",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/leads', adminControllerV2.getLeads);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/leads",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/leads",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/leads', adminControllerV2.createLead);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/leads/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/leads/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/leads/:id', adminControllerV2.updateLead);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/leads/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/leads/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/leads/:id', adminControllerV2.deleteLead);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/customers",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/customers",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/customers', adminControllerV2.getCustomers);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/customers/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/customers/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/customers/:id', adminControllerV2.getCustomerById);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/customers",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/customers",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/customers', adminControllerV2.createCustomer);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/customers/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/customers/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/customers/:id', adminControllerV2.updateCustomer);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/customers/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/customers/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/customers/:id', adminControllerV2.deleteCustomer);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/users",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/users",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/users', adminControllerV2.getUsers);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/users/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/users/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/users/:id', adminControllerV2.getUserDetails);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/users",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/users",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/users', adminControllerV2.createUser);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/users/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/users/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/users/:id', adminControllerV2.updateUser);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/users/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/users/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/users/:id', adminControllerV2.deleteUser);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/users/:id/password",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/users/:id/password",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/users/:id/password', adminControllerV2.changeUserPassword);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create-user",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/create-user",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create-user', adminControllerV2.createUser); // Alias for compatibility"
+    },
+    {
+      "method": "GET",
+      "subPath": "/jobs",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/jobs",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/jobs', adminControllerV2.getJobs);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/jobs",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/jobs",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/jobs', adminControllerV2.createJob);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/jobs/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/jobs/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/jobs/:id', adminControllerV2.updateJob);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/jobs/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/jobs/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/jobs/:id', adminControllerV2.deleteJob);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/bookings",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/bookings",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/bookings', adminControllerV2.getBookings);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/bookings/:id/assign",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/bookings/:id/assign",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/bookings/:id/assign', adminControllerV2.assignBooking);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/service-requests",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/service-requests",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/service-requests', adminControllerV2.getServiceRequests);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/service-requests/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/service-requests/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/service-requests/:id', adminControllerV2.getServiceRequestById);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/service-requests/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/service-requests/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/service-requests/:id', adminControllerV2.updateServiceRequest);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/service-requests/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/service-requests/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/service-requests/:id', adminControllerV2.updateServiceRequest);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/service-requests/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/service-requests/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/service-requests/:id', adminControllerV2.deleteServiceRequest);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/categories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/categories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/categories', cctvControllerV2.listCategories);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/categories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/categories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/categories', cctvControllerV2.categoryAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/categories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/categories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/categories/:id', cctvControllerV2.categoryAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/categories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/categories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/categories/:id', cctvControllerV2.categoryAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/subcategories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/subcategories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/subcategories', cctvControllerV2.listSubcategories);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/subcategories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/subcategories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/subcategories', cctvControllerV2.subcategoryAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/subcategories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/subcategories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/subcategories/:id', cctvControllerV2.subcategoryAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/subcategories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/subcategories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/subcategories/:id', cctvControllerV2.subcategoryAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/camera-types",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/camera-types",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/camera-types', cctvControllerV2.listCameraTypes);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/camera-types",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/camera-types",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/camera-types', cctvControllerV2.cameraTypeAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/camera-types/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/camera-types/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/camera-types/:id', cctvControllerV2.cameraTypeAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/camera-types/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/camera-types/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/camera-types/:id', cctvControllerV2.cameraTypeAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/addons",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/addons",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/addons', cctvControllerV2.listAddons);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/addons",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/addons",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/addons', cctvControllerV2.addonAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/addons/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/addons/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/addons/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/addons/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/materials",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/materials",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/materials', materialControllerV2.listMaterials);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/materials",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/materials",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/materials', materialControllerV2.admin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/materials/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/materials/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/materials/:id', materialControllerV2.admin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/materials/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/materials/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/materials/:id', materialControllerV2.admin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/inventory/products",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/inventory/products",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/inventory/products', inventoryControllerV2.listProductsAdmin);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/inventory/products",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/inventory/products",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/inventory/products', inventoryControllerV2.createProductAdmin);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/inventory/products/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/inventory/products/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/inventory/products/:id', inventoryControllerV2.updateProductAdmin);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/inventory/products/:id/status",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/inventory/products/:id/status",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/inventory/products/:id/status', inventoryControllerV2.toggleStatusAdmin);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/inventory/products/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/inventory/products/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/inventory/products/:id', inventoryControllerV2.deleteProductAdmin);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/products",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/products",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/products', cctvControllerV2.listProducts);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/products",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/products",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/products', cctvControllerV2.productAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/products/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/products/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/products/:id', cctvControllerV2.productAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/products/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/products/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/products/:id', cctvControllerV2.productAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/pricing-config",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/pricing-config",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/pricing-config', cctvControllerV2.getPricingConfig);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/brands",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/brands",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/brands', cctvControllerV2.listBrands);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/brands",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/brands",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/brands', cctvControllerV2.brandAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/brands/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/brands/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/brands/:id', cctvControllerV2.brandAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/brands/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/brands/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/brands/:id', cctvControllerV2.brandAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/models",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/models",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/models', cctvControllerV2.listModels);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/models",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/models",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/models', cctvControllerV2.modelAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/models/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/models/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/models/:id', cctvControllerV2.modelAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/models/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/models/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/models/:id', cctvControllerV2.modelAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/sd-cards",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/sd-cards",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/sd-cards', cctvControllerV2.listSdCards);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/sd-cards",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/sd-cards",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/sd-cards', cctvControllerV2.sdCardAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/sd-cards/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/sd-cards/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/sd-cards/:id', cctvControllerV2.sdCardAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/sd-cards/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/sd-cards/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/sd-cards/:id', cctvControllerV2.sdCardAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/installation-charges",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/installation-charges",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/installation-charges', cctvControllerV2.listInstallationCharges);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/installation-charges",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/installation-charges",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/installation-charges', cctvControllerV2.installationChargeAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/installation-charges/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/installation-charges/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/installation-charges/:id', cctvControllerV2.installationChargeAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/installation-charges/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/installation-charges/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/installation-charges/:id', cctvControllerV2.installationChargeAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/cable-pricings",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/cable-pricings",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/cable-pricings', cctvControllerV2.listCablePricings);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/cable-pricings",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/cable-pricings",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/cable-pricings', cctvControllerV2.cablePricingAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/cable-pricings/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/cable-pricings/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/cable-pricings/:id', cctvControllerV2.cablePricingAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/cable-pricings/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/cable-pricings/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/cable-pricings/:id', cctvControllerV2.cablePricingAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/accessories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/accessories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/accessories', cctvControllerV2.listAccessories);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/accessories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/accessories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/accessories', cctvControllerV2.accessoryAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/accessories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/accessories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/accessories/:id', cctvControllerV2.accessoryAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/accessories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/accessories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/accessories/:id', cctvControllerV2.accessoryAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/hdds",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/hdds",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/hdds', cctvControllerV2.listHdds);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/hdds",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/hdds",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/hdds', cctvControllerV2.hddAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/hdds/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/hdds/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/hdds/:id', cctvControllerV2.hddAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/hdds/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/hdds/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/hdds/:id', cctvControllerV2.hddAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/services/cctv/racks",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/racks",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/services/cctv/racks', cctvControllerV2.listRacks);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/services/cctv/racks",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/racks",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/services/cctv/racks', cctvControllerV2.rackAdmin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/racks/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/racks/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/racks/:id', cctvControllerV2.rackAdmin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/services/cctv/racks/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/racks/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/services/cctv/racks/:id', cctvControllerV2.rackAdmin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/technicians",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/technicians",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/technicians', technicianControllerV2.listTechnicians);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/technicians/:id/status",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/technicians/:id/status",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/technicians/:id/status', technicianControllerV2.updateStatus);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/technicians/:id/assign",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/technicians/:id/assign",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/technicians/:id/assign', technicianControllerV2.assignManager);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/attendance/clock-in",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/attendance/clock-in",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/attendance/clock-in', attendanceControllerV2.adminClockIn);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/attendance/clock-out",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/attendance/clock-out",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/attendance/clock-out', attendanceControllerV2.adminClockOut);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/services/cctv/pricing-config",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/services/cctv/pricing-config",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/services/cctv/pricing-config', cctvControllerV2.upsertPricingConfig);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/completion-requests",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/completion-requests",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/completion-requests', adminControllerV2.getCompletionRequests);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/completion-requests/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/completion-requests/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/completion-requests/:id', adminControllerV2.updateCompletionRequest);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/payment-requests",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/payment-requests",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/payment-requests', adminControllerV2.getPaymentRequests);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/payment-requests/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/payment-requests/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/payment-requests/:id', adminControllerV2.updatePaymentRequest);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tracking",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/tracking",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tracking', adminControllerV2.getTracking);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/reviews",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/reviews",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/reviews', adminControllerV2.getReviews);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/attendance",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/attendance",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/attendance', adminControllerV2.getAttendance);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/addresses",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/addresses",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/addresses', adminControllerV2.getAddresses);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/catalog/categories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/categories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/catalog/categories', async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/catalog/categories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/categories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/catalog/categories', async (req, res) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/catalog/categories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/categories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/catalog/categories/:id', async (req, res) => {"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/catalog/categories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/categories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/catalog/categories/:id', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/catalog/subcategories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/subcategories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/catalog/subcategories', async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/catalog/subcategories",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/subcategories",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/catalog/subcategories', async (req, res) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/catalog/subcategories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/subcategories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/catalog/subcategories/:id', async (req, res) => {"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/catalog/subcategories/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/subcategories/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/catalog/subcategories/:id', async (req, res) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/catalog/subcategories/:id/packages",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/subcategories/:id/packages",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/catalog/subcategories/:id/packages', async (req, res) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/catalog/subcategories/:id/questions",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/catalog/subcategories/:id/questions",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/catalog/subcategories/:id/questions', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/quotes",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/quotes",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/quotes', quoteControllerV2.getQuoteRequests);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/quotes/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/quotes/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/quotes/:id', quoteControllerV2.getQuoteRequestDetails);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/quotes/:id/pdf",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/quotes/:id/pdf",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/quotes/:id/pdf', quoteControllerV2.downloadQuotationPdf);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/quotes/:id",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/quotes/:id",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/quotes/:id', quoteControllerV2.updateQuoteRequest);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/quotes/:id/price",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/quotes/:id/price",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/quotes/:id/price', quoteControllerV2.priceQuotation);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/quotes/:id/send",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/quotes/:id/send",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/quotes/:id/send', quoteControllerV2.sendQuotation);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/quotes/:id/convert",
+      "mountPrefix": "/api/v2/admin",
+      "fullPath": "/api/v2/admin/quotes/:id/convert",
+      "file": "adminRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/quotes/:id/convert', quoteControllerV2.convertToBooking);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', controller.createAdmission);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/receipt",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/receipt",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/receipt', controller.getReceipt);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', controller.listAdmissions);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/assign",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/assign",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/assign', controller.bulkAssign);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/preview",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/preview",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/preview', controller.bulkPreview);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', controller.getAdmissionById);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/:id', controller.updateAdmission);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/:id', controller.deleteAdmission);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/status",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', controller.updateStatus);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/assignment",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/assignment",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/assignment', controller.assignCourseOrInternship);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/activity",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/activity",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/activity', controller.getActivity);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/payments",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/payments",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/payments', controller.getPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/assignment/history",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/assignment/history",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/assignment/history', controller.getAssignmentHistory);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/:id/payment",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/payment",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/:id/payment', controller.upsertPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/payment/verify",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/payment/verify",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/payment/verify', controller.verifyPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/documents",
+      "mountPrefix": "/api/v2/admission",
+      "fullPath": "/api/v2/admission/:id/documents",
+      "file": "admissionRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/documents', controller.addDocument);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/chat",
+      "mountPrefix": "/api/v2/ai",
+      "fullPath": "/api/v2/ai/chat",
+      "file": "aiRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/chat', aiService.processChat);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/handoff",
+      "mountPrefix": "/api/v2/ai",
+      "fullPath": "/api/v2/ai/handoff",
+      "file": "aiRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/handoff', authenticate, aiService.createAiTicketHandoff);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/purchase",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/purchase",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/purchase', amcController.purchaseAmc);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/customer/contracts",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/customer/contracts",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/customer/contracts', amcController.getCustomerContracts);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/technician/visits",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/technician/visits",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/technician/visits', amcController.getTechnicianVisits);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/dashboard",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard', requireRoles('admin', 'manager'), amcController.getDashboardStats);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/contracts",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/contracts', amcController.getContracts);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/contracts/:id",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/contracts/:id', amcController.getContractById);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/contracts/:id",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/contracts/:id', amcController.updateContract);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/contracts/:id",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/contracts/:id', requireRoles('admin'), amcController.deleteContract);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/contracts/:id/schedule",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id/schedule",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/contracts/:id/schedule', amcController.scheduleVisit);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/contracts/:id/reschedule",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id/reschedule",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/contracts/:id/reschedule', amcController.rescheduleVisit);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/contracts/:id/cancel-visit",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id/cancel-visit",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/contracts/:id/cancel-visit', amcController.cancelVisit);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/contracts/:id/complete-visit",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id/complete-visit",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/contracts/:id/complete-visit', amcController.completeVisit);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/contracts/:id/renew",
+      "mountPrefix": "/api/v2/amc",
+      "fullPath": "/api/v2/amc/contracts/:id/renew",
+      "file": "amcRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/contracts/:id/renew', amcController.renewContract);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/summary",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/summary",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/summary', getSummary);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/revenue",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/revenue",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/revenue', getRevenue);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/jobs",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/jobs",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/jobs', getJobsBreakdown);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/technicians",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/technicians",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/technicians', getTechnicianPerformance);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/funnel",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/funnel",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/funnel', getBookingFunnel);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admissions/summary",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/admissions/summary",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admissions/summary', getAdmissionSummary);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admissions/course-popularity",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/admissions/course-popularity",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admissions/course-popularity', getCoursePopularity);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admissions/geo",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/admissions/geo",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admissions/geo', getGeo);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admissions/conversion",
+      "mountPrefix": "/api/v2/analytics",
+      "fullPath": "/api/v2/analytics/admissions/conversion",
+      "file": "analyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admissions/conversion', getConversion);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/residents/activate",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/residents/activate",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/residents/activate', apartmentController.activateResident);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tickets",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tickets', apartmentController.getTickets);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/tickets",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/tickets', apartmentController.createTicket);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tickets/:id",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets/:id",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tickets/:id', apartmentController.getTicketById);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/tickets/:id/reply",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets/:id/reply",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/tickets/:id/reply', apartmentController.replyToTicket);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/tickets/:id/status",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets/:id/status",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/tickets/:id/status', requireRoles('admin', 'association'), apartmentController.updateTicketStatus);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/tickets/:id/assign",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets/:id/assign",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/tickets/:id/assign', requireRoles('admin', 'association'), apartmentController.assignStaff);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/tickets/:id/internal-notes",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets/:id/internal-notes",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/tickets/:id/internal-notes', requireRoles('admin', 'association'), apartmentController.addInternalNote);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/tickets/:id/resolve",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets/:id/resolve",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/tickets/:id/resolve', requireRoles('admin', 'association'), apartmentController.resolveTicket);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/tickets/:id/reopen",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/tickets/:id/reopen",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/tickets/:id/reopen', apartmentController.reopenTicket);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', requireRoles('admin', 'association'), apartmentController.getApartments);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', requireRoles('admin'), apartmentController.createApartment);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', requireRoles('admin', 'association'), apartmentController.getApartmentById);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/tickets",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id/tickets",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/tickets', requireRoles('admin', 'association'), (req, res, next) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/:id', requireRoles('admin'), apartmentController.updateApartment);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/:id', requireRoles('admin'), apartmentController.deleteApartment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/association-users",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id/association-users",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/association-users', requireRoles('admin'), apartmentController.createAssociationUser);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/:id/association-users/:userId",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id/association-users/:userId",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/:id/association-users/:userId', requireRoles('admin'), apartmentController.removeAssociationUser);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/residents",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id/residents",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/residents', requireRoles('admin', 'association'), apartmentController.addResident);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/:id/residents/:residentId",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id/residents/:residentId",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/:id/residents/:residentId', requireRoles('admin', 'association'), apartmentController.updateResident);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/:id/residents/:residentId",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id/residents/:residentId",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/:id/residents/:residentId', requireRoles('admin', 'association'), apartmentController.removeResident);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/residents/:residentId/invite",
+      "mountPrefix": "/api/v2/apartments",
+      "fullPath": "/api/v2/apartments/:id/residents/:residentId/invite",
+      "file": "apartmentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/residents/:residentId/invite', requireRoles('admin', 'association'), apartmentController.inviteResident);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/clock-in",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/clock-in",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/clock-in', authenticate, async (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/clock-out",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/clock-out",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/clock-out', authenticate, async (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/mark-login",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/mark-login",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/mark-login', authenticate, attendanceControllerV2.handleMarkAttendance);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/mark-logout",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/mark-logout",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/mark-logout', authenticate, attendanceControllerV2.handleLogoutAttendance);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/today",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/today",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/today', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/range",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/range",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/range', authenticate, requireRoles('admin'), attendanceControllerV2.getAttendanceRange);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/month",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/month",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/month', authenticate, requireRoles('admin'), attendanceControllerV2.getMonthlyAttendance);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance/:id",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id', authenticate, requireRoles('admin'), attendanceControllerV2.updateAttendanceRecord);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/attendance",
+      "fullPath": "/api/v2/attendance",
+      "file": "attendanceRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', authenticate, jobControllerV2.createBooking);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', authenticate, jobControllerV2.createBooking);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/create",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create', authenticate, jobControllerV2.createBooking); // alias"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/create",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create', authenticate, jobControllerV2.createBooking); // alias"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, jobControllerV2.listBookings);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, jobControllerV2.listBookings);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/:id",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, jobControllerV2.getBookingDetails);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/:id",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, jobControllerV2.getBookingDetails);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/:id/assign",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/:id/assign",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.put('/:id/assign', authenticate, requireRoles('manager', 'admin'), jobControllerV2.assignById);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/:id/assign",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/:id/assign",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.put('/:id/assign', authenticate, requireRoles('manager', 'admin'), jobControllerV2.assignById);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/assign",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/assign",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/assign', authenticate, requireRoles('manager', 'admin'), jobControllerV2.assignBooking);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/assign",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/assign",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/assign', authenticate, requireRoles('manager', 'admin'), jobControllerV2.assignBooking);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/accept",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/:id/accept",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/accept', authenticate, requireRoles('technician'), jobControllerV2.acceptJob);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/accept",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/:id/accept",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/accept', authenticate, requireRoles('technician'), jobControllerV2.acceptJob);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/:id/status",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', authenticate, jobControllerV2.updateJobStatus);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/:id/status",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', authenticate, jobControllerV2.updateJobStatus);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/request-payment",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/:id/request-payment",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/request-payment', authenticate, requireRoles('technician'), jobControllerV2.requestPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/request-payment",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/:id/request-payment",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/request-payment', authenticate, requireRoles('technician'), jobControllerV2.requestPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/upload",
+      "mountPrefix": "/api/v2/bookings",
+      "fullPath": "/api/v2/bookings/:id/upload",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/upload', authenticate, jobControllerV2.uploadWork);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/upload",
+      "mountPrefix": "/api/bookings",
+      "fullPath": "/api/bookings/:id/upload",
+      "file": "bookingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/:id/upload', authenticate, jobControllerV2.uploadWork);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/customer/:jobId",
+      "mountPrefix": "/api/v2/cancellations",
+      "fullPath": "/api/v2/cancellations/customer/:jobId",
+      "file": "cancellationRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/customer/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/:jobId",
+      "mountPrefix": "/api/v2/cancellations",
+      "fullPath": "/api/v2/cancellations/admin/:jobId",
+      "file": "cancellationRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/:jobId', verifyToken, requireAdmin, async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/pending",
+      "mountPrefix": "/api/v2/cancellations",
+      "fullPath": "/api/v2/cancellations/pending",
+      "file": "cancellationRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/pending', verifyToken, requireAdmin, async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/history",
+      "mountPrefix": "/api/v2/cancellations",
+      "fullPath": "/api/v2/cancellations/history",
+      "file": "cancellationRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/history', verifyToken, requireAdmin, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/technician/:jobId",
+      "mountPrefix": "/api/v2/cancellations",
+      "fullPath": "/api/v2/cancellations/technician/:jobId",
+      "file": "cancellationRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/technician/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/technician-penalties",
+      "mountPrefix": "/api/v2/cancellations",
+      "fullPath": "/api/v2/cancellations/technician-penalties",
+      "file": "cancellationRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/technician-penalties', verifyToken, requireAdmin, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/apply",
+      "mountPrefix": "/api/v2/careers",
+      "fullPath": "/api/v2/careers/apply",
+      "file": "careerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/apply', upload.single('resume'), careerController.applyForJob);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/careers",
+      "fullPath": "/api/v2/careers",
+      "file": "careerRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, requireRoles('admin'), careerController.getApplications);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/status",
+      "mountPrefix": "/api/v2/careers",
+      "fullPath": "/api/v2/careers/:id/status",
+      "file": "careerRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/status', authenticate, requireRoles('admin'), careerController.updateApplicationStatus);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/cart",
+      "fullPath": "/api/v2/cart",
+      "file": "cartRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', cartControllerV2.getCart);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/add",
+      "mountPrefix": "/api/v2/cart",
+      "fullPath": "/api/v2/cart/add",
+      "file": "cartRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/add', cartControllerV2.addCartItem);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/item/:id",
+      "mountPrefix": "/api/v2/cart",
+      "fullPath": "/api/v2/cart/item/:id",
+      "file": "cartRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/item/:id', cartControllerV2.removeCartItem);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/clear",
+      "mountPrefix": "/api/v2/cart",
+      "fullPath": "/api/v2/cart/clear",
+      "file": "cartRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/clear', cartControllerV2.clearCart);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/categories",
+      "mountPrefix": "/api/v2/catalog",
+      "fullPath": "/api/v2/catalog/categories",
+      "file": "categoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/categories', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/categories/:slug",
+      "mountPrefix": "/api/v2/catalog",
+      "fullPath": "/api/v2/catalog/categories/:slug",
+      "file": "categoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/categories/:slug', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/categories/:slug/subcategories",
+      "mountPrefix": "/api/v2/catalog",
+      "fullPath": "/api/v2/catalog/categories/:slug/subcategories",
+      "file": "categoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/categories/:slug/subcategories', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories",
+      "mountPrefix": "/api/v2/catalog",
+      "fullPath": "/api/v2/catalog/subcategories",
+      "file": "categoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories/:slug",
+      "mountPrefix": "/api/v2/catalog",
+      "fullPath": "/api/v2/catalog/subcategories/:slug",
+      "file": "categoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories/:slug', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories/:slug/packages",
+      "mountPrefix": "/api/v2/catalog",
+      "fullPath": "/api/v2/catalog/subcategories/:slug/packages",
+      "file": "categoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories/:slug/packages', async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories/:slug/questions",
+      "mountPrefix": "/api/v2/catalog",
+      "fullPath": "/api/v2/catalog/subcategories/:slug/questions",
+      "file": "categoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories/:slug/questions', async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/registrations",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/registrations",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/registrations', registrationRateLimit, cctvCourseControllerV2.createRegistration);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/registrations/:id",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/registrations/:id",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/registrations/:id', cctvCourseControllerV2.getPublicRegistrationDetails);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/razorpay/create-order",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/razorpay/create-order",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/razorpay/create-order', orderCreationRateLimit, cctvCourseControllerV2.createRazorpayOrder);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/razorpay/verify",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/razorpay/verify",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/razorpay/verify', paymentVerifyRateLimit, cctvCourseControllerV2.verifyRazorpayPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/cancel-payment",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/cancel-payment",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/cancel-payment', cctvCourseControllerV2.cancelPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/razorpay/webhook",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/razorpay/webhook",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/razorpay/webhook', cctvCourseControllerV2.webhookHandler);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/certificates/:id",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/certificates/:id",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/certificates/:id', cctvCourseControllerV2.getCertificateDetails);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/masterclass/stats",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/masterclass/stats",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get("
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/registrations",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/registrations",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get("
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/registrations/:id",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/registrations/:id",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get("
+    },
+    {
+      "method": "PUT",
+      "subPath": "/admin/registrations/:id",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/registrations/:id",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put("
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/admin/registrations/:id",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/registrations/:id",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete("
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/registrations/bulk-send-zoom",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/registrations/bulk-send-zoom",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/registrations/:id/send-zoom",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/registrations/:id/send-zoom",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/smtp-health",
+      "mountPrefix": "/api/v2/cctv-course",
+      "fullPath": "/api/v2/cctv-course/admin/smtp-health",
+      "file": "cctvCourseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get("
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', cctvController.listSubcategories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', cctvController.listSubcategories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/categories",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/categories",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/categories', cctvController.listCategories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/categories",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/categories",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/categories', cctvController.listCategories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/subcategories",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories', cctvController.listSubcategories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/subcategories",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories', cctvController.listSubcategories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories/:slug",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/subcategories/:slug",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories/:slug', cctvController.getSubcategoryBySlug);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/subcategories/:slug",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/subcategories/:slug",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/subcategories/:slug', cctvController.getSubcategoryBySlug);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/camera-types",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/camera-types",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/camera-types', cctvController.listCameraTypes);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/camera-types",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/camera-types",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/camera-types', cctvController.listCameraTypes);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/addons",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/addons",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/addons', cctvController.listAddons);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/addons",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/addons",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/addons', cctvController.listAddons);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/products",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/products",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/products', cctvController.listProducts);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/products",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/products",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/products', cctvController.listProducts);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/pricing-config",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/pricing-config",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/pricing-config', cctvController.getPricingConfig);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/pricing-config",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/pricing-config",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/pricing-config', cctvController.getPricingConfig);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/brands",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/brands",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/brands', cctvController.listBrands);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/brands",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/brands",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/brands', cctvController.listBrands);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/models",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/models",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/models', cctvController.listModels);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/models",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/models",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/models', cctvController.listModels);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/sd-cards",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/sd-cards",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/sd-cards', cctvController.listSdCards);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/sd-cards",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/sd-cards",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/sd-cards', cctvController.listSdCards);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/installation-charges",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/installation-charges",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/installation-charges', cctvController.listInstallationCharges);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/installation-charges",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/installation-charges",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/installation-charges', cctvController.listInstallationCharges);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/cable-pricings",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/cable-pricings",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/cable-pricings', cctvController.listCablePricings);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/cable-pricings",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/cable-pricings",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/cable-pricings', cctvController.listCablePricings);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/accessories",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/accessories",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/accessories', cctvController.listAccessories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/accessories",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/accessories",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/accessories', cctvController.listAccessories);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/hdds",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/hdds",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/hdds', cctvController.listHdds);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/hdds",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/hdds",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/hdds', cctvController.listHdds);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/racks",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/racks",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/racks', cctvController.listRacks);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/racks",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/racks",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/racks', cctvController.listRacks);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/calculate-price",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/calculate-price",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/calculate-price', cctvController.calculatePrice);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/calculate-price",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/calculate-price",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/calculate-price', cctvController.calculatePrice);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:serviceId/config",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/:serviceId/config",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:serviceId/config', cctvController.getServiceConfig);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:serviceId/config",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/:serviceId/config",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:serviceId/config', cctvController.getServiceConfig);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/services",
+      "fullPath": "/api/v2/services/:id",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', cctvController.getServiceById);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/cctv",
+      "fullPath": "/api/v2/cctv/:id",
+      "file": "cctvRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', cctvController.getServiceById);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/courses",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/courses",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/courses', courseControllerV2.listCourses);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/courses",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/courses",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/courses', courseControllerV2.createCourse);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/courses/:id",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/courses/:id",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/courses/:id', courseControllerV2.getCourse);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/courses/:id",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/courses/:id",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/courses/:id', courseControllerV2.deleteCourse);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/course-enrollments",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-enrollments",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/course-enrollments', courseControllerV2.listEnrollments);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/course-enrollments",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-enrollments",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/course-enrollments', courseControllerV2.createEnrollment);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/course-enrollments/:id",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-enrollments/:id",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/course-enrollments/:id', courseControllerV2.updateEnrollment);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/course-inquiries",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-inquiries",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/course-inquiries', courseControllerV2.listInquiries);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/course-inquiries",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-inquiries",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/course-inquiries', courseControllerV2.createInquiry);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/course-inquiries/:id",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-inquiries/:id",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/course-inquiries/:id', courseControllerV2.updateInquiry);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/course-admin/login",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-admin/login",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/course-admin/login', courseControllerV2.loginCourseAdmin);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/course-analytics",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-analytics",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/course-analytics', courseControllerV2.getCourseAnalytics);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/course-payments/create-order",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-payments/create-order",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/course-payments/create-order', orderCreationRateLimit, courseControllerV2.createCoursePaymentOrder);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/course-payments/verify",
+      "mountPrefix": "/api/v2",
+      "fullPath": "/api/v2/course-payments/verify",
+      "file": "courseRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/course-payments/verify', paymentVerifyRateLimit, courseControllerV2.verifyCoursePayment);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/wallet",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/wallet",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/wallet', customerController.getWallet);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/wallet/add",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/wallet/add",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/wallet/add', customerController.addFunds);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tickets",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/tickets",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tickets', apartmentController.getTickets);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/tickets",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/tickets",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/tickets', apartmentController.createTicket);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/tickets/:id",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/tickets/:id",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/tickets/:id', apartmentController.getTicketById);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/tickets/:id/reply",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/tickets/:id/reply",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/tickets/:id/reply', apartmentController.replyToTicket);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/tickets/:id/reopen",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/tickets/:id/reopen",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/tickets/:id/reopen', apartmentController.reopenTicket);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard-stats",
+      "mountPrefix": "/api/v2/customer",
+      "fullPath": "/api/v2/customer/dashboard-stats",
+      "file": "customerRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard-stats', customerController.getDashboardStats);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/retry/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/retry/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/retry/:jobId', verifyToken, requireAdmin, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/override/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/override/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/override/:jobId', verifyToken, requireAdmin, async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/status/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/status/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/status/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/active",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/active",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/active', verifyToken, requireAdmin, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/accept/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/accept/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/accept/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/reject/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/reject/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/reject/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/availability",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/availability",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.put('/availability', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/location",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/location",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.put('/location', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/tech-cancel/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/tech-cancel/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/tech-cancel/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/my-requests",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/my-requests",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/my-requests', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/otp/start/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/otp/start/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/otp/start/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/otp/start/:jobId/verify",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/otp/start/:jobId/verify",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/otp/start/:jobId/verify', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/otp/complete/:jobId",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/otp/complete/:jobId",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/otp/complete/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/otp/complete/:jobId/verify",
+      "mountPrefix": "/api/v2/dispatch",
+      "fullPath": "/api/v2/dispatch/otp/complete/:jobId/verify",
+      "file": "dispatchRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/otp/complete/:jobId/verify', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/search",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/search",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/search', inventoryControllerV2.searchInventory);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/calculate-gst",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/calculate-gst",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/calculate-gst', inventoryControllerV2.calculateGst);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/products/:id",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/products/:id",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/products/:id', optionalAuthenticate, inventoryControllerV2.getProductById);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/products",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/products",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/products', optionalAuthenticate, (req, res, next) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/products",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/admin/products",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admin/products', inventoryControllerV2.listProductsAdmin);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/products",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/admin/products",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/products', inventoryControllerV2.createProductAdmin);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/products",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/products",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/products', inventoryControllerV2.createProductAdmin);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/admin/products/:id",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/admin/products/:id",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/admin/products/:id', inventoryControllerV2.updateProductAdmin);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/products/:id",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/products/:id",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/products/:id', inventoryControllerV2.updateProductAdmin);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/admin/products/:id/status",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/admin/products/:id/status",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/admin/products/:id/status', inventoryControllerV2.toggleStatusAdmin);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/products/:id/status",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/products/:id/status",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/products/:id/status', inventoryControllerV2.toggleStatusAdmin);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/admin/products/:id",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/admin/products/:id",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/admin/products/:id', inventoryControllerV2.deleteProductAdmin);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/products/:id",
+      "mountPrefix": "/api/v2/inventory",
+      "fullPath": "/api/v2/inventory/products/:id",
+      "file": "inventoryRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/products/:id', inventoryControllerV2.deleteProductAdmin);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/accept/:id",
+      "mountPrefix": "/api/v2/jobs",
+      "fullPath": "/api/v2/jobs/accept/:id",
+      "file": "jobRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/accept/:id', requireRoles('technician'), jobControllerV2.acceptJob);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/upload-work/:id",
+      "mountPrefix": "/api/v2/jobs",
+      "fullPath": "/api/v2/jobs/upload-work/:id",
+      "file": "jobRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/upload-work/:id', requireRoles('technician'), jobControllerV2.uploadWork);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/me",
+      "mountPrefix": "/api/v2/kyc",
+      "fullPath": "/api/v2/kyc/me",
+      "file": "kycRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/me', requireRoles('technician', 'manager', 'admin'), controller.getMyKyc);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/submit",
+      "mountPrefix": "/api/v2/kyc",
+      "fullPath": "/api/v2/kyc/submit",
+      "file": "kycRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/submit', requireRoles('technician'), controller.submitKyc);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/pending",
+      "mountPrefix": "/api/v2/kyc",
+      "fullPath": "/api/v2/kyc/admin/pending",
+      "file": "kycRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admin/pending', requireRoles('admin', 'manager'), controller.getPendingKyc);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/admin/:id/approve",
+      "mountPrefix": "/api/v2/kyc",
+      "fullPath": "/api/v2/kyc/admin/:id/approve",
+      "file": "kycRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/admin/:id/approve', requireRoles('admin', 'manager'), controller.approveKyc);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/admin/:id/reject",
+      "mountPrefix": "/api/v2/kyc",
+      "fullPath": "/api/v2/kyc/admin/:id/reject",
+      "file": "kycRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/admin/:id/reject', requireRoles('admin', 'manager'), controller.rejectKyc);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/leads",
+      "fullPath": "/api/v2/leads",
+      "file": "leadRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', publicController.createLead);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/leads",
+      "fullPath": "/api/v2/leads",
+      "file": "leadRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', publicController.listPublic);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/update",
+      "mountPrefix": "/api/v2/location",
+      "fullPath": "/api/v2/location/update",
+      "file": "locationRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/update', locationControllerV2.updateLocation);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:technicianId",
+      "mountPrefix": "/api/v2/location",
+      "fullPath": "/api/v2/location/:technicianId",
+      "file": "locationRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:technicianId', locationControllerV2.getLiveLocation);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/search",
+      "mountPrefix": "/api/v2/materials",
+      "fullPath": "/api/v2/materials/search",
+      "file": "materialRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/search', inventoryControllerV2.searchInventory);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/materials",
+      "fullPath": "/api/v2/materials",
+      "file": "materialRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', materialController.listMaterials);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/materials",
+      "fullPath": "/api/v2/materials/:id",
+      "file": "materialRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', materialController.getMaterial);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/materials",
+      "fullPath": "/api/v2/materials",
+      "file": "materialRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', authenticate, requireRoles('admin'), materialController.admin.create);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/materials",
+      "fullPath": "/api/v2/materials/:id",
+      "file": "materialRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.put('/:id', authenticate, requireRoles('admin'), materialController.admin.update);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/materials",
+      "fullPath": "/api/v2/materials/:id",
+      "file": "materialRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/:id', authenticate, requireRoles('admin'), materialController.admin.remove);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/notifications",
+      "fullPath": "/api/v2/notifications",
+      "file": "notificationRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', notificationController.getNotifications);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/read-all",
+      "mountPrefix": "/api/v2/notifications",
+      "fullPath": "/api/v2/notifications/read-all",
+      "file": "notificationRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/read-all', notificationController.markAllAsRead);"
+    },
+    {
+      "method": "PATCH",
+      "subPath": "/:id/read",
+      "mountPrefix": "/api/v2/notifications",
+      "fullPath": "/api/v2/notifications/:id/read",
+      "file": "notificationRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.patch('/:id/read', notificationController.markAsRead);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/start/:jobId",
+      "mountPrefix": "/api/v2/otp",
+      "fullPath": "/api/v2/otp/start/:jobId",
+      "file": "otpRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/start/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/start/:jobId/verify",
+      "mountPrefix": "/api/v2/otp",
+      "fullPath": "/api/v2/otp/start/:jobId/verify",
+      "file": "otpRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/start/:jobId/verify', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/complete/:jobId",
+      "mountPrefix": "/api/v2/otp",
+      "fullPath": "/api/v2/otp/complete/:jobId",
+      "file": "otpRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/complete/:jobId', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/complete/:jobId/verify",
+      "mountPrefix": "/api/v2/otp",
+      "fullPath": "/api/v2/otp/complete/:jobId/verify",
+      "file": "otpRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/complete/:jobId/verify', verifyToken, async (req, res) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create-order",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/create-order",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create-order', authenticate, paymentControllerV2.createOrder);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create-order",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/create-order",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create-order', authenticate, paymentControllerV2.createOrder);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create-order",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/create-order",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create-order', authenticate, paymentControllerV2.createOrder);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-payment",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/verify-payment",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/verify-payment', authenticate, paymentControllerV2.verifyPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-payment",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/verify-payment",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/verify-payment', authenticate, paymentControllerV2.verifyPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-payment",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/verify-payment",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/verify-payment', authenticate, paymentControllerV2.verifyPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/webhook",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/webhook",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/webhook', paymentControllerV2.webhookHandler);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/webhook",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/webhook",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/webhook', paymentControllerV2.webhookHandler);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/webhook",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/webhook",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/webhook', paymentControllerV2.webhookHandler);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/my",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/my",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/my', authenticate, paymentControllerV2.myPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/my",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/my",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/my', authenticate, paymentControllerV2.myPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/my",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/my",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/my', authenticate, paymentControllerV2.myPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/:id",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, paymentControllerV2.getPaymentById);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/:id",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, paymentControllerV2.getPaymentById);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/:id",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id', authenticate, paymentControllerV2.getPaymentById);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/audit",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/:id/audit",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/audit', authenticate, requireRoles('admin'), paymentControllerV2.getPaymentAudit);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/audit",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/:id/audit",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/audit', authenticate, requireRoles('admin'), paymentControllerV2.getPaymentAudit);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/audit",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/:id/audit",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/:id/audit', authenticate, requireRoles('admin'), paymentControllerV2.getPaymentAudit);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/list",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/admin/list",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admin/list', authenticate, requireRoles('admin'), paymentControllerV2.getAllPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/list",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/admin/list",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admin/list', authenticate, requireRoles('admin'), paymentControllerV2.getAllPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/admin/list",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/admin/list",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/admin/list', authenticate, requireRoles('admin'), paymentControllerV2.getAllPayments);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/refund",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/admin/refund",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/refund', authenticate, requireRoles('admin'), paymentControllerV2.refundPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/refund",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/admin/refund",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/refund', authenticate, requireRoles('admin'), paymentControllerV2.refundPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/refund",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/admin/refund",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/refund', authenticate, requireRoles('admin'), paymentControllerV2.refundPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/retry",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/admin/retry",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/retry', authenticate, requireRoles('admin'), paymentControllerV2.retryPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/retry",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/admin/retry",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/retry', authenticate, requireRoles('admin'), paymentControllerV2.retryPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/admin/retry",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/admin/retry",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/admin/retry', authenticate, requireRoles('admin'), paymentControllerV2.retryPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/request",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/request",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/request', authenticate, paymentControllerV2.requestPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/request",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/request",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/request', authenticate, paymentControllerV2.requestPayment);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/request",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/request",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/request', authenticate, paymentControllerV2.requestPayment);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/requests",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/requests",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/requests', authenticate, requireRoles('admin'), paymentControllerV2.getPaymentRequests);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/requests",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/requests",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/requests', authenticate, requireRoles('admin'), paymentControllerV2.getPaymentRequests);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/requests",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/requests",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/requests', authenticate, requireRoles('admin'), paymentControllerV2.getPaymentRequests);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/approve",
+      "mountPrefix": "/api/v2/payment",
+      "fullPath": "/api/v2/payment/approve",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/approve', authenticate, requireRoles('admin'), paymentControllerV2.approvePaymentRequest);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/approve",
+      "mountPrefix": "/api/payments",
+      "fullPath": "/api/payments/approve",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/approve', authenticate, requireRoles('admin'), paymentControllerV2.approvePaymentRequest);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/approve",
+      "mountPrefix": "/api/v2/payments",
+      "fullPath": "/api/v2/payments/approve",
+      "file": "paymentRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/approve', authenticate, requireRoles('admin'), paymentControllerV2.approvePaymentRequest);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/voice-note",
+      "mountPrefix": "/api/v2/quotes",
+      "fullPath": "/api/v2/quotes/voice-note",
+      "file": "quoteRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/quotes",
+      "fullPath": "/api/v2/quotes",
+      "file": "quoteRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "GET",
+      "subPath": "/my-quotes",
+      "mountPrefix": "/api/v2/quotes",
+      "fullPath": "/api/v2/quotes/my-quotes",
+      "file": "quoteRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get("
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id",
+      "mountPrefix": "/api/v2/quotes",
+      "fullPath": "/api/v2/quotes/:id",
+      "file": "quoteRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get("
+    },
+    {
+      "method": "GET",
+      "subPath": "/:id/pdf",
+      "mountPrefix": "/api/v2/quotes",
+      "fullPath": "/api/v2/quotes/:id/pdf",
+      "file": "quoteRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get("
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/create-payment-order",
+      "mountPrefix": "/api/v2/quotes",
+      "fullPath": "/api/v2/quotes/:id/create-payment-order",
+      "file": "quoteRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "POST",
+      "subPath": "/:id/verify-payment",
+      "mountPrefix": "/api/v2/quotes",
+      "fullPath": "/api/v2/quotes/:id/verify-payment",
+      "file": "quoteRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post("
+    },
+    {
+      "method": "GET",
+      "subPath": "/directions",
+      "mountPrefix": "/api/v2/routing",
+      "fullPath": "/api/v2/routing/directions",
+      "file": "routingRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/directions', authenticate, async (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/upload",
+      "fullPath": "/api/v2/upload",
+      "file": "uploadRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/', uploadRateLimiter, (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/multiple",
+      "mountPrefix": "/api/v2/upload",
+      "fullPath": "/api/v2/upload/multiple",
+      "file": "uploadRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/multiple', uploadRateLimiter, (req, res, next) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', controller.getDashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', controller.getDashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', controller.getDashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/dashboard",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard', controller.getDashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/dashboard",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard', controller.getDashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/dashboard",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard', controller.getDashboard);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/profile",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/profile",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/profile', controller.getProfile);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/profile",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/profile",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/profile', controller.getProfile);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/profile",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/profile",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/profile', controller.getProfile);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/profile",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/profile",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/profile', controller.updateProfile);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/profile",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/profile",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/profile', controller.updateProfile);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/profile",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/profile",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/profile', controller.updateProfile);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/addresses",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/addresses",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/addresses', controller.listAddresses);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/addresses",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/addresses",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/addresses', controller.listAddresses);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/addresses",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/addresses",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/addresses', controller.listAddresses);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/address",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/address",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/address', controller.createAddress);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/address",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/address",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/address', controller.createAddress);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/address",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/address",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/address', controller.createAddress);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/address/:id",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/address/:id",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/address/:id', controller.updateAddress);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/address/:id",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/address/:id",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/address/:id', controller.updateAddress);"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/address/:id",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/address/:id",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.put('/address/:id', controller.updateAddress);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/address/:id",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/address/:id",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/address/:id', controller.deleteAddress);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/address/:id",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/address/:id",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/address/:id', controller.deleteAddress);"
+    },
+    {
+      "method": "DELETE",
+      "subPath": "/address/:id",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/address/:id",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.delete('/address/:id', controller.deleteAddress);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/bookings",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/bookings",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/bookings', controller.getBookings);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/bookings",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/bookings",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/bookings', controller.getBookings);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/bookings",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/bookings",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/bookings', controller.getBookings);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/payments",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/payments",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/payments', controller.getPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/payments",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/payments",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/payments', controller.getPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/payments",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/payments",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/payments', controller.getPayments);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/service-reports",
+      "mountPrefix": "/api/v2/user",
+      "fullPath": "/api/v2/user/service-reports",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/service-reports', controller.getServiceReports);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/service-reports",
+      "mountPrefix": "/api/user",
+      "fullPath": "/api/user/service-reports",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/service-reports', controller.getServiceReports);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/service-reports",
+      "mountPrefix": "/api/dashboard",
+      "fullPath": "/api/dashboard/service-reports",
+      "file": "userRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/service-reports', controller.getServiceReports);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/track",
+      "mountPrefix": "/api/v2/analytics/visitors",
+      "fullPath": "/api/v2/analytics/visitors/track",
+      "file": "visitorAnalyticsRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/track', (req, res) => res.status(410).json({ success: false, message: 'Legacy visitor analytics disabled. Use GA4.' }));"
+    },
+    {
+      "method": "GET",
+      "subPath": "/dashboard",
+      "mountPrefix": "/api/v2/analytics/visitors",
+      "fullPath": "/api/v2/analytics/visitors/dashboard",
+      "file": "visitorAnalyticsRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/dashboard', authenticate, requireRoles('admin'), (req, res) => res.status(410).json({ success: false, message: 'Legacy visitor analytics disabled. Use GA4.' }));"
+    },
+    {
+      "method": "GET",
+      "subPath": "/city/:city",
+      "mountPrefix": "/api/v2/analytics/visitors",
+      "fullPath": "/api/v2/analytics/visitors/city/:city",
+      "file": "visitorAnalyticsRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/city/:city', authenticate, requireRoles('admin'), (req, res) => res.status(410).json({ success: false, message: 'Legacy visitor analytics disabled. Use GA4.' }));"
+    },
+    {
+      "method": "POST",
+      "subPath": "/create-order",
+      "mountPrefix": "/api/v2/wallet",
+      "fullPath": "/api/v2/wallet/create-order",
+      "file": "walletRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/create-order', walletController.createOrder);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/verify-payment",
+      "mountPrefix": "/api/v2/wallet",
+      "fullPath": "/api/v2/wallet/verify-payment",
+      "file": "walletRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/verify-payment', walletController.verifyPayment);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/wallet",
+      "fullPath": "/api/v2/wallet",
+      "file": "walletRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', walletController.getWallet);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/transactions",
+      "mountPrefix": "/api/v2/wallet",
+      "fullPath": "/api/v2/wallet/transactions",
+      "file": "walletRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.get('/transactions', walletController.getTransactions);"
+    },
+    {
+      "method": "POST",
+      "subPath": "/pay-booking",
+      "mountPrefix": "/api/v2/wallet",
+      "fullPath": "/api/v2/wallet/pay-booking",
+      "file": "walletRoutesV2.js",
+      "isAuthRequired": false,
+      "isRoleChecked": false,
+      "snippet": "router.post('/pay-booking', walletController.payBooking);"
+    },
+    {
+      "method": "GET",
+      "subPath": "/",
+      "mountPrefix": "/api/v2/worksheets",
+      "fullPath": "/api/v2/worksheets",
+      "file": "worksheetRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/', authenticate, requireRoles('admin', 'manager'), async (req, res, next) => {"
+    },
+    {
+      "method": "GET",
+      "subPath": "/job/:jobId",
+      "mountPrefix": "/api/v2/worksheets",
+      "fullPath": "/api/v2/worksheets/job/:jobId",
+      "file": "worksheetRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.get('/job/:jobId', authenticate, async (req, res, next) => {"
+    },
+    {
+      "method": "PUT",
+      "subPath": "/job/:jobId",
+      "mountPrefix": "/api/v2/worksheets",
+      "fullPath": "/api/v2/worksheets/job/:jobId",
+      "file": "worksheetRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.put('/job/:jobId', authenticate, async (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/job/:jobId/approve",
+      "mountPrefix": "/api/v2/worksheets",
+      "fullPath": "/api/v2/worksheets/job/:jobId/approve",
+      "file": "worksheetRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/job/:jobId/approve', authenticate, requireRoles('admin', 'manager'), async (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/job/:jobId/reject",
+      "mountPrefix": "/api/v2/worksheets",
+      "fullPath": "/api/v2/worksheets/job/:jobId/reject",
+      "file": "worksheetRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/job/:jobId/reject', authenticate, requireRoles('admin', 'manager'), async (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/job/:jobId/approve-additional",
+      "mountPrefix": "/api/v2/worksheets",
+      "fullPath": "/api/v2/worksheets/job/:jobId/approve-additional",
+      "file": "worksheetRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/job/:jobId/approve-additional', authenticate, async (req, res, next) => {"
+    },
+    {
+      "method": "POST",
+      "subPath": "/job/:jobId/reject-additional",
+      "mountPrefix": "/api/v2/worksheets",
+      "fullPath": "/api/v2/worksheets/job/:jobId/reject-additional",
+      "file": "worksheetRoutesV2.js",
+      "isAuthRequired": true,
+      "isRoleChecked": false,
+      "snippet": "router.post('/job/:jobId/reject-additional', authenticate, async (req, res, next) => {"
+    }
+  ]
+}

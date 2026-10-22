@@ -178,6 +178,16 @@ async function runTests() {
   const residentToken = activateRes.data?.token || activateRes.data?.data?.token;
   console.log('Resident JWT Issued:', Boolean(residentToken));
 
+  // 6b. Test Resident Profile API (GET /api/v2/apartments/residents/me)
+  console.log('\n[6b] Testing Resident Profile Retrieval (GET /api/v2/apartments/residents/me)...');
+  const profileRes = await apiRequest('/api/v2/apartments/residents/me', 'GET', null, residentToken);
+  console.log('Resident Profile Status:', profileRes.status, 'Complex:', profileRes.data?.data?.apartment?.name, 'Flat:', profileRes.data?.data?.resident?.flatNumber);
+  if (profileRes.status === 200 && profileRes.data?.data?.apartment?.name) {
+    console.log('✅ PASS: Resident profile successfully fetched with populated apartment details!');
+  } else {
+    console.error('❌ FAIL: Resident profile fetch failed!', profileRes);
+  }
+
   // 7. Test Resident Ticket Creation
   console.log('\n[7] Testing Resident Raising Complaint via Authenticated Resident Token...');
   const ticketPayload = {
@@ -196,6 +206,16 @@ async function runTests() {
   console.log('Ticket Apartment Name:', createTicketRes.data?.data?.apartmentName);
   console.log('Ticket Priority:', createTicketRes.data?.data?.priority);
   console.log('Ticket Category:', createTicketRes.data?.data?.category);
+
+  // 7b. Test Duplicate Complaint Prevention (Within 60s)
+  console.log('\n[7b] Testing Duplicate Complaint Prevention (Same Subject within 60s)...');
+  const dupTicketRes = await apiRequest('/api/v2/apartments/tickets', 'POST', ticketPayload, residentToken);
+  console.log('Duplicate Ticket Status (Expected 409):', dupTicketRes.status, 'Message:', dupTicketRes.data?.message);
+  if (dupTicketRes.status === 409) {
+    console.log('✅ PASS: Backend successfully prevented duplicate complaint submission!');
+  } else {
+    console.error('❌ FAIL: Duplicate complaint submission was not rejected!');
+  }
 
   // 8. Test Admin Ticket Assignment & Workflow
   console.log('\n[8] Testing Admin Ticket Assignment (Maintenance Staff)...');

@@ -9,6 +9,9 @@ router.post('/residents/activate', apartmentController.activateResident);
 // All subsequent routes require valid authentication
 router.use(authenticate);
 
+// ─── RESIDENT PROFILE (AUTHENTICATED RESIDENT) ─────────────────────────────────
+router.get('/residents/me', apartmentController.getResidentProfile);
+
 // ─── TICKETS (ROLE-SCOPED: ADMIN, ASSOCIATION, RESIDENT, CLIENT) ───────────────
 router.get('/tickets', apartmentController.getTickets);
 router.post('/tickets', apartmentController.createTicket);

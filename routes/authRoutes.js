@@ -54,9 +54,32 @@ router.post(
 );
 
 // GET /session to retrieve current authenticated session data
-router.get('/session', authenticate, (req, res) => {
+router.get('/session', authenticate, async (req, res) => {
   const user = req.authUser?.toSafeObject?.() || null;
   const token = req.authUser?.token || null;
+
+  if (user && user.apartmentId) {
+    try {
+      const Apartment = require('../models/Apartment');
+      const apt = await Apartment.findById(user.apartmentId).select('name address locality city pincode contactPerson contactPhone');
+      if (apt) {
+        user.apartment = {
+          id: apt._id.toString(),
+          name: apt.name,
+          address: apt.address,
+          locality: apt.locality,
+          city: apt.city,
+          pincode: apt.pincode,
+          contactPerson: apt.contactPerson,
+          contactPhone: apt.contactPhone,
+        };
+        user.apartmentName = apt.name;
+      }
+    } catch (err) {
+      // Non-critical enrichment
+    }
+  }
+
   res.json({ authenticated: true, user, token });
 });
 

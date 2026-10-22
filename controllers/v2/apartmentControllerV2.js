@@ -723,6 +723,7 @@ async function activateResident(req, res, next) {
       user.name = resident.name;
       user.isOnline = true;
       user.sessionActive = true;
+      user.lastSeen = new Date();
       await user.save();
     } else {
       user = await User.create({
@@ -737,6 +738,7 @@ async function activateResident(req, res, next) {
         userType: 'web_user',
         isOnline: true,
         sessionActive: true,
+        lastSeen: new Date(),
       });
     }
 
@@ -754,6 +756,26 @@ async function activateResident(req, res, next) {
       message: 'Resident account activated successfully! Welcome to TechBes Society Portal.',
       token,
       user: user.toSafeObject(),
+      data: {
+        token,
+        user: user.toSafeObject(),
+        apartment: {
+          _id: apartment._id,
+          name: apartment.name,
+          address: apartment.address,
+          locality: apartment.locality,
+          city: apartment.city,
+        },
+        resident: {
+          residentId: resident.residentId,
+          flatNumber: resident.flatNumber,
+          block: resident.block,
+          residentType: resident.residentType,
+          name: resident.name,
+          phone: resident.phone,
+          status: resident.status,
+        },
+      },
     });
   } catch (err) {
     next(err);
@@ -779,6 +801,21 @@ async function createTicket(req, res, next) {
 
     if (!subject || !subject.trim()) {
       return res.status(400).json({ success: false, message: 'Ticket subject is required' });
+    }
+
+    // Prevent duplicate submissions within 60 seconds
+    const sixtySecsAgo = new Date(Date.now() - 60 * 1000);
+    const existingRecent = await SupportTicket.findOne({
+      customer: user._id,
+      subject: subject.trim(),
+      createdAt: { $gte: sixtySecsAgo },
+    });
+    if (existingRecent) {
+      return res.status(409).json({
+        success: false,
+        message: 'A complaint with this exact title was recently submitted. Please check your existing complaints.',
+        data: existingRecent,
+      });
     }
 
     let ticketData = {
@@ -948,14 +985,16 @@ async function getTickets(req, res, next) {
       }
       filter.apartmentId = user.apartmentId;
     }
-    // 3. Resident: can view ONLY their own flat's tickets
+    // 3. Resident: can view their own flat's and their own submitted tickets
     else if (user.role === 'resident') {
-      if (!user.apartmentId || !user.flatNumber) {
-        return res.json({ success: true, data: [] });
+      const orConditions = [{ raisedByUserId: user._id }, { customer: user._id }, { residentId: user._id }];
+      if (user.apartmentId && user.flatNumber) {
+        orConditions.push({
+          apartmentId: user.apartmentId,
+          flatNumber: user.flatNumber,
+        });
       }
-      filter.apartmentId = user.apartmentId;
-      filter.flatNumber = user.flatNumber;
-      filter.raisedByType = 'resident';
+      filter.$or = orConditions;
     }
     // 4. Regular client
     else {
@@ -1410,6 +1449,69 @@ async function reopenTicket(req, res, next) {
   }
 }
 
+/**
+ * Get logged-in resident's apartment & flat details
+ */
+async function getResidentProfile(req, res, next) {
+  try {
+    const user = req.authUser || (await User.findById(req.user.id));
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+
+    let apartment = null;
+    let residentRecord = null;
+    if (user.apartmentId) {
+      apartment = await Apartment.findById(user.apartmentId)
+        .populate('associationUsers', 'name mobileNumber email role')
+        .lean();
+
+      if (apartment && Array.isArray(apartment.residents)) {
+        residentRecord = apartment.residents.find(
+          r => (r.userId && r.userId.toString() === user._id.toString()) ||
+               (r.phone === user.mobileNumber) ||
+               (r.flatNumber === user.flatNumber)
+        );
+      }
+    }
+
+    const data = {
+      user: user.toSafeObject ? user.toSafeObject() : user,
+      apartment: apartment ? {
+        _id: apartment._id,
+        name: apartment.name,
+        address: apartment.address,
+        locality: apartment.locality,
+        city: apartment.city,
+        state: apartment.state,
+        pincode: apartment.pincode,
+        contactPerson: apartment.contactPerson,
+        contactPhone: apartment.contactPhone,
+        contactEmail: apartment.contactEmail,
+        totalFlats: apartment.totalFlats,
+        blocks: apartment.blocks || [],
+        associationUsers: (apartment.associationUsers || []).map(u => ({
+          name: u.name,
+          mobileNumber: u.mobileNumber,
+          email: u.email,
+        })),
+      } : null,
+      resident: residentRecord || {
+        flatNumber: user.flatNumber || '',
+        block: user.block || '',
+        name: user.name || '',
+        phone: user.mobileNumber || '',
+        residentType: 'owner',
+        status: 'active',
+      },
+    };
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getApartments,
   getApartmentById,
@@ -1423,6 +1525,7 @@ module.exports = {
   removeResident,
   inviteResident,
   activateResident,
+  getResidentProfile,
   createTicket,
   getTickets,
   getTicketById,

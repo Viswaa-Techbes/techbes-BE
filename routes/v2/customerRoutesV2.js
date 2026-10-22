@@ -17,7 +17,8 @@ router.get('/tickets/:id', apartmentController.getTicketById);
 router.put('/tickets/:id/reply', apartmentController.replyToTicket);
 router.put('/tickets/:id/reopen', apartmentController.reopenTicket);
 
-// Dashboard
+// Dashboard & Profile
 router.get('/dashboard-stats', customerController.getDashboardStats);
+router.get('/resident-profile', apartmentController.getResidentProfile);
 
 module.exports = router;

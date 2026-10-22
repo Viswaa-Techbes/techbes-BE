@@ -1,0 +1,1746 @@
+[
+  {
+    "file": "Address.js",
+    "modelName": "Address",
+    "collectionName": "addresss",
+    "references": [
+      "User"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [
+      "userId",
+      "name",
+      "mobile",
+      "address",
+      "landmark",
+      "city",
+      "state",
+      "pincode",
+      "googleMapLink",
+      "isDefault",
+      "houseNumber",
+      "street",
+      "area",
+      "district",
+      "country",
+      "manualNotes",
+      "label",
+      "addressLine1",
+      "addressLine2",
+      "latitude",
+      "longitude",
+      "formattedAddress"
+    ],
+    "sizeBytes": 2403
+  },
+  {
+    "file": "Admission.js",
+    "modelName": "Admission",
+    "collectionName": "admissions",
+    "references": [
+      "User"
+    ],
+    "enums": [
+      "['male', 'female', 'other', 'prefer_not_to_say']",
+      "['low', 'medium', 'high', 'unknown']",
+      "['beginner', 'intermediate', 'advanced']",
+      "['course', 'internship', 'placement_program']",
+      "['applied', 'under_review', 'approved', 'payment_pending', 'enrolled', 'rejected']",
+      "['paid', 'partially_paid', 'pending']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ createdAt: -1 }",
+        "options": null
+      },
+      {
+        "fields": "{ fullName: 'text', email: 'text', phone: 'text', qualification: 'text' }",
+        "options": null
+      },
+      {
+        "fields": "{ assignedCourse: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ assignedInternship: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ city: 1, createdAt: -1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "fullName",
+      "phone",
+      "email",
+      "qualification",
+      "address",
+      "selectedPlan",
+      "dateOfBirth",
+      "gender",
+      "aadhaarNumber",
+      "city",
+      "state",
+      "pincode",
+      "fatherName",
+      "motherName",
+      "parentMobile",
+      "emergencyContact",
+      "fatherProfession",
+      "motherProfession",
+      "financialStability",
+      "monthlyFamilyIncome",
+      "emiSupportRequired",
+      "sslcPercentage",
+      "hscPercentage",
+      "diplomaOrDegree",
+      "collegeName",
+      "yearOfPassing",
+      "currentSkillLevel",
+      "programType",
+      "assignedCourse",
+      "assignedInternship",
+      "admissionStatus",
+      "paymentStatus"
+    ],
+    "sizeBytes": 2937
+  },
+  {
+    "file": "AdmissionDocument.js",
+    "modelName": "AdmissionDocument",
+    "collectionName": "admissionDocuments",
+    "references": [
+      "Admission",
+      "User"
+    ],
+    "enums": [
+      "['aadhaar', 'resume', 'certificate', 'passport_photo', 'other']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ createdAt: -1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "admissionId",
+      "documentType",
+      "fileUrl",
+      "originalName",
+      "mimeType",
+      "size",
+      "uploadedBy",
+      "isActive"
+    ],
+    "sizeBytes": 886
+  },
+  {
+    "file": "AdmissionPayment.js",
+    "modelName": "AdmissionPayment",
+    "collectionName": "admissionPayments",
+    "references": [
+      "Admission"
+    ],
+    "enums": [
+      "['active', 'inactive', 'completed']",
+      "['paid', 'partially_paid', 'pending']",
+      "['success', 'failed', 'pending']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ createdAt: -1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "admissionId",
+      "totalFees",
+      "paidAmount",
+      "pendingAmount",
+      "emiStatus",
+      "paymentStatus"
+    ],
+    "sizeBytes": 1267
+  },
+  {
+    "file": "AmcContract.js",
+    "modelName": "AmcContract",
+    "collectionName": "amccontracts",
+    "references": [
+      "User"
+    ],
+    "enums": [
+      "['Active', 'Suspended', 'Cancelled', 'Expired']",
+      "['Scheduled', 'Completed', 'Skipped', 'Cancelled', 'Missed']"
+    ],
+    "indexes": [],
+    "fields": [
+      "contractId",
+      "customerId",
+      "customerName",
+      "customerPhone",
+      "address",
+      "amcPlan",
+      "purchaseDate",
+      "startDate",
+      "expiryDate",
+      "totalVisits",
+      "completedVisits",
+      "remainingVisits",
+      "assignedEngineer",
+      "status"
+    ],
+    "sizeBytes": 2410
+  },
+  {
+    "file": "Apartment.js",
+    "modelName": "Apartment",
+    "collectionName": "apartments",
+    "references": [
+      "User"
+    ],
+    "enums": [
+      "['owner', 'tenant']",
+      "['active', 'vacated', 'inactive']",
+      "['unregistered', 'invited', 'active', 'suspended']",
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ name: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ status: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "residentId",
+      "flatNumber",
+      "block",
+      "floor",
+      "name",
+      "phone",
+      "email",
+      "residentType",
+      "status",
+      "moveInDate",
+      "emergencyContact",
+      "userId",
+      "accountStatus",
+      "activationCode",
+      "activationExpires",
+      "address",
+      "locality",
+      "city",
+      "state",
+      "pincode",
+      "contactPerson",
+      "contactPhone",
+      "contactEmail",
+      "totalFlats",
+      "notes"
+    ],
+    "sizeBytes": 3415
+  },
+  {
+    "file": "Attendance.js",
+    "modelName": "Attendance",
+    "collectionName": "attendances",
+    "references": [
+      "User"
+    ],
+    "enums": [
+      "['present', 'absent']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ userId: 1, date: 1 }",
+        "options": "{ unique: true }"
+      }
+    ],
+    "fields": [
+      "userId",
+      "date",
+      "loginTime",
+      "logoutTime",
+      "status",
+      "workingHours"
+    ],
+    "sizeBytes": 856
+  },
+  {
+    "file": "AuditLog.js",
+    "modelName": "AuditLog",
+    "collectionName": "auditlogs",
+    "references": [
+      "User"
+    ],
+    "enums": [
+      "['success', 'failure', 'warning']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ createdAt: -1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "actorId",
+      "actorEmail",
+      "actorRole",
+      "action",
+      "entityType",
+      "entityId",
+      "ip",
+      "userAgent",
+      "status",
+      "details"
+    ],
+    "sizeBytes": 1072
+  },
+  {
+    "file": "BangalorePincode.js",
+    "modelName": "BangalorePincode",
+    "collectionName": "bangalorepincodes",
+    "references": [],
+    "enums": [
+      "['North', 'South', 'East', 'West', 'Central']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ latitude: 1, longitude: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ active: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "pincode",
+      "areaName",
+      "district",
+      "latitude",
+      "longitude",
+      "zone",
+      "active"
+    ],
+    "sizeBytes": 928
+  },
+  {
+    "file": "Career.js",
+    "modelName": "Career",
+    "collectionName": "careers",
+    "references": [],
+    "enums": [
+      "['applied', 'shortlisted', 'hired', 'rejected']"
+    ],
+    "indexes": [],
+    "fields": [
+      "name",
+      "email",
+      "phone",
+      "roleApplied",
+      "experience",
+      "resumeUrl",
+      "status"
+    ],
+    "sizeBytes": 783
+  },
+  {
+    "file": "Cart.js",
+    "modelName": "Cart",
+    "collectionName": "carts",
+    "references": [
+      "User"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [
+      "userId",
+      "totalAmount"
+    ],
+    "sizeBytes": 744
+  },
+  {
+    "file": "Category.js",
+    "modelName": "Category",
+    "collectionName": "categorys",
+    "references": [],
+    "enums": [],
+    "indexes": [
+      {
+        "fields": "{ isActive: 1, sortOrder: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "name",
+      "slug",
+      "description",
+      "icon",
+      "image",
+      "color",
+      "gradient",
+      "isActive",
+      "sortOrder"
+    ],
+    "sizeBytes": 801
+  },
+  {
+    "file": "CctvAccessory.js",
+    "modelName": "CctvAccessory",
+    "collectionName": "cctvaccessorys",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "name",
+      "price",
+      "status"
+    ],
+    "sizeBytes": 516
+  },
+  {
+    "file": "CctvAddon.js",
+    "modelName": "CctvAddon",
+    "collectionName": "cctvaddons",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ status: 1, sortOrder: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "name",
+      "slug",
+      "price",
+      "unit",
+      "image",
+      "description",
+      "status",
+      "sortOrder"
+    ],
+    "sizeBytes": 691
+  },
+  {
+    "file": "CctvBrand.js",
+    "modelName": "CctvBrand",
+    "collectionName": "cctvbrands",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "name",
+      "status"
+    ],
+    "sizeBytes": 361
+  },
+  {
+    "file": "CctvCablePricing.js",
+    "modelName": "CctvCablePricing",
+    "collectionName": "cctvcablepricings",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "name",
+      "price",
+      "status"
+    ],
+    "sizeBytes": 481
+  },
+  {
+    "file": "CctvCameraType.js",
+    "modelName": "CctvCameraType",
+    "collectionName": "cctvcameratypes",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ status: 1, sortOrder: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "name",
+      "slug",
+      "description",
+      "installationPrice",
+      "status",
+      "sortOrder"
+    ],
+    "sizeBytes": 648
+  },
+  {
+    "file": "CctvCategory.js",
+    "modelName": "CctvCategory",
+    "collectionName": "cctvcategorys",
+    "references": [],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 186
+  },
+  {
+    "file": "CctvHdd.js",
+    "modelName": "CctvHdd",
+    "collectionName": "cctvhdds",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "capacity",
+      "price",
+      "status"
+    ],
+    "sizeBytes": 439
+  },
+  {
+    "file": "CctvInstallationCharge.js",
+    "modelName": "CctvInstallationCharge",
+    "collectionName": "cctvinstallationcharges",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "name",
+      "price",
+      "status"
+    ],
+    "sizeBytes": 503
+  },
+  {
+    "file": "CctvModel.js",
+    "modelName": "CctvModel",
+    "collectionName": "cctvmodels",
+    "references": [
+      "CctvBrand"
+    ],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "brandId",
+      "cameraType",
+      "name",
+      "resolution",
+      "price",
+      "status"
+    ],
+    "sizeBytes": 792
+  },
+  {
+    "file": "CctvPayment.js",
+    "modelName": "CctvPayment",
+    "collectionName": "cctvpayments",
+    "references": [
+      "Registration"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 572
+  },
+  {
+    "file": "CctvPricingConfig.js",
+    "modelName": "CctvPricingConfig",
+    "collectionName": "cctvpricingconfigs",
+    "references": [],
+    "enums": [
+      "['none', 'flat', 'percentage']",
+      "['active', 'inactive']",
+      "['none', 'flat', 'percentage']",
+      "['active', 'inactive']",
+      "['active', 'inactive']",
+      "['active', 'inactive']",
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "type",
+      "value",
+      "status",
+      "name",
+      "baseCharge",
+      "indoorCharge",
+      "outdoorCharge",
+      "wirePricePerMeter",
+      "discount",
+      "coupon",
+      "offer",
+      "tax"
+    ],
+    "sizeBytes": 1638
+  },
+  {
+    "file": "CctvProduct.js",
+    "modelName": "CctvProduct",
+    "collectionName": "cctvproducts",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ status: 1, sortOrder: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "name",
+      "slug",
+      "type",
+      "price",
+      "image",
+      "status",
+      "sortOrder"
+    ],
+    "sizeBytes": 825
+  },
+  {
+    "file": "CctvRack.js",
+    "modelName": "CctvRack",
+    "collectionName": "cctvracks",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "type",
+      "price",
+      "status"
+    ],
+    "sizeBytes": 440
+  },
+  {
+    "file": "CctvSdCard.js",
+    "modelName": "CctvSdCard",
+    "collectionName": "cctvsdcards",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [],
+    "fields": [
+      "capacity",
+      "price",
+      "status"
+    ],
+    "sizeBytes": 463
+  },
+  {
+    "file": "CctvSubcategory.js",
+    "modelName": "CctvSubcategory",
+    "collectionName": "cctvsubcategorys",
+    "references": [],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 237
+  },
+  {
+    "file": "Certificate.js",
+    "modelName": "Certificate",
+    "collectionName": "certificates",
+    "references": [
+      "Registration",
+      "Masterclass"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 535
+  },
+  {
+    "file": "Counter.js",
+    "modelName": "Counter",
+    "collectionName": "counters",
+    "references": [],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 237
+  },
+  {
+    "file": "Course.js",
+    "modelName": "Course",
+    "collectionName": "courses",
+    "references": [],
+    "enums": [
+      "['beginner', 'intermediate', 'advanced']",
+      "['draft', 'published', 'archived']"
+    ],
+    "indexes": [],
+    "fields": [
+      "title",
+      "slug",
+      "description",
+      "long_description",
+      "price",
+      "duration",
+      "level",
+      "instructor_name",
+      "start_date",
+      "end_date",
+      "max_students",
+      "status",
+      "isDeleted",
+      "toJSON",
+      "toObject"
+    ],
+    "sizeBytes": 1673
+  },
+  {
+    "file": "CourseEnrollment.js",
+    "modelName": "CourseEnrollment",
+    "collectionName": "courseenrollments",
+    "references": [
+      "Course"
+    ],
+    "enums": [
+      "['pending', 'confirmed', 'cancelled']",
+      "['pending', 'paid', 'failed', 'refunded']"
+    ],
+    "indexes": [],
+    "fields": [
+      "course_id",
+      "student_name",
+      "student_email",
+      "student_phone",
+      "status",
+      "payment_status",
+      "enrollment_date",
+      "toJSON",
+      "toObject"
+    ],
+    "sizeBytes": 1258
+  },
+  {
+    "file": "CourseInquiry.js",
+    "modelName": "CourseInquiry",
+    "collectionName": "courseinquirys",
+    "references": [],
+    "enums": [
+      "['new', 'responded', 'closed']"
+    ],
+    "indexes": [],
+    "fields": [
+      "name",
+      "email",
+      "phone",
+      "message",
+      "course_interest",
+      "status",
+      "toJSON",
+      "toObject"
+    ],
+    "sizeBytes": 1095
+  },
+  {
+    "file": "CoursePayment.js",
+    "modelName": "CoursePayment",
+    "collectionName": "coursepayments",
+    "references": [],
+    "enums": [
+      "['created', 'paid', 'failed']"
+    ],
+    "indexes": [],
+    "fields": [
+      "name",
+      "email",
+      "phone",
+      "course",
+      "plan",
+      "amount",
+      "currency",
+      "razorpayOrderId",
+      "razorpayPaymentId",
+      "razorpaySignature",
+      "status",
+      "toJSON",
+      "toObject"
+    ],
+    "sizeBytes": 1424
+  },
+  {
+    "file": "Customer.js",
+    "modelName": "Customer",
+    "collectionName": "customers",
+    "references": [
+      "User",
+      "Address",
+      "Job",
+      "Payment",
+      "Review"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [
+      "customerId",
+      "userId",
+      "name",
+      "mobileNumber",
+      "email"
+    ],
+    "sizeBytes": 2209
+  },
+  {
+    "file": "Expense.js",
+    "modelName": "Expense",
+    "collectionName": "expenses",
+    "references": [
+      "User",
+      "Job"
+    ],
+    "enums": [
+      "['pending', 'approved', 'rejected']"
+    ],
+    "indexes": [],
+    "fields": [
+      "description",
+      "amount",
+      "technicianId",
+      "jobId",
+      "status",
+      "receiptUrl",
+      "date"
+    ],
+    "sizeBytes": 860
+  },
+  {
+    "file": "Job.js",
+    "modelName": "Job",
+    "collectionName": "jobs",
+    "references": [
+      "User",
+      "Category",
+      "SubCategory",
+      "CctvCategory",
+      "CctvSubcategory",
+      "CctvCameraType",
+      "CctvAddon",
+      "Address"
+    ],
+    "enums": [
+      "JOB_STATUSES",
+      "['installation', 'repair', 'other']",
+      "PAYMENT_STATUSES",
+      "['indoor', 'outdoor', '']",
+      "['none', 'pending', 'approved', 'rejected']",
+      "['project', 'service_request', 'general']",
+      "['AUTO', 'MANUAL', 'ACCEPTED', 'FALLBACK', null]",
+      "['pending_dispatch', 'dispatching', 'assigned', 'no_tech_found', 'pending_admin_assignment', null]",
+      "['customer', 'technician', 'admin', null]"
+    ],
+    "indexes": [
+      {
+        "fields": "{ assignedTechnician: 1, status: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ assignedManager: 1, createdAt: -1 }",
+        "options": null
+      },
+      {
+        "fields": "{ 'cctvDetails.category.slug': 1, 'cctvDetails.subcategory.slug': 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ 'cctvDetails.cameraType.slug': 1, status: 1, paymentStatus: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "title",
+      "description",
+      "status",
+      "assignedTechnician",
+      "assignedManager",
+      "location",
+      "googleMapsLink",
+      "customerName",
+      "serviceType",
+      "customerPhone",
+      "scheduledTime",
+      "price",
+      "amount",
+      "paymentStatus",
+      "quoteRequestId",
+      "paymentDescription",
+      "currency",
+      "orderId",
+      "paymentId",
+      "paymentSignature",
+      "useNewFlow",
+      "isAdminCreated",
+      "v2Metadata",
+      "categoryId",
+      "subcategoryId",
+      "packageId",
+      "uploadedImages",
+      "geoLocation",
+      "addressDetails",
+      "cctvDetails",
+      "additionalChargesStatus",
+      "additionalCharges",
+      "appId",
+      "client",
+      "bookingDate",
+      "timeSlot",
+      "serviceId",
+      "serviceName",
+      "advancePaid",
+      "advancePaymentId",
+      "advanceAmount",
+      "remainingAmount",
+      "transactionId",
+      "module",
+      "createdBy",
+      "bookingNumber",
+      "bookingId",
+      "userId",
+      "materials",
+      "addressId",
+      "bookingStatus",
+      "totalAmount",
+      "technicianId",
+      "scheduledDate",
+      "assignmentMethod",
+      "assignmentTime",
+      "dispatchStatus",
+      "dispatchAttempts",
+      "cancellation",
+      "technicianPenalty",
+      "customerId",
+      "latitude",
+      "longitude"
+    ],
+    "sizeBytes": 19014
+  },
+  {
+    "file": "JobRequest.js",
+    "modelName": "JobRequest",
+    "collectionName": "jobrequests",
+    "references": [
+      "Job",
+      "User"
+    ],
+    "enums": [
+      "['pending', 'accepted', 'rejected', 'expired']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ jobId: 1, technicianId: 1 }",
+        "options": "{ unique: true }"
+      },
+      {
+        "fields": "{ jobId: 1, status: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ expiresAt: 1 }",
+        "options": "{ expireAfterSeconds: 0 }"
+      }
+    ],
+    "fields": [
+      "jobId",
+      "technicianId",
+      "status",
+      "distanceKm",
+      "sentAt",
+      "respondedAt",
+      "expiresAt",
+      "rejectionReason"
+    ],
+    "sizeBytes": 1539
+  },
+  {
+    "file": "JobStatusHistory.js",
+    "modelName": "JobStatusHistory",
+    "collectionName": "jobstatushistorys",
+    "references": [
+      "Job",
+      "User"
+    ],
+    "enums": [],
+    "indexes": [
+      {
+        "fields": "{ jobId: 1, timestamp: -1 }",
+        "options": null
+      }
+    ],
+    "fields": [],
+    "sizeBytes": 630
+  },
+  {
+    "file": "Lead.js",
+    "modelName": "Lead",
+    "collectionName": "leads",
+    "references": [
+      "User"
+    ],
+    "enums": [
+      "['low','medium','high']",
+      "['New','Contacted','Qualified','Proposal Sent','Negotiation','Won','Lost','Project Created']"
+    ],
+    "indexes": [],
+    "fields": [
+      "leadId",
+      "name",
+      "phone",
+      "email",
+      "company",
+      "address",
+      "location",
+      "source",
+      "requiredService",
+      "budget",
+      "priority",
+      "assignedTo",
+      "status",
+      "lostReason",
+      "customerId",
+      "remarks",
+      "isDeleted"
+    ],
+    "sizeBytes": 1666
+  },
+  {
+    "file": "Masterclass.js",
+    "modelName": "Masterclass",
+    "collectionName": "masterclasss",
+    "references": [],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 666
+  },
+  {
+    "file": "Material.js",
+    "modelName": "Material",
+    "collectionName": "materials",
+    "references": [
+      "CctvAddon"
+    ],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ status: 1, sortOrder: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ status: 1, category: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ name: 'text', brand: 'text', modelNumber: 'text', sku: 'text', variant: 'text', category: 'text' }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "name",
+      "brand",
+      "category",
+      "subcategory",
+      "modelNumber",
+      "sku",
+      "variant",
+      "specifications",
+      "unit",
+      "price",
+      "basePrice",
+      "gstRate",
+      "isTaxInclusive",
+      "stock",
+      "minStock",
+      "image",
+      "description",
+      "status",
+      "sourceAddonId",
+      "sortOrder"
+    ],
+    "sizeBytes": 2280
+  },
+  {
+    "file": "Notification.js",
+    "modelName": "Notification",
+    "collectionName": "notifications",
+    "references": [
+      "User",
+      "Job"
+    ],
+    "enums": [
+      "['customer', 'technician', 'admin']"
+    ],
+    "indexes": [],
+    "fields": [
+      "userId",
+      "recipientId",
+      "recipientType",
+      "bookingId",
+      "title",
+      "message",
+      "type",
+      "customerId",
+      "isRead"
+    ],
+    "sizeBytes": 1388
+  },
+  {
+    "file": "OtpVerification.js",
+    "modelName": "OtpVerification",
+    "collectionName": "otpverifications",
+    "references": [
+      "Job",
+      "User"
+    ],
+    "enums": [
+      "['register', 'start_job', 'complete_job', 'login', 'admin_mfa']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ expiresAt: 1 }",
+        "options": "{ expireAfterSeconds: 0 }"
+      }
+    ],
+    "fields": [
+      "email",
+      "otpHash",
+      "otp",
+      "purpose",
+      "bookingId",
+      "technicianId",
+      "customerId",
+      "used",
+      "expiresAt",
+      "verifiedAt",
+      "attempts",
+      "resendCount",
+      "lastSentAt",
+      "verificationTokenHash",
+      "verificationTokenExpiresAt"
+    ],
+    "sizeBytes": 1559
+  },
+  {
+    "file": "Payment.js",
+    "modelName": "Payment",
+    "collectionName": "payments",
+    "references": [
+      "Job",
+      "User"
+    ],
+    "enums": [
+      "['created','pending','processing','paid','failed','cancelled','refunded','verified']"
+    ],
+    "indexes": [],
+    "fields": [
+      "jobId",
+      "userId",
+      "razorpayOrderId",
+      "razorpayPaymentId",
+      "razorpaySignature",
+      "amount",
+      "currency",
+      "status",
+      "meta",
+      "orderNumber",
+      "paymentReference",
+      "customerId"
+    ],
+    "sizeBytes": 1800
+  },
+  {
+    "file": "PaymentAudit.js",
+    "modelName": "PaymentAudit",
+    "collectionName": "paymentaudits",
+    "references": [
+      "Payment"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 463
+  },
+  {
+    "file": "QuoteRequest.js",
+    "modelName": "QuoteRequest",
+    "collectionName": "quoterequests",
+    "references": [
+      "User",
+      "Material",
+      "Payment",
+      "Job"
+    ],
+    "enums": [
+      "[ 'quotation_requested', 'quotation_draft', 'quotation_sent', 'quotation_accepted', 'payment_pending', 'paid', 'converted_to_order', 'cancelled', 'expired', 'New', 'Contacted', 'Requirement Verified', 'Site Survey Scheduled', 'Quote Prepared', 'Quote Sent', 'Quotation Sent', 'Accepted', 'Converted to Booking', 'Converted', 'Closed', 'Rejected', ]"
+    ],
+    "indexes": [],
+    "fields": [
+      "requestId",
+      "customerId",
+      "fullName",
+      "mobile",
+      "email",
+      "whatsapp",
+      "serviceCategory",
+      "companyName",
+      "googleMapsUrl",
+      "source",
+      "locality",
+      "pincode",
+      "address",
+      "latitude",
+      "longitude",
+      "propertyType",
+      "requirementType",
+      "cameraCount",
+      "cameraRequirement",
+      "features",
+      "recorder",
+      "storage",
+      "additionalRequirements",
+      "preferredContact",
+      "subcategory",
+      "voiceNote",
+      "images",
+      "subtotal",
+      "gstRate",
+      "gstAmount",
+      "finalAmount",
+      "validityDays",
+      "validUntil",
+      "sentAt",
+      "paidAt",
+      "paymentDetails",
+      "orderNumber",
+      "orderId",
+      "preferredVisitDate",
+      "preferredVisitTime",
+      "status",
+      "assignedTo",
+      "adminNotes",
+      "terms",
+      "followUpDate",
+      "pdfUrl"
+    ],
+    "sizeBytes": 6095
+  },
+  {
+    "file": "Registration.js",
+    "modelName": "Registration",
+    "collectionName": "registrations",
+    "references": [
+      "Masterclass",
+      "User"
+    ],
+    "enums": [
+      "['PENDING', 'PAID', 'FAILED', 'CANCELLED', 'REFUNDED']",
+      "['PENDING', 'REGISTERED', 'ATTENDED', 'ABSENT', 'CANCELLED']",
+      "['NOT_SENT', 'SENT', 'FAILED']",
+      "['NOT_SENT', 'SENT', 'FAILED']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ email: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ mobile: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ createdAt: -1 }",
+        "options": null
+      },
+      {
+        "fields": "{ masterclassId: 1, paymentStatus: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ isDeleted: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [],
+    "sizeBytes": 3079
+  },
+  {
+    "file": "Review.js",
+    "modelName": "Review",
+    "collectionName": "reviews",
+    "references": [
+      "User",
+      "Job"
+    ],
+    "enums": [],
+    "indexes": [
+      {
+        "fields": "{ booking: 1, customer: 1 }",
+        "options": "{ unique: true, sparse: true }"
+      },
+      {
+        "fields": "{ jobId: 1, customer: 1 }",
+        "options": "{ unique: true, sparse: true }"
+      }
+    ],
+    "fields": [],
+    "sizeBytes": 2154
+  },
+  {
+    "file": "Service.js",
+    "modelName": "Service",
+    "collectionName": "services",
+    "references": [],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ status: 1, sortOrder: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "name",
+      "slug",
+      "description",
+      "status",
+      "sortOrder"
+    ],
+    "sizeBytes": 555
+  },
+  {
+    "file": "ServiceMaterial.js",
+    "modelName": "ServiceMaterial",
+    "collectionName": "servicematerials",
+    "references": [
+      "ServiceSubcategory"
+    ],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ subcategoryId: 1, status: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "subcategoryId",
+      "name",
+      "slug",
+      "price",
+      "unit",
+      "image",
+      "description",
+      "isLabour",
+      "status"
+    ],
+    "sizeBytes": 824
+  },
+  {
+    "file": "ServiceSubcategory.js",
+    "modelName": "ServiceSubcategory",
+    "collectionName": "servicesubcategorys",
+    "references": [
+      "Service",
+      "CctvProduct",
+      "CctvAddon"
+    ],
+    "enums": [
+      "['active', 'inactive']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ serviceId: 1, status: 1, sortOrder: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "question",
+      "answer",
+      "serviceId",
+      "categoryId",
+      "name",
+      "slug",
+      "shortDescription",
+      "overview",
+      "suitableFor",
+      "includedServices",
+      "excludedServices",
+      "installationTime",
+      "warranty",
+      "faqs",
+      "pricingStartsFrom",
+      "image",
+      "formSchema",
+      "pricingRules",
+      "status",
+      "sortOrder"
+    ],
+    "sizeBytes": 2205
+  },
+  {
+    "file": "ServiceWorksheet.js",
+    "modelName": "ServiceWorksheet",
+    "collectionName": "serviceworksheets",
+    "references": [
+      "Job",
+      "User"
+    ],
+    "enums": [
+      "['draft', 'in_progress', 'submitted', 'approved']"
+    ],
+    "indexes": [],
+    "fields": [
+      "jobId",
+      "bookingId",
+      "customerId",
+      "technicianId",
+      "worksheetNumber",
+      "customerName",
+      "customerMobile",
+      "customerAddress",
+      "serviceType",
+      "serviceCategory",
+      "jobCreatedDate",
+      "arrivalTime",
+      "workStartTime",
+      "workEndTime",
+      "requestedWorkDescription",
+      "technicianObservations",
+      "additionalComments",
+      "materialsUsed",
+      "partsInstalled",
+      "beforePhotos",
+      "duringPhotos",
+      "afterPhotos",
+      "customerSignatureUrl",
+      "technicianSignatureUrl",
+      "completionOtpVerified",
+      "labourCost",
+      "materialCost",
+      "totalCost",
+      "status",
+      "pdfUrl",
+      "submittedAt",
+      "approvedAt"
+    ],
+    "sizeBytes": 3585
+  },
+  {
+    "file": "SubCategory.js",
+    "modelName": "SubCategory",
+    "collectionName": "subcategorys",
+    "references": [
+      "Category"
+    ],
+    "enums": [
+      "['text', 'select', 'multiselect', 'number', 'image', 'boolean', 'date']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ categoryId: 1, isActive: 1, sortOrder: 1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "question",
+      "type",
+      "options",
+      "required",
+      "placeholder",
+      "sortOrder",
+      "name",
+      "description",
+      "price",
+      "originalPrice",
+      "duration",
+      "includes",
+      "isPopular",
+      "isActive",
+      "categoryId",
+      "slug",
+      "icon",
+      "image",
+      "bookingQuestions",
+      "packages"
+    ],
+    "sizeBytes": 1997
+  },
+  {
+    "file": "SupportTicket.js",
+    "modelName": "SupportTicket",
+    "collectionName": "supporttickets",
+    "references": [
+      "User",
+      "Apartment",
+      "Job"
+    ],
+    "enums": [
+      "['association', 'resident', 'customer']",
+      "[ 'Plumbing/Water', 'Electrical', 'Lift', 'Security', 'Cleaning', 'Waste Management', 'Internet', 'Civil Maintenance', 'Technical', 'Payment', 'Booking', 'Complaint', 'AMC', 'CCTV', 'Networking', 'Other', ]",
+      "[ 'New', 'Open', 'Acknowledged', 'Assigned', 'In Progress', 'Resolved', 'Closed', 'Escalated', 'Reopened', ]",
+      "['Low', 'Medium', 'High', 'Emergency', 'Urgent']"
+    ],
+    "indexes": [],
+    "fields": [
+      "ticketId",
+      "customer",
+      "apartmentId",
+      "companyId",
+      "apartmentName",
+      "raisedByType",
+      "raisedByUserId",
+      "raisedByName",
+      "raisedByPhone",
+      "residentId",
+      "flatNumber",
+      "flatId",
+      "block",
+      "floor",
+      "subject",
+      "description",
+      "voiceNote",
+      "category",
+      "status",
+      "priority",
+      "assignedStaff",
+      "assignedStaffName",
+      "assignedStaffPhone",
+      "assignedAt",
+      "resolutionNotes",
+      "resolvedAt",
+      "closedAt",
+      "isReopened",
+      "reopenReason",
+      "reopenedAt",
+      "reopenedBy",
+      "bookingId"
+    ],
+    "sizeBytes": 5532
+  },
+  {
+    "file": "TechnicianLocation.js",
+    "modelName": "TechnicianLocation",
+    "collectionName": "technicianlocations",
+    "references": [
+      "User"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [
+      "technicianId",
+      "lat",
+      "lng"
+    ],
+    "sizeBytes": 506
+  },
+  {
+    "file": "User.js",
+    "modelName": "User",
+    "collectionName": "users",
+    "references": [
+      "Apartment",
+      "Job",
+      "User"
+    ],
+    "enums": [
+      "ROLES",
+      "['available', 'busy', 'offline']",
+      "['ONLINE', 'OFFLINE', 'BUSY']",
+      "['Pending', 'Submitted', 'Approved', 'Rejected']",
+      "['Active', 'Inactive']",
+      "['pending', 'paid', 'waived']",
+      "['member', 'web_user']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ email: 1 }",
+        "options": "{ unique: true, sparse: true }"
+      }
+    ],
+    "fields": [
+      "name",
+      "mobileNumber",
+      "email",
+      "password",
+      "role",
+      "apartmentId",
+      "flatNumber",
+      "block",
+      "isOnline",
+      "sessionActive",
+      "lastSeen",
+      "status",
+      "availabilityStatus",
+      "kycStatus",
+      "kycDetails",
+      "kycDocuments",
+      "kycRejectionReason",
+      "employeeId",
+      "employeeCode",
+      "customerId",
+      "address",
+      "pincode",
+      "skills",
+      "joiningDate",
+      "employeeStatus",
+      "profilePhoto",
+      "serviceCategories",
+      "pincodeCoverage",
+      "rating",
+      "completedJobs",
+      "totalEarnings",
+      "penaltyPoints",
+      "performanceScore",
+      "activeJobId",
+      "penalties",
+      "locationUpdatedAt",
+      "permissions",
+      "assignedManager",
+      "lat",
+      "lng",
+      "fcmToken",
+      "resetToken",
+      "resetTokenExpiry",
+      "mfaEnabled",
+      "failedLoginAttempts",
+      "lockUntil",
+      "appId",
+      "isDeleted",
+      "userType"
+    ],
+    "sizeBytes": 12384
+  },
+  {
+    "file": "UserProfile.js",
+    "modelName": "UserProfile",
+    "collectionName": "userprofiles",
+    "references": [
+      "User"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [
+      "userId",
+      "profilePhoto"
+    ],
+    "sizeBytes": 347
+  },
+  {
+    "file": "Visitor.js",
+    "modelName": "Visitor",
+    "collectionName": "visitors",
+    "references": [],
+    "enums": [],
+    "indexes": [],
+    "fields": [
+      "timestamp"
+    ],
+    "sizeBytes": 610
+  },
+  {
+    "file": "VisitorAnalytics.js",
+    "modelName": "VisitorAnalytics",
+    "collectionName": "visitorAnalytics",
+    "references": [],
+    "enums": [
+      "['page_view', 'service_viewed', 'booking_started', 'booking_completed', 'payment_completed', 'lead_submitted']"
+    ],
+    "indexes": [
+      {
+        "fields": "{ domain: 1, visitedAt: -1 }",
+        "options": null
+      },
+      {
+        "fields": "{ sessionId: 1, domain: 1 }",
+        "options": null
+      },
+      {
+        "fields": "{ page: 1, visitedAt: -1 }",
+        "options": null
+      },
+      {
+        "fields": "{ city: 1, visitedAt: -1 }",
+        "options": null
+      },
+      {
+        "fields": "{ eventType: 1, visitedAt: -1 }",
+        "options": null
+      }
+    ],
+    "fields": [
+      "domain",
+      "hostname",
+      "ip",
+      "country",
+      "state",
+      "city",
+      "browser",
+      "device",
+      "os",
+      "page",
+      "eventType",
+      "sessionId",
+      "referral",
+      "visitedAt",
+      "metadata"
+    ],
+    "sizeBytes": 1540
+  },
+  {
+    "file": "Wallet.js",
+    "modelName": "Wallet",
+    "collectionName": "wallets",
+    "references": [
+      "User"
+    ],
+    "enums": [],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 412
+  },
+  {
+    "file": "WalletTransaction.js",
+    "modelName": "WalletTransaction",
+    "collectionName": "wallettransactions",
+    "references": [
+      "Wallet"
+    ],
+    "enums": [
+      "['credit', 'debit']",
+      "['topup', 'refund', 'cashback', 'referral', 'payment', 'adjustment']",
+      "['Booking', 'Payment', 'Order']"
+    ],
+    "indexes": [],
+    "fields": [],
+    "sizeBytes": 880
+  }
+]
