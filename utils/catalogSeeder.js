@@ -251,6 +251,92 @@ async function runSeed() {
       console.log("✅ CCTV Category redesigned subcategories seeded successfully.");
     }
 
+    // ─── Digital Marketing & Podcasting Category Migration ─────────────
+    const existingDmCat = await Category.findOne({ slug: 'digital-marketing' });
+    if (!existingDmCat) {
+      const dmCat = await Category.findOneAndUpdate(
+        { slug: 'digital-marketing' },
+        {
+          $set: {
+            name: 'Digital Marketing',
+            slug: 'digital-marketing',
+            description: 'Performance growth marketing, Google & Meta Ads, SEO, and professional podcast production studio.',
+            icon: 'Megaphone',
+            color: '#8B5CF6',
+            gradient: 'from-purple-500 via-pink-500 to-rose-600',
+            sortOrder: 4,
+            isActive: true,
+          },
+        },
+        { upsert: true, new: true }
+      );
+
+      const dmSubData = [
+        {
+          name: 'Podcasting',
+          slug: 'podcasting',
+          description: 'Full-service podcast production in Bangalore. Multi-camera 4K filming, broadcast-quality audio with Shure mics, color-graded editing, and viral shorts clipping.',
+          icon: 'Mic',
+          sortOrder: 1,
+          bookingQuestions: [
+            { question: 'Planned Episode Count', type: 'select', options: ['1 Pilot Episode', '4 Episodes (Monthly Pack)', '8 Episodes (Bi-Monthly)', '12+ Episodes (Full Season)'], required: true, placeholder: 'Select episode count', sortOrder: 1 },
+            { question: 'Host & Guest Format', type: 'select', options: ['Solo Host (Solo monologue)', 'Host + 1 In-Studio Guest', 'Host + 2-3 Panel Guests', 'Host + Remote Online Guest'], required: true, placeholder: 'Select format', sortOrder: 2 },
+            { question: 'Recording Preference', type: 'select', options: ['TechBes Soundproof Studio (Bangalore)', 'Client Corporate Office Setup (Mobile Rig)', 'Remote Digital Studio Setup'], required: true, placeholder: 'Select location', sortOrder: 3 },
+            { question: 'Podcast Show Name / Topic', type: 'text', options: [], required: false, placeholder: 'What is your podcast about?', sortOrder: 4 },
+          ],
+          packages: [
+            { name: 'Pilot Episode Recording', description: 'Single 60-min podcast recording with 4K cameras and broadcast audio', price: 2999, originalPrice: 4999, duration: '2 hours studio time', includes: ['Acoustic studio Bangalore', 'Shure broadcast microphones', 'Raw 4K video + multi-track audio handover'], isPopular: false, isActive: true },
+            { name: 'Monthly Podcaster Pro (4 Episodes)', description: '4 full episodes recorded, edited, color graded with 12 viral shorts clips', price: 14999, originalPrice: 24999, duration: 'Monthly retainer', includes: ['4 studio sessions', 'Full multi-cam editing & audio mastering', '12 subtitled Reels/Shorts', 'YouTube/Spotify distribution'], isPopular: true, isActive: true },
+          ],
+        },
+        {
+          name: 'Podcast Studio Recording',
+          slug: 'podcast-studio-recording',
+          description: 'Acoustic soundproof studio in Bangalore with 4K multi-camera filming and broadcast Shure microphones.',
+          icon: 'Mic',
+          sortOrder: 2,
+          bookingQuestions: [],
+          packages: [{ name: 'Hourly Studio Rental', description: 'Studio rental with audio engineer on-site', price: 1499, originalPrice: 2499, duration: '1 hour', includes: ['Soundproof booth', '4K cameras', 'Shure mics'], isPopular: true, isActive: true }],
+        },
+        {
+          name: 'Podcast Video & Audio Editing',
+          slug: 'podcast-editing-mastering',
+          description: 'Post-production editing, color grading, vocal mastering, noise suppression, and multi-cam video switching.',
+          icon: 'SlidersHorizontal',
+          sortOrder: 3,
+          bookingQuestions: [],
+          packages: [{ name: 'Standard Post-Production', description: 'Full episode audio cleanup and camera switching', price: 1999, originalPrice: 3499, duration: '48h', includes: ['Noise removal', 'Camera switching', 'Title card & intro/outro'], isPopular: true, isActive: true }],
+        },
+        {
+          name: 'Podcast Shorts & Viral Reels',
+          slug: 'podcast-shorts-reels',
+          description: 'Viral 9:16 vertical shorts and reels clipping with dynamic animated captions, sound effects, and hook optimizations.',
+          icon: 'Video',
+          sortOrder: 4,
+          bookingQuestions: [],
+          packages: [{ name: 'Viral Shorts Starter (3 Clips)', description: '3 dynamic 9:16 vertical shorts from your episode', price: 1499, originalPrice: 2499, duration: '48h', includes: ['Animated captions', 'Hook optimization', 'Sound effects'], isPopular: true, isActive: true }],
+        },
+        {
+          name: 'Digital Marketing',
+          slug: 'digital-marketing-campaigns',
+          description: 'Comprehensive SEO, performance marketing (Google & Meta Ads), brand positioning, and analytics.',
+          icon: 'Megaphone',
+          sortOrder: 5,
+          bookingQuestions: [],
+          packages: [{ name: 'Starter Marketing Setup', description: 'Campaign architecture, pixel tracking, and 1 ad set launch', price: 4999, originalPrice: 8999, duration: '3-5 days', includes: ['Google/Meta ad setup', 'Pixel tracking', 'Keyword research'], isPopular: true, isActive: true }],
+        },
+      ];
+
+      for (const sub of dmSubData) {
+        await SubCategory.findOneAndUpdate(
+          { slug: sub.slug },
+          { $set: { ...sub, categoryId: dmCat._id, isActive: true } },
+          { upsert: true, new: true }
+        );
+      }
+      console.log('✅ Digital Marketing & Podcasting Category verified & seeded.');
+    }
+
     const count = await Category.countDocuments();
     if (count > 0) {
       console.log("[Seeder] Catalog already contains data. Skipping seeder.");
@@ -453,7 +539,7 @@ async function runSeed() {
           { name: 'Website Migration', slug: 'web-migration', description: 'Migrate hosting from GoDaddy to VPS.', sortOrder: 14 },
           { name: 'Website Support', slug: 'web-support', description: 'Hourly support for code debug requirements.', sortOrder: 15 },
           { name: 'Website AMC', slug: 'web-amc', description: 'Annual support plan for corporate sites.', sortOrder: 16 },
-          { name: 'Digital Marketing Link', slug: 'digital-marketing', description: 'Connect analytics tracker pipelines.', sortOrder: 17 },
+          { name: 'Analytics & Tracking Link', slug: 'web-analytics-link', description: 'Connect analytics tracker pipelines.', sortOrder: 17 },
           { name: 'Website Consultation', slug: 'web-consultation', description: 'Discuss wireframes and tech stack.', sortOrder: 18 },
         ],
       },

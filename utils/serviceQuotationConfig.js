@@ -162,17 +162,62 @@ const SUPPORTED_CATEGORIES = {
   'Digital Marketing': {
     name: 'Digital Marketing',
     slug: 'digital-marketing',
-    aliases: ['digital marketing', 'digital-marketing', 'digital_marketing', 'marketing', 'online marketing'],
+    aliases: ['digital marketing', 'digital-marketing', 'digital_marketing', 'marketing', 'online marketing', 'podcasting', 'podcast'],
     services: [
       {
         name: 'Digital Marketing',
         slug: 'digital-marketing',
-        aliases: ['digital-marketing', 'digital marketing', 'seo', 'google ads', 'meta ads', 'performance marketing', 'social media marketing', 'growth marketing'],
+        aliases: ['digital-marketing', 'digital marketing', 'digital-marketing-campaigns', 'seo', 'google ads', 'meta ads', 'performance marketing', 'social media marketing', 'growth marketing'],
       },
       {
         name: 'Podcasting',
         slug: 'podcasting',
-        aliases: ['podcasting', 'podcast', 'podcast recording', 'podcast production', 'podcast studio', 'podcast editing'],
+        aliases: ['podcasting', 'podcast', 'podcast recording', 'podcast production', 'podcast studio', 'podcast editing', 'full-service podcast'],
+      },
+      {
+        name: 'Podcast Studio Recording',
+        slug: 'podcast-studio-recording',
+        aliases: ['podcast-studio-recording', 'podcast studio recording', 'studio recording', 'soundproof studio', 'acoustic studio', 'in-studio podcast'],
+      },
+      {
+        name: 'Podcast Video & Audio Editing',
+        slug: 'podcast-editing-mastering',
+        aliases: ['podcast-editing-mastering', 'podcast editing', 'podcast video & audio editing', 'audio mastering', 'podcast post-production'],
+      },
+      {
+        name: 'Podcast Shorts & Viral Reels',
+        slug: 'podcast-shorts-reels',
+        aliases: ['podcast-shorts-reels', 'podcast shorts & viral reels', 'podcast shorts', 'viral reels', 'reels clipping', 'shorts clipping'],
+      },
+      {
+        name: 'Podcast Distribution & SEO',
+        slug: 'podcast-distribution-seo',
+        aliases: ['podcast-distribution-seo', 'podcast distribution & seo', 'podcast distribution', 'spotify podcast', 'youtube podcast'],
+      },
+      {
+        name: 'Remote Podcast Production',
+        slug: 'remote-podcast-production',
+        aliases: ['remote-podcast-production', 'remote podcast production', 'remote podcast', 'riverside podcast'],
+      },
+      {
+        name: 'Corporate & Executive Podcasting',
+        slug: 'corporate-executive-podcasting',
+        aliases: ['corporate-executive-podcasting', 'corporate podcast', 'executive podcast', 'brand podcast'],
+      },
+      {
+        name: 'Google Ads & PPC Campaigns',
+        slug: 'google-ads-ppc',
+        aliases: ['google-ads-ppc', 'google ads & ppc campaigns', 'google ads', 'ppc campaigns', 'ppc'],
+      },
+      {
+        name: 'Meta Ads (IG & FB)',
+        slug: 'meta-ads-campaigns',
+        aliases: ['meta-ads-campaigns', 'meta ads', 'facebook ads', 'instagram ads', 'meta ads (ig & fb)'],
+      },
+      {
+        name: 'SEO & Organic Growth',
+        slug: 'seo-organic-growth',
+        aliases: ['seo-organic-growth', 'seo & organic growth', 'organic growth', 'seo services'],
       },
     ],
   },
