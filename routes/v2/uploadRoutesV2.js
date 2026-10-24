@@ -7,7 +7,7 @@ const { authenticate, requireRoles } = require('../../middlewares/auth');
 const rateLimit = require('../../middlewares/rateLimit');
 
 const router = express.Router();
-router.use(authenticate, requireRoles('client', 'technician', 'manager', 'admin'));
+router.use(authenticate, requireRoles('client', 'technician', 'manager', 'admin', 'resident', 'association'));
 
 // Allowed MIME types and extensions whitelist
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
