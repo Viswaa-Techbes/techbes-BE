@@ -47,6 +47,9 @@ router.delete('/:id', requireRoles('admin'), apartmentController.deleteApartment
 
 // ─── ASSOCIATION USERS (ADMIN ONLY, EXACTLY UP TO 3 USERS) ────────────────────
 router.post('/:id/association-users', requireRoles('admin'), apartmentController.createAssociationUser);
+router.put('/:id/association-users/:userId/status', requireRoles('admin'), apartmentController.updateAssociationUserStatus);
+router.post('/:id/association-users/:userId/resend-invite', requireRoles('admin'), apartmentController.resendAssociationUserInvite);
+router.put('/:id/association-users/:userId/reassign', requireRoles('admin'), apartmentController.reassignAssociationUser);
 router.delete('/:id/association-users/:userId', requireRoles('admin'), apartmentController.removeAssociationUser);
 
 // ─── RESIDENTS REGISTRY (ADMIN & ASSOCIATION OF THAT APARTMENT) ───────────────

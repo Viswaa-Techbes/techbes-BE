@@ -460,6 +460,7 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     kycDocuments: this.kycDocuments,
     kycRejectionReason: this.kycRejectionReason,
     mfaEnabled: this.mfaEnabled !== false,
+    isDeleted: Boolean(this.isDeleted),
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

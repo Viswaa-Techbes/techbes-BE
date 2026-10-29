@@ -51,7 +51,7 @@ async function getApartments(req, res, next) {
     }
 
     const apartments = await Apartment.find(filter)
-      .populate('associationUsers', 'name mobileNumber email role')
+      .populate('associationUsers', 'name mobileNumber email role isDeleted employeeStatus sessionActive apartmentId')
       .sort({ name: 1 })
       .lean();
 
@@ -98,7 +98,7 @@ async function getApartmentById(req, res, next) {
     }
 
     const apartment = await Apartment.findById(id)
-      .populate('associationUsers', 'name mobileNumber email role')
+      .populate('associationUsers', 'name mobileNumber email role isDeleted employeeStatus sessionActive apartmentId')
       .lean();
 
     if (!apartment) {
@@ -333,15 +333,213 @@ async function createAssociationUser(req, res, next) {
       role: 'association',
       apartmentId: apartment._id,
       userType: 'web_user',
+      isDeleted: false,
+      sessionActive: true,
+      employeeStatus: 'Active',
     });
 
     apartment.associationUsers.push(user._id);
     await apartment.save();
 
+    console.log(`[AUDIT] Main Admin created association in-charge: ${user.name} (${user.mobileNumber}) for apartment: ${apartment.name} (ID: ${apartment._id})`);
+
     return res.status(201).json({
       success: true,
       message: 'Association committee account created successfully',
-      data: user.toSafeObject(),
+      data: {
+        ...user.toSafeObject(),
+        temporaryPassword: userPassword,
+        apartmentName: apartment.name,
+        loginUrl: 'https://cpad.techbes.co.in/login',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Update Association User Account Status (Activate / Deactivate)
+ */
+async function updateAssociationUserStatus(req, res, next) {
+  try {
+    const { id, userId } = req.params;
+    const { status, isDeleted } = req.body;
+
+    const apartment = await Apartment.findById(id);
+    if (!apartment) {
+      return res.status(404).json({ success: false, message: 'Apartment not found' });
+    }
+
+    const isMember = (apartment.associationUsers || []).some(
+      uId => (uId._id || uId).toString() === userId
+    );
+    if (!isMember) {
+      return res.status(404).json({ success: false, message: 'Association user not found in this apartment' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User account not found' });
+    }
+
+    const shouldDeactivate = status === 'deactivated' || status === 'inactive' || isDeleted === true;
+
+    if (shouldDeactivate) {
+      user.isDeleted = true;
+      user.sessionActive = false;
+      user.isOnline = false;
+      user.employeeStatus = 'Inactive';
+      console.log(`[AUDIT] Main Admin deactivated association in-charge: ${user.name} (${user.mobileNumber}) in apartment: ${apartment.name}`);
+    } else {
+      user.isDeleted = false;
+      user.sessionActive = true;
+      user.employeeStatus = 'Active';
+      console.log(`[AUDIT] Main Admin reactivated association in-charge: ${user.name} (${user.mobileNumber}) in apartment: ${apartment.name}`);
+    }
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: `Association account ${shouldDeactivate ? 'deactivated' : 'activated'} successfully`,
+      data: {
+        ...user.toSafeObject(),
+        accountStatus: shouldDeactivate ? 'deactivated' : 'active',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Resend Invitation / Generate Secure Temporary Credentials for Association In-Charge
+ */
+async function resendAssociationUserInvite(req, res, next) {
+  try {
+    const { id, userId } = req.params;
+    const { password } = req.body;
+
+    const apartment = await Apartment.findById(id);
+    if (!apartment) {
+      return res.status(404).json({ success: false, message: 'Apartment not found' });
+    }
+
+    const isMember = (apartment.associationUsers || []).some(
+      uId => (uId._id || uId).toString() === userId
+    );
+    if (!isMember) {
+      return res.status(404).json({ success: false, message: 'Association user not found in this apartment' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User account not found' });
+    }
+
+    const temporaryPassword = (password && password.length >= 6)
+      ? password
+      : 'Incharge@' + Math.random().toString(36).slice(-6) + '!';
+
+    user.password = temporaryPassword;
+    user.isDeleted = false;
+    user.sessionActive = true;
+    user.employeeStatus = 'Active';
+    await user.save();
+
+    console.log(`[AUDIT] Main Admin generated temporary credentials / resent invitation for in-charge: ${user.name} (${user.mobileNumber}) for apartment: ${apartment.name}`);
+
+    return res.json({
+      success: true,
+      message: 'New temporary credentials generated and invitation ready',
+      data: {
+        userId: user._id.toString(),
+        name: user.name,
+        mobileNumber: user.mobileNumber,
+        email: user.email,
+        role: user.role,
+        apartmentId: apartment._id.toString(),
+        apartmentName: apartment.name,
+        temporaryPassword,
+        accountStatus: 'active',
+        loginUrl: 'https://cpad.techbes.co.in/login',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Reassign Association In-Charge to another Apartment
+ */
+async function reassignAssociationUser(req, res, next) {
+  try {
+    const { id, userId } = req.params;
+    const { targetApartmentId } = req.body;
+
+    if (!targetApartmentId) {
+      return res.status(400).json({ success: false, message: 'Target apartment ID is required' });
+    }
+
+    if (id === targetApartmentId) {
+      return res.status(400).json({ success: false, message: 'Target apartment cannot be the same as current apartment' });
+    }
+
+    const sourceApartment = await Apartment.findById(id);
+    if (!sourceApartment) {
+      return res.status(404).json({ success: false, message: 'Source apartment not found' });
+    }
+
+    const targetApartment = await Apartment.findById(targetApartmentId);
+    if (!targetApartment) {
+      return res.status(404).json({ success: false, message: 'Target apartment not found' });
+    }
+
+    if ((targetApartment.associationUsers || []).length >= 3) {
+      return res.status(400).json({
+        success: false,
+        message: `Target apartment '${targetApartment.name}' already has maximum 3 committee accounts.`,
+      });
+    }
+
+    const isMember = (sourceApartment.associationUsers || []).some(
+      uId => (uId._id || uId).toString() === userId
+    );
+    if (!isMember) {
+      return res.status(404).json({ success: false, message: 'Association user not found in source apartment' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User account not found' });
+    }
+
+    // Remove from source
+    sourceApartment.associationUsers = (sourceApartment.associationUsers || []).filter(
+      uId => (uId._id || uId).toString() !== userId
+    );
+    await sourceApartment.save();
+
+    // Add to target
+    targetApartment.associationUsers.push(user._id);
+    await targetApartment.save();
+
+    // Update user record
+    user.apartmentId = targetApartment._id;
+    await user.save();
+
+    console.log(`[AUDIT] Main Admin reassigned in-charge: ${user.name} from '${sourceApartment.name}' to '${targetApartment.name}'`);
+
+    return res.json({
+      success: true,
+      message: `In-charge reassigned successfully to '${targetApartment.name}'`,
+      data: {
+        ...user.toSafeObject(),
+        apartmentId: targetApartment._id.toString(),
+        apartmentName: targetApartment.name,
+      },
     });
   } catch (err) {
     next(err);
@@ -360,11 +558,13 @@ async function removeAssociationUser(req, res, next) {
     }
 
     apartment.associationUsers = (apartment.associationUsers || []).filter(
-      uId => uId.toString() !== userId
+      uId => (uId._id || uId).toString() !== userId
     );
     await apartment.save();
 
     await User.findByIdAndDelete(userId);
+
+    console.log(`[AUDIT] Main Admin removed association committee user: ${userId} from apartment: ${apartment.name}`);
 
     return res.json({ success: true, message: 'Association user removed successfully' });
   } catch (err) {
@@ -1519,6 +1719,9 @@ module.exports = {
   updateApartment,
   deleteApartment,
   createAssociationUser,
+  updateAssociationUserStatus,
+  resendAssociationUserInvite,
+  reassignAssociationUser,
   removeAssociationUser,
   addResident,
   updateResident,
