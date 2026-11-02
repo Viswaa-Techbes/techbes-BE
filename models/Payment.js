@@ -31,7 +31,7 @@ paymentSchema.pre('validate', async function(next) {
   // Look up customerId from User if missing
   if (this.userId && !this.customerId) {
     try {
-      const User = mongoose.model('User');
+      const User = mongoose.models.User || require('./User');
       const u = await User.findById(this.userId);
       if (u && u.customerId) {
         this.customerId = u.customerId;

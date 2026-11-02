@@ -34,7 +34,19 @@ async function sendPushNotification(userId, { title, body, data = {} }) {
     console.log(`Successfully sent push notification to ${userId}:`, response);
     return response;
   } catch (error) {
-    console.error(`Error sending push notification to ${userId}:`, error);
+    console.error(`Error sending push notification to ${userId}:`, error.message || error);
+    // Expired or invalid token cleanup
+    if (
+      error.code === 'messaging/registration-token-not-registered' ||
+      error.code === 'messaging/invalid-registration-token'
+    ) {
+      console.warn(`[Firebase] Token expired or invalid for user ${userId}. Clearing stale fcmToken.`);
+      try {
+        await User.findByIdAndUpdate(userId, { fcmToken: null });
+      } catch (dbErr) {
+        console.error(`[Firebase] Failed to clear stale token for user ${userId}:`, dbErr.message);
+      }
+    }
   }
 }
 
