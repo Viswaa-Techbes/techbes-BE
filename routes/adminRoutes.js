@@ -5,10 +5,10 @@ const rateLimit = require('../middlewares/rateLimit');
 
 const router = express.Router();
 
-// Public Admin Auth with Rate Limiting (5 requests / min on login, 5 / 5 min on MFA)
+// Public Admin Auth with Rate Limiting (10 requests / min on login, 8 / 5 min on MFA)
 router.post(
   '/login',
-  rateLimit({ windowMs: 60_000, max: 5, keyPrefix: 'admin-login', message: 'Too many login attempts. Please wait a minute before trying again.' }),
+  rateLimit({ windowMs: 60_000, max: 10, keyPrefix: 'admin-login', message: 'Too many login attempts. Please wait a minute before trying again.' }),
   adminController.adminLogin
 );
 

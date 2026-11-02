@@ -209,11 +209,12 @@ async function webhookHandler(req, res, next) {
     const signature = req.headers['x-razorpay-signature'] || req.headers['x-razorpay-signature'.toLowerCase()];
     const payload = req.body || {};
     const { keySecret } = require('../../config/razorpay').getRazorpayCredentials();
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || keySecret;
     const crypto = require('crypto');
 
     // Prefer raw body (buffer) for HMAC calculation. Fall back to stringified body.
     const raw = req.rawBody ? req.rawBody : Buffer.from(JSON.stringify(payload));
-    const expected = crypto.createHmac('sha256', keySecret).update(raw).digest('hex');
+    const expected = crypto.createHmac('sha256', webhookSecret).update(raw).digest('hex');
 
     if (!signature || expected !== signature) {
       console.warn('[Payment Webhook] signature mismatch');
