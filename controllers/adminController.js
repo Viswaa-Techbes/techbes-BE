@@ -6,6 +6,8 @@ const Job = require('../models/Job');
 const Review = require('../models/Review');
 const Expense = require('../models/Expense');
 const Lead = require('../models/Lead');
+const QuoteRequest = require('../models/QuoteRequest');
+const Payment = require('../models/Payment');
 const OtpVerification = require('../models/OtpVerification');
 const { signToken } = require('../utils/jwt');
 const { markAttendance } = require('./v2/attendanceControllerV2');
@@ -409,7 +411,30 @@ async function resendAdminMfa(req, res, next) {
 
 async function dashboard(req, res, next) {
   try {
-    const [userCounts, jobCounts, recentJobs, liveTechnicians, pendingRequests, paymentRequests, reviews, leadsCount, pendingExpenses] = await Promise.all([
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1);
+
+    const [
+      userCounts,
+      jobCounts,
+      recentJobs,
+      liveTechnicians,
+      pendingRequests,
+      paymentRequests,
+      reviews,
+      leadsCount,
+      pendingExpenses,
+      revenueAgg,
+      totalQuotesCount,
+      quotesSentCount,
+      quotesAcceptedCount,
+      quotePipelineAgg,
+      clientsWithBookings,
+      reviewAgg,
+      bookingsTodayCount,
+      bookingsMonthCount
+    ] = await Promise.all([
       User.aggregate([
         { $match: { isDeleted: false } },
         { $group: { _id: '$role', count: { $sum: 1 } } },
@@ -443,6 +468,22 @@ async function dashboard(req, res, next) {
         .lean(),
       Lead.countDocuments({ isDeleted: false }),
       Expense.countDocuments({ status: 'pending' }),
+      // Authoritative total revenue from all completed / paid jobs
+      Job.aggregate([
+        { $match: { $or: [{ paymentStatus: 'paid' }, { status: { $in: ['completed', 'payment_done'] } }] } },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', '$price'] } } } },
+      ]),
+      QuoteRequest.countDocuments({}),
+      QuoteRequest.countDocuments({ status: { $in: ['quotation_sent', 'Quote Sent', 'Quotation Sent'] } }),
+      QuoteRequest.countDocuments({ status: { $in: ['quotation_accepted', 'Accepted', 'converted_to_order', 'Converted to Booking', 'paid'] } }),
+      QuoteRequest.aggregate([
+        { $match: { status: { $in: ['quotation_sent', 'quotation_accepted', 'Quote Sent', 'Quotation Sent'] } } },
+        { $group: { _id: null, total: { $sum: '$finalAmount' } } }
+      ]),
+      Job.distinct('client'),
+      Review.aggregate([{ $group: { _id: null, avgRating: { $avg: '$rating' } } }]),
+      Job.countDocuments({ createdAt: { $gte: startOfToday } }),
+      Job.countDocuments({ createdAt: { $gte: startOfMonth } }),
     ]);
 
     const usersByRole = userCounts.reduce((acc, row) => {
@@ -455,9 +496,17 @@ async function dashboard(req, res, next) {
       return acc;
     }, {});
 
-    const totalRevenue = recentJobs
-      .filter((job) => job.status === 'completed' || job.status === 'payment_done')
-      .reduce((sum, job) => sum + (Number(job.price) || 0), 0);
+    const totalJobs = Object.values(jobsByStatus).reduce((a, b) => a + b, 0);
+    const completedJobs = (jobsByStatus.completed || 0) + (jobsByStatus.payment_done || 0);
+    const totalRevenue = revenueAgg[0]?.total || 0;
+    const totalQuotes = totalQuotesCount || 0;
+    const quotesAccepted = quotesAcceptedCount || 0;
+    const quotePipelineValue = quotePipelineAgg[0]?.total || 0;
+    const quoteConversionRate = totalQuotes > 0 ? parseFloat(((quotesAccepted / totalQuotes) * 100).toFixed(1)) : 0;
+    const totalClients = usersByRole.client || 0;
+    const clientConversionRate = totalClients > 0 ? parseFloat(((clientsWithBookings.length / totalClients) * 100).toFixed(1)) : 0;
+    const bookingCompletionRate = totalJobs > 0 ? parseFloat(((completedJobs / totalJobs) * 100).toFixed(1)) : 0;
+    const averageRating = reviewAgg[0]?.avgRating ? parseFloat(reviewAgg[0].avgRating.toFixed(1)) : 5.0;
 
     return res.json({
       success: true,
@@ -465,21 +514,53 @@ async function dashboard(req, res, next) {
         usersByRole,
         jobsByStatus,
         totalUsers: Object.values(usersByRole).reduce((a, b) => a + b, 0),
-        totalJobs: Object.values(jobsByStatus).reduce((a, b) => a + b, 0),
+        totalJobs,
         leadsCount,
         pendingExpenses,
         summary: {
           totalLeads: leadsCount,
-          totalJobs: Object.values(jobsByStatus).reduce((a, b) => a + b, 0),
+          totalJobs,
           pendingJobs: (jobsByStatus.assigned || 0) + (jobsByStatus.started || 0),
           inProgress: (jobsByStatus.started || 0) + (jobsByStatus.work_uploaded || 0),
-          completedJobs: (jobsByStatus.completed || 0) + (jobsByStatus.payment_done || 0),
+          completedJobs,
           activeTechnicians: liveTechnicians.length,
           totalTechnicians: usersByRole.technician || 0,
           totalManagers: usersByRole.manager || 0,
           totalRevenue,
+          bookingCompletionRate,
+          bookingsToday: bookingsTodayCount,
+          bookingsThisMonth: bookingsMonthCount,
+          // Quotation Metrics
+          totalQuotes,
+          quotesSent: quotesSentCount,
+          quotesAccepted,
+          quotePipelineValue,
+          quoteConversionRate,
+          // Customer Conversion Metrics
+          totalClients,
+          clientsWithBookingsCount: clientsWithBookings.length,
+          customerConversionRate: clientConversionRate,
+          // Performance Metrics
+          averageTechnicianRating: averageRating,
           pendingRequests: (jobsByStatus.completion_requested || 0) + (jobsByStatus.pending_approval || 0),
           paymentApprovals: paymentRequests.length,
+        },
+        quotationMetrics: {
+          totalQuotes,
+          quotesSent: quotesSentCount,
+          quotesAccepted,
+          quotePipelineValue,
+          quoteConversionRate,
+        },
+        customerConversionMetrics: {
+          totalClients,
+          clientsWithBookingsCount: clientsWithBookings.length,
+          conversionRate: clientConversionRate,
+        },
+        technicianMetrics: {
+          activeTechnicians: liveTechnicians.length,
+          totalTechnicians: usersByRole.technician || 0,
+          averageRating,
         },
         recentJobs: recentJobs.map(formatJob),
         liveTechnicians: liveTechnicians.map(formatTechnician),

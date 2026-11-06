@@ -258,5 +258,7 @@ router.put('/quotes/:id', quoteControllerV2.updateQuoteRequest);
 router.post('/quotes/:id/price', quoteControllerV2.priceQuotation);
 router.post('/quotes/:id/send', quoteControllerV2.sendQuotation);
 router.post('/quotes/:id/convert', quoteControllerV2.convertToBooking);
+router.get('/quotes/:id/invoice', quoteControllerV2.getQuotationInvoice);
+router.get('/quotes/:id/invoice/:paymentType', quoteControllerV2.getQuotationInvoice);
 
 module.exports = router;

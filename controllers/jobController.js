@@ -121,8 +121,9 @@ async function updateJobStatus(req, res, next) {
     
     // Auto-map legacy statuses
     const statusMap = {
-      'inProgress': 'started',
-      'in_progress': 'started',
+      'inProgress': 'working',
+      'in_progress': 'working',
+      'started': 'working',
       'pendingApproval': 'completion_requested',
       'pending_approval': 'completion_requested',
       'workUploaded': 'work_uploaded',
@@ -142,14 +143,35 @@ async function updateJobStatus(req, res, next) {
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
+    // Duplicate submission prevention & idempotency
+    if (job.status === status) {
+        return res.json({
+            success: true,
+            message: `Job status is already ${status}`,
+            data: job,
+            alreadyUpdated: true,
+        });
+    }
+
     // Authorization & Rules
     if (req.user.role === 'technician') {
         if (job.assignedTechnician?.toString() !== req.user.id) {
             return res.status(403).json({ success: false, message: 'Not assigned to this job' });
         }
         
-        // Technician can only set specific statuses
-        const techAllowed = ['started', 'work_uploaded', 'completion_requested', 'payment_done', 'travelling', 'arrived', 'accepted'];
+        // Technician can set full lifecycle operational statuses
+        const techAllowed = [
+            'accepted',
+            'travelling',
+            'arrived',
+            'working',
+            'started',
+            'in_progress',
+            'work_uploaded',
+            'completion_requested',
+            'payment_done',
+            'completed'
+        ];
         if (!techAllowed.includes(status)) {
             return res.status(403).json({ success: false, message: 'Technician cannot move job to this status' });
         }
@@ -174,7 +196,7 @@ async function updateJobStatus(req, res, next) {
         status = 'completed';
     }
 
-    if (status === 'completed') {
+    if (status === 'completed' && req.user.role === 'technician') {
       const ServiceWorksheet = require('../models/ServiceWorksheet');
       const worksheet = await ServiceWorksheet.findOne({ jobId });
       if (!worksheet) {
@@ -195,33 +217,86 @@ async function updateJobStatus(req, res, next) {
     }
 
     job.status = status;
+    if (status === 'working' || status === 'started' || status === 'in_progress') {
+      if (!job.startedAt) job.startedAt = new Date();
+    }
     if (status === 'completed') {
       job.completedAt = new Date();
     }
 
     await job.save();
 
-    const io = req.app.get('io');
+    const io = req.app.get('io') || global._socketIo;
+    const socketPayload = {
+      jobId: jobId.toString(),
+      bookingId: jobId.toString(),
+      status: status,
+      note: req.body.notes || req.body.note || '',
+      updatedBy: req.user.role,
+      updatedAt: new Date(),
+      job: job.toObject ? job.toObject() : job,
+    };
+
+    if (io) {
+      // Broadcast to admin room for manager/admin real-time UI
+      io.to('admin_room').emit('jobStatusUpdated', socketPayload);
+      io.to('admin_room').emit('bookingStatusUpdated', socketPayload);
+
+      // Broadcast to client personal room for tracking screen
+      if (job.client) {
+        io.to(job.client.toString()).emit('jobStatusUpdated', socketPayload);
+        io.to(job.client.toString()).emit('bookingStatusUpdated', socketPayload);
+        io.to(job.client.toString()).emit('bookingStatusUpdate', socketPayload);
+      }
+
+      // Broadcast to assigned technician personal room
+      if (job.assignedTechnician) {
+        io.to(job.assignedTechnician.toString()).emit('jobStatusUpdated', socketPayload);
+      }
+
+      // Global broadcast for map & live feed listeners
+      io.emit('jobStatusUpdated', socketPayload);
+      io.emit('bookingStatusUpdated', socketPayload);
+    }
+
     // Notify customer
-    const clientNotifyStatuses = ['site_visited', 'reached', 'arrived', 'travelling', 'in_progress', 'started', 'completion_requested', 'completed'];
+    const clientNotifyStatuses = [
+      'accepted',
+      'travelling',
+      'arrived',
+      'working',
+      'started',
+      'in_progress',
+      'site_visited',
+      'reached',
+      'work_uploaded',
+      'completion_requested',
+      'completed'
+    ];
     if (job.client && clientNotifyStatuses.includes(status)) {
       const statusMessages = {
+        accepted: 'Your technician has accepted your service booking.',
+        travelling: 'Your technician has started traveling to your location.',
+        arrived: 'Your technician has arrived at your location.',
+        working: 'Your technician has begun work on your service.',
+        started: 'Your service has started.',
+        in_progress: 'Your service is in progress.',
         site_visited: 'Your technician has reached your location.',
         reached: 'Your technician has reached your location.',
-        arrived: 'Your technician has arrived at your location.',
-        travelling: 'Your technician has started traveling to your location.',
-        in_progress: 'Your service has started.',
-        started: 'Your service has started.',
-        completion_requested: 'Technician has requested service completion. Awaiting approval.',
+        work_uploaded: 'Technician has uploaded service documentation.',
+        completion_requested: 'Technician has requested service completion. Awaiting review.',
         completed: 'Your service request has been successfully completed!',
       };
       const statusTitles = {
+        accepted: 'Technician Accepted Job',
+        travelling: 'Technician En Route',
+        arrived: 'Technician Arrived',
+        working: 'Service in Progress',
+        started: 'Service Started',
+        in_progress: 'Service in Progress',
         site_visited: 'Technician Reached Location',
         reached: 'Technician Reached Location',
-        arrived: 'Technician Reached Location',
-        travelling: 'Technician Started Travel',
-        in_progress: 'Service Started',
-        started: 'Service Started',
+        work_uploaded: 'Work Uploaded',
         completion_requested: 'Service Awaiting Approval',
         completed: 'Service Completed',
       };

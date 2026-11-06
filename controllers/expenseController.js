@@ -39,22 +39,55 @@ async function createExpense(req, res, next) {
   try {
     const { description, amount, jobId, receiptUrl } = req.body;
 
-    if (!description || !amount) {
+    if (!description || amount === undefined || amount === null) {
       return res.status(400).json({ success: false, message: 'Description and amount are required' });
     }
 
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be a valid positive number greater than ₹0' });
+    }
+
+    if (numAmount > 50000) {
+      return res.status(400).json({ success: false, message: 'Expense amount exceeds single claim maximum limit of ₹50,000' });
+    }
+
+    const cleanDesc = description.trim();
+    if (cleanDesc.length < 3) {
+      return res.status(400).json({ success: false, message: 'Description must be at least 3 characters long' });
+    }
+
+    if (jobId) {
+      const Job = require('../models/Job');
+      const jobExists = await Job.findById(jobId).select('_id title customerName');
+      if (!jobExists) {
+        return res.status(400).json({ success: false, message: 'Linked project/job not found' });
+      }
+    }
+
     const expense = await Expense.create({
-      description,
-      amount,
-      jobId,
-      receiptUrl,
+      description: cleanDesc,
+      amount: numAmount,
+      jobId: jobId || undefined,
+      receiptUrl: receiptUrl || undefined,
       technicianId: req.user.id,
       status: 'pending',
     });
 
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('newExpenseSubmission', {
+        expenseId: expense._id,
+        technicianId: req.user.id,
+        technicianName: req.user.name,
+        amount: numAmount,
+        description: cleanDesc,
+      });
+    }
+
     return res.status(201).json({
       success: true,
-      message: 'Expense submitted for approval',
+      message: 'Expense submitted for approval successfully',
       data: expense,
     });
   } catch (err) {

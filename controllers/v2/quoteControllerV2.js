@@ -435,6 +435,11 @@ async function submitQuoteRequest(req, res, next) {
     }
 
     try {
+      const io = req.app.get('io') || global._socketIo;
+      if (io) {
+        io.to('admin_room').emit('newQuoteRequest', quoteRequest);
+      }
+
       // Find all admin and manager users to dispatch in-app notifications
       const admins = await User.find({ role: { $in: ['admin', 'manager'] } }).select('_id name email phone mobileNumber role');
       if (admins.length > 0) {
@@ -444,7 +449,7 @@ async function submitQuoteRequest(req, res, next) {
             notifTitle,
             notifMessage,
             'quote_request_created',
-            null,
+            io,
             extraNotifData
           );
         }
@@ -503,7 +508,9 @@ function sanitizeQuoteForCustomer(quote) {
   const isSentOrPaid = [
     'quotation_sent',
     'quotation_accepted',
+    'advance_paid',
     'payment_pending',
+    'balance_pending',
     'paid',
     'converted_to_order',
     'Quote Sent',
@@ -527,9 +534,38 @@ function sanitizeQuoteForCustomer(quote) {
     plain.subtotal = null;
     plain.gstAmount = null;
     plain.finalAmount = null;
+    plain.pricingBreakdown = null;
+    plain.advancePercentage = null;
+    plain.advanceAmount = null;
+    plain.advancePaidAmount = null;
+    plain.balanceAmount = null;
+    plain.balancePaidAmount = null;
     plain.pricingStatus = 'Pricing Under Review by TechBes Admin';
   } else {
     plain.pricingStatus = 'Pricing Ready';
+    const finalAmount = Number(plain.finalAmount || 0);
+    const advPct = typeof plain.advancePercentage === 'number' ? plain.advancePercentage : 50;
+    plain.advancePercentage = advPct;
+    if (plain.advanceAmount === undefined || plain.advanceAmount === null || plain.advanceAmount === 0) {
+      plain.advanceAmount = Math.round(((finalAmount * advPct) / 100) * 100) / 100;
+    }
+    const advPaid = Number(plain.advancePaidAmount || 0);
+    if (plain.balanceAmount === undefined || plain.balanceAmount === null) {
+      plain.balanceAmount = advPaid > 0
+        ? Math.max(0, Math.round((finalAmount - advPaid - (plain.balancePaidAmount || 0)) * 100) / 100)
+        : Math.max(0, Math.round((finalAmount - plain.advanceAmount) * 100) / 100);
+    }
+    plain.pricingBreakdown = plain.pricingBreakdown || {
+      labourCharge: 0,
+      serviceCharge: 0,
+      accessoriesCharge: 0,
+      miscCharge: 0,
+    };
+  }
+
+  // Include job status if linked
+  if (plain.orderId && typeof plain.orderId === 'object' && plain.orderId.status) {
+    plain.jobStatus = plain.orderId.status;
   }
 
   return plain;
@@ -551,7 +587,7 @@ async function getCustomerQuotes(req, res, next) {
       filter.$or.push({ mobile });
     }
 
-    const quotes = await QuoteRequest.find(filter).sort({ createdAt: -1 });
+    const quotes = await QuoteRequest.find(filter).populate('orderId', 'status scheduledTime technicianName assignedTechnician').sort({ createdAt: -1 });
     const sanitized = quotes.map(sanitizeQuoteForCustomer);
 
     return res.json({ success: true, data: sanitized });
@@ -569,9 +605,9 @@ async function getQuoteDetailsForCustomer(req, res, next) {
     let quote = null;
 
     if (id.startsWith('QT-')) {
-      quote = await QuoteRequest.findOne({ requestId: id });
+      quote = await QuoteRequest.findOne({ requestId: id }).populate('orderId', 'status scheduledTime technicianName assignedTechnician');
     } else {
-      quote = await QuoteRequest.findById(id);
+      quote = await QuoteRequest.findById(id).populate('orderId', 'status scheduledTime technicianName assignedTechnician');
     }
 
     if (!quote) {
@@ -700,7 +736,16 @@ async function getQuoteRequestDetails(req, res, next) {
 async function priceQuotation(req, res, next) {
   try {
     const { id } = req.params;
-    const { items, gstRate = 18, validityDays = 15, adminNotes, terms, saveAsDraft } = req.body;
+    const {
+      items,
+      pricingBreakdown = {},
+      advancePercentage = 50,
+      gstRate = 18,
+      validityDays = 15,
+      adminNotes,
+      terms,
+      saveAsDraft = true,
+    } = req.body;
     const mongoose = require('mongoose');
 
     let quote = null;
@@ -718,14 +763,18 @@ async function priceQuotation(req, res, next) {
       return res.status(400).json({ success: false, message: 'Items array with unit prices is required' });
     }
 
-    let calculatedSubtotal = 0;
+    let calculatedItemsTotal = 0;
     const updatedItems = items.map((item) => {
       const quantity = Math.max(1, parseInt(item.quantity, 10) || 1);
       const unitPrice = Math.max(0, parseFloat(item.unitPrice) || 0);
       const lineTotal = Math.round(quantity * unitPrice * 100) / 100;
-      calculatedSubtotal += lineTotal;
+      calculatedItemsTotal += lineTotal;
 
       return {
+        productId: item.productId || null,
+        brand: item.brand || '',
+        sku: item.sku || '',
+        variant: item.variant || '',
         productName: String(item.productName || item.name || 'Item').trim(),
         quantity,
         unitPrice,
@@ -733,26 +782,82 @@ async function priceQuotation(req, res, next) {
       };
     });
 
+    const labourCharge = Math.max(0, parseFloat(pricingBreakdown?.labourCharge ?? req.body.labourCharge) || 0);
+    const serviceCharge = Math.max(0, parseFloat(pricingBreakdown?.serviceCharge ?? req.body.serviceCharge) || 0);
+    const accessoriesCharge = Math.max(0, parseFloat(pricingBreakdown?.accessoriesCharge ?? req.body.accessoriesCharge) || 0);
+    const miscCharge = Math.max(0, parseFloat(pricingBreakdown?.miscCharge ?? req.body.miscCharge) || 0);
+
+    const extraCharges = labourCharge + serviceCharge + accessoriesCharge + miscCharge;
+    const calculatedSubtotal = Math.round((calculatedItemsTotal + extraCharges) * 100) / 100;
+
     const parsedGstRate = Math.max(0, parseFloat(gstRate) || 18);
     const calculatedGst = Math.round(((calculatedSubtotal * parsedGstRate) / 100) * 100) / 100;
     const calculatedFinal = Math.round((calculatedSubtotal + calculatedGst) * 100) / 100;
 
+    const parsedAdvancePercentage = Math.min(100, Math.max(0, parseFloat(advancePercentage !== undefined ? advancePercentage : (quote.advancePercentage || 50))));
+    const calculatedAdvance = Math.round(((calculatedFinal * parsedAdvancePercentage) / 100) * 100) / 100;
+    const currentAdvancePaid = quote.advancePaidAmount || 0;
+    const calculatedBalance = currentAdvancePaid > 0
+      ? Math.max(0, Math.round((calculatedFinal - currentAdvancePaid - (quote.balancePaidAmount || 0)) * 100) / 100)
+      : Math.max(0, Math.round((calculatedFinal - calculatedAdvance) * 100) / 100);
+
+    // Snapshot version history before updating if there was already pricing
+    if (!Array.isArray(quote.quoteVersions)) {
+      quote.quoteVersions = [];
+    }
+    if (quote.finalAmount && quote.finalAmount > 0) {
+      quote.quoteVersions.push({
+        version: quote.quoteVersions.length + 1,
+        savedAt: new Date(),
+        savedBy: req.user?.id || null,
+        items: quote.items,
+        pricingBreakdown: quote.pricingBreakdown,
+        subtotal: quote.subtotal,
+        gstRate: quote.gstRate,
+        gstAmount: quote.gstAmount,
+        finalAmount: quote.finalAmount,
+        advancePercentage: quote.advancePercentage,
+        advanceAmount: quote.advanceAmount,
+        balanceAmount: quote.balanceAmount,
+        terms: quote.terms,
+        adminNotes: quote.adminNotes,
+        status: quote.status,
+      });
+    }
+
     quote.items = updatedItems;
+    quote.pricingBreakdown = {
+      labourCharge,
+      serviceCharge,
+      accessoriesCharge,
+      miscCharge,
+    };
     quote.subtotal = calculatedSubtotal;
     quote.gstRate = parsedGstRate;
     quote.gstAmount = calculatedGst;
     quote.finalAmount = calculatedFinal;
+    quote.advancePercentage = parsedAdvancePercentage;
+    quote.advanceAmount = calculatedAdvance;
+    quote.balanceAmount = calculatedBalance;
     quote.validityDays = Number(validityDays) || 15;
 
-    if (adminNotes !== undefined) {
-      quote.adminNotes = adminNotes;
-    }
-    if (terms !== undefined) {
-      quote.terms = terms;
+    if (adminNotes !== undefined) quote.adminNotes = adminNotes;
+    if (terms !== undefined) quote.terms = terms;
+
+    if (saveAsDraft) {
+      quote.status = 'quotation_draft';
     }
 
-    quote.status = saveAsDraft ? 'quotation_draft' : 'quotation_draft';
     await quote.save();
+
+    // Real-time Socket.IO emission to both admin and customer rooms
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('quoteUpdated', quote);
+      if (quote.customerId) {
+        io.to(quote.customerId.toString()).emit('quoteUpdated', sanitizeQuoteForCustomer(quote));
+      }
+    }
 
     return res.json({
       success: true,
@@ -818,6 +923,15 @@ async function sendQuotation(req, res, next) {
     const validity = quote.validityDays || 15;
     const validUntil = new Date(Date.now() + validity * 24 * 60 * 60 * 1000);
 
+    // Ensure advance/balance amounts are configured
+    if (!quote.advanceAmount || quote.advanceAmount <= 0) {
+      quote.advancePercentage = quote.advancePercentage || 50;
+      quote.advanceAmount = Math.round(((quote.finalAmount * quote.advancePercentage) / 100) * 100) / 100;
+      quote.balanceAmount = (quote.advancePaidAmount || 0) > 0
+        ? Math.max(0, Math.round((quote.finalAmount - quote.advancePaidAmount - (quote.balancePaidAmount || 0)) * 100) / 100)
+        : Math.max(0, Math.round((quote.finalAmount - quote.advanceAmount) * 100) / 100);
+    }
+
     quote.status = 'quotation_sent';
     quote.sentAt = new Date();
     quote.validUntil = validUntil;
@@ -826,6 +940,8 @@ async function sendQuotation(req, res, next) {
     // Prepare WhatsApp Notification content per Part 12
     const customerPhone = cleanPhone.slice(-10);
     const formattedAmount = `₹${quote.finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formattedAdvance = `₹${(quote.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formattedBalance = `₹${(quote.balanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const portalUrl = `${process.env.FRONTEND_URL || 'https://techbes.co.in'}/dashboard/quotes`;
 
     const whatsappMessage =
@@ -834,6 +950,8 @@ async function sendQuotation(req, res, next) {
       `Your itemized quotation for *${quote.serviceCategory || 'CCTV Installation'}* has been prepared.\n\n` +
       `• *Quotation No:* ${quote.requestId}\n` +
       `• *Grand Total:* ${formattedAmount} (incl. GST)\n` +
+      `• *Advance (${quote.advancePercentage}%):* ${formattedAdvance}\n` +
+      `• *Balance on Completion:* ${formattedBalance}\n` +
       `• *Validity:* ${validity} days\n\n` +
       `Please review your quotation details and proceed with online booking:\n` +
       `${portalUrl}\n\n` +
@@ -854,16 +972,33 @@ async function sendQuotation(req, res, next) {
     // Generate click-to-chat fallback URL
     const clickToChatUrl = `https://wa.me/91${customerPhone}?text=${encodeURIComponent(whatsappMessage)}`;
 
+    // Real-time socket broadcast to both Admin and Customer rooms
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('quoteStatusUpdated', {
+        quoteId: quote._id,
+        requestId: quote.requestId,
+        status: quote.status,
+        finalAmount: quote.finalAmount,
+        advanceAmount: quote.advanceAmount,
+        balanceAmount: quote.balanceAmount,
+      });
+      if (quote.customerId) {
+        io.to(quote.customerId.toString()).emit('quoteStatusUpdated', sanitizeQuoteForCustomer(quote));
+        io.to(quote.customerId.toString()).emit('quoteUpdated', sanitizeQuoteForCustomer(quote));
+      }
+    }
+
     // In-app notification if customerId exists
     if (quote.customerId) {
       try {
         await notificationService.createNotification(
           quote.customerId,
           'Quotation Ready – TechBes',
-          `Your quotation ${quote.requestId} for ${quote.serviceCategory} is ready. Total: ${formattedAmount}. Login to review and pay now to book.`,
+          `Your quotation ${quote.requestId} for ${quote.serviceCategory} is ready. Total: ${formattedAmount} (Advance: ${formattedAdvance}). Login to review and approve.`,
           'quotation_sent',
-          null,
-          { quoteId: quote._id, requestId: quote.requestId }
+          io,
+          { quoteId: quote._id, requestId: quote.requestId, finalAmount: quote.finalAmount, advanceAmount: quote.advanceAmount }
         );
       } catch (notifErr) {
         console.error('Failed to send in-app notification:', notifErr.message);
@@ -924,13 +1059,23 @@ async function downloadQuotationPdf(req, res, next) {
 async function createPaymentOrder(req, res, next) {
   try {
     const { id } = req.params;
+    const { paymentType = 'advance' } = req.body;
     const quote = await QuoteRequest.findById(id);
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quotation not found' });
     }
 
     // Validate quotation status
-    const payableStatuses = ['quotation_sent', 'quotation_accepted', 'payment_pending', 'Quote Sent', 'Quotation Sent'];
+    const payableStatuses = [
+      'quotation_sent',
+      'quotation_accepted',
+      'advance_paid',
+      'payment_pending',
+      'balance_pending',
+      'Quote Sent',
+      'Quotation Sent',
+      'Accepted',
+    ];
     if (!payableStatuses.includes(quote.status)) {
       return res.status(400).json({
         success: false,
@@ -945,15 +1090,59 @@ async function createPaymentOrder(req, res, next) {
       return res.status(400).json({ success: false, message: 'This quotation has expired. Please request a new quote.' });
     }
 
-    // Authoritative amount in paise
-    const finalAmount = quote.finalAmount;
-    if (!finalAmount || finalAmount <= 0) {
-      return res.status(400).json({ success: false, message: 'Quotation amount is invalid' });
-    }
-    const amountInPaise = Math.round(finalAmount * 100);
+    // Backend-authoritative amount calculation
+    let payableAmount = 0;
+    if (paymentType === 'advance') {
+      if (quote.advancePaidAmount >= quote.advanceAmount && quote.advanceAmount > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Advance payment has already been completed for this quotation.',
+        });
+      }
+      payableAmount = quote.advanceAmount > 0
+        ? quote.advanceAmount
+        : Math.round(((quote.finalAmount * (quote.advancePercentage || 50)) / 100) * 100) / 100;
+    } else if (paymentType === 'balance') {
+      if ((quote.advancePaidAmount || 0) <= 0 && quote.advanceAmount > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Advance payment must be paid before making balance payment.',
+        });
+      }
 
-    const description = `TechBes Quotation Booking: ${quote.requestId}`;
-    const receipt = `RCP_${quote.requestId}_${Date.now().toString().slice(-4)}`;
+      // Check job completion status
+      let job = null;
+      if (quote.orderId) {
+        job = await Job.findById(quote.orderId);
+      }
+      if (!job) {
+        job = await Job.findOne({ quoteRequestId: quote.requestId });
+      }
+      if (!job || job.status !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          message: 'Balance payment is only available after job completion by technician (job status must be completed).',
+        });
+      }
+
+      if (quote.balanceAmount <= 0 || (quote.balancePaidAmount >= quote.balanceAmount && quote.balancePaidAmount > 0)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Balance has already been paid in full.',
+        });
+      }
+      payableAmount = quote.balanceAmount;
+    } else {
+      payableAmount = quote.finalAmount;
+    }
+
+    if (!payableAmount || payableAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Calculated payable amount is zero or invalid' });
+    }
+
+    const amountInPaise = Math.round(payableAmount * 100);
+    const description = `TechBes ${paymentType === 'advance' ? 'Advance' : 'Balance'} Payment: ${quote.requestId}`;
+    const receipt = `RCP_${paymentType.toUpperCase()}_${quote.requestId}_${Date.now().toString().slice(-4)}`;
 
     let orderData = null;
     const isTestMode =
@@ -962,7 +1151,7 @@ async function createPaymentOrder(req, res, next) {
       !process.env.RAZORPAY_KEY_SECRET;
 
     if (isTestMode) {
-      const mockOrderId = `order_qt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const mockOrderId = `order_${paymentType}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       orderData = {
         orderId: mockOrderId,
         amount: amountInPaise,
@@ -976,22 +1165,46 @@ async function createPaymentOrder(req, res, next) {
       orderData = await paymentService.createRazorpayOrder(amountInPaise, description, receipt, req.user?.id);
     }
 
-    quote.status = 'payment_pending';
-    quote.paymentDetails = quote.paymentDetails || {};
-    quote.paymentDetails.razorpayOrderId = orderData.orderId;
+    if (paymentType === 'advance') {
+      quote.advancePaymentDetails = quote.advancePaymentDetails || {};
+      quote.advancePaymentDetails.razorpayOrderId = orderData.orderId;
+      quote.status = 'payment_pending';
+    } else {
+      quote.balancePaymentDetails = quote.balancePaymentDetails || {};
+      quote.balancePaymentDetails.razorpayOrderId = orderData.orderId;
+      quote.status = 'balance_pending';
+    }
     await quote.save();
+
+    // Create Payment record in pending state
+    await Payment.create({
+      userId: req.user?.id || quote.customerId,
+      quoteId: quote._id,
+      jobId: quote.orderId || null,
+      razorpayOrderId: orderData.orderId,
+      amount: amountInPaise,
+      currency: 'INR',
+      status: 'pending',
+      paymentType,
+      meta: {
+        quotationId: quote._id,
+        requestId: quote.requestId,
+        paymentType,
+      },
+    });
 
     return res.json({
       success: true,
-      message: 'Payment order created successfully',
+      message: `${paymentType === 'advance' ? 'Advance' : 'Balance'} payment order created successfully`,
       data: {
         orderId: orderData.orderId,
         amount: amountInPaise,
-        displayAmount: finalAmount,
+        displayAmount: payableAmount,
         currency: 'INR',
         keyId: orderData.keyId,
         quotationId: quote._id,
         requestId: quote.requestId,
+        paymentType,
         customerName: quote.fullName,
         customerEmail: quote.email,
         customerMobile: quote.mobile,
@@ -1009,7 +1222,13 @@ async function createPaymentOrder(req, res, next) {
 async function verifyQuotePayment(req, res, next) {
   try {
     const { id } = req.params;
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, mockSuccess } = req.body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      mockSuccess,
+      paymentType = 'advance',
+    } = req.body;
 
     const quote = await QuoteRequest.findById(id);
     if (!quote) {
@@ -1022,7 +1241,7 @@ async function verifyQuotePayment(req, res, next) {
       !process.env.RAZORPAY_KEY_SECRET;
 
     if (isTestMode && mockSuccess) {
-      console.log(`[Quote Payment] Verified via mock test payment for ${quote.requestId}`);
+      console.log(`[Quote Payment] Verified via mock test payment for ${quote.requestId} (${paymentType})`);
     } else {
       if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
         return res.status(400).json({ success: false, message: 'Payment verification details missing' });
@@ -1043,7 +1262,7 @@ async function verifyQuotePayment(req, res, next) {
       }
     }
 
-    // 1. Generate unique sequential Order Number ORD-YYYY-XXXXX
+    // 1. Generate unique sequential Order Number & Invoice Number
     const year = new Date().getFullYear();
     const Counter = require('../../models/Counter');
     let orderSeq = 1;
@@ -1057,7 +1276,9 @@ async function verifyQuotePayment(req, res, next) {
     } catch {
       orderSeq = Math.floor(Math.random() * 90000) + 10000;
     }
-    const orderNumber = `ORD-${year}-${String(orderSeq).padStart(5, '0')}`;
+    const orderNumber = quote.orderNumber || `ORD-${year}-${String(orderSeq).padStart(5, '0')}`;
+    const invoicePrefix = paymentType === 'balance' ? 'INV-BAL' : 'INV-ADV';
+    const invoiceNumber = `${invoicePrefix}-${year}-${String(orderSeq).padStart(5, '0')}`;
 
     // 2. Find or create Client User
     let clientUser = null;
@@ -1091,81 +1312,174 @@ async function verifyQuotePayment(req, res, next) {
       });
     }
 
-    // 4. Create Payment Record
-    const payment = await Payment.create({
-      userId: clientUser._id,
-      razorpayOrderId: razorpay_order_id || `order_mock_${Date.now()}`,
-      razorpayPaymentId: razorpay_payment_id || `pay_mock_${Date.now()}`,
-      razorpaySignature: razorpay_signature || 'mock_sig',
-      amount: Math.round(quote.finalAmount * 100),
-      currency: 'INR',
-      status: 'paid',
-      orderNumber,
-      meta: {
-        quotationId: quote._id,
-        requestId: quote.requestId,
-        itemsCount: quote.items.length,
-      },
-    });
+    // 4. Calculate Authoritative Amounts
+    const advanceAmt = quote.advanceAmount > 0
+      ? quote.advanceAmount
+      : Math.round(((quote.finalAmount * (quote.advancePercentage || 50)) / 100) * 100) / 100;
+    const paidAmount = paymentType === 'balance' ? quote.balanceAmount : advanceAmt;
+    const amountInPaise = Math.round(paidAmount * 100);
 
-    // 5. Create Job / Order linked to Customer, Quotation, Payment, Items, Location
-    const itemsDescription = quote.items
-      .map((it) => `• ${it.productName} (Qty: ${it.quantity}, Rate: ₹${it.unitPrice})`)
-      .join('\n');
+    // 5. Idempotent Payment Record
+    let payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
+    if (payment) {
+      payment.razorpayPaymentId = razorpay_payment_id || `pay_${Date.now()}`;
+      payment.razorpaySignature = razorpay_signature || 'verified_sig';
+      payment.status = 'paid';
+      payment.paymentType = paymentType;
+      payment.invoiceNumber = payment.invoiceNumber || invoiceNumber;
+      await payment.save();
+    } else {
+      payment = await Payment.create({
+        userId: clientUser._id,
+        quoteId: quote._id,
+        jobId: quote.orderId || null,
+        razorpayOrderId: razorpay_order_id || `order_mock_${Date.now()}`,
+        razorpayPaymentId: razorpay_payment_id || `pay_mock_${Date.now()}`,
+        razorpaySignature: razorpay_signature || 'mock_sig',
+        amount: amountInPaise,
+        currency: 'INR',
+        status: 'paid',
+        paymentType,
+        orderNumber,
+        invoiceNumber,
+        meta: {
+          quotationId: quote._id,
+          requestId: quote.requestId,
+          paymentType,
+        },
+      });
+    }
 
-    const job = await Job.create({
-      title: `${quote.serviceCategory} Order - ${orderNumber}`,
-      description: `Quotation: ${quote.requestId}\nOrder No: ${orderNumber}\n\nOrdered Items:\n${itemsDescription}\n\nAdditional Requirements:\n${quote.additionalRequirements || 'None'}`,
-      location: quote.address,
-      client: clientUser._id,
-      customerName: quote.fullName,
-      customerPhone: quote.mobile,
-      scheduledTime: quote.preferredVisitDate
-        ? `${new Date(quote.preferredVisitDate).toISOString().split('T')[0]} ${quote.preferredVisitTime || 'ASAP'}`
-        : 'ASAP',
-      status: 'pending',
-      useNewFlow: true,
-      bookingDate: quote.preferredVisitDate ? new Date(quote.preferredVisitDate).toISOString().split('T')[0] : '',
-      timeSlot: quote.preferredVisitTime || '',
-      addressId: addr ? addr._id : undefined,
-      latitude: quote.latitude,
-      longitude: quote.longitude,
-      googleMapsLink:
-        quote.googleMapsUrl ||
-        (quote.latitude && quote.longitude ? `https://www.google.com/maps?q=${quote.latitude},${quote.longitude}` : ''),
-      addressDetails: {
-        area: quote.locality || '',
-        pincode: quote.pincode || '',
-        formattedAddress: quote.address || '',
-      },
-      quoteRequestId: quote.requestId,
-      paymentId: payment._id,
-      paymentStatus: 'paid',
-    });
+    // 6. Find or Create Job
+    let job = quote.orderId ? await Job.findById(quote.orderId) : await Job.findOne({ quoteRequestId: quote.requestId });
 
-    // 6. Update QuoteRequest record
-    quote.status = 'paid';
-    quote.paidAt = new Date();
-    quote.orderNumber = orderNumber;
-    quote.orderId = job._id;
-    quote.paymentDetails = {
-      razorpayOrderId: razorpay_order_id || '',
-      razorpayPaymentId: razorpay_payment_id || '',
-      razorpaySignature: razorpay_signature || '',
-      paymentId: payment._id,
-      amountPaid: quote.finalAmount,
-    };
+    if (paymentType === 'advance') {
+      quote.advancePaidAmount = advanceAmt;
+      quote.balanceAmount = Math.max(0, Math.round((quote.finalAmount - quote.advancePaidAmount) * 100) / 100);
+      quote.status = quote.balanceAmount === 0 ? 'paid' : 'advance_paid';
+      quote.quotePaymentStatus = quote.balanceAmount === 0 ? 'fully_paid' : 'advance_paid';
+      quote.orderNumber = orderNumber;
+      quote.advancePaymentDetails = {
+        razorpayOrderId: razorpay_order_id || '',
+        razorpayPaymentId: razorpay_payment_id || '',
+        razorpaySignature: razorpay_signature || '',
+        paymentId: payment._id,
+        amountPaid: advanceAmt,
+        paidAt: new Date(),
+      };
+
+      if (!job) {
+        const itemsDescription = quote.items
+          .map((it) => `• ${it.productName} (Qty: ${it.quantity}, Rate: ₹${it.unitPrice})`)
+          .join('\n');
+
+        job = await Job.create({
+          title: `${quote.serviceCategory} Order - ${orderNumber}`,
+          description: `Quotation: ${quote.requestId}\nOrder No: ${orderNumber}\n\nOrdered Items:\n${itemsDescription}\n\nAdditional Requirements:\n${quote.additionalRequirements || 'None'}`,
+          location: quote.address,
+          client: clientUser._id,
+          customerName: quote.fullName,
+          customerPhone: quote.mobile,
+          scheduledTime: quote.preferredVisitDate
+            ? `${new Date(quote.preferredVisitDate).toISOString().split('T')[0]} ${quote.preferredVisitTime || 'ASAP'}`
+            : 'ASAP',
+          status: 'pending',
+          useNewFlow: true,
+          bookingDate: quote.preferredVisitDate ? new Date(quote.preferredVisitDate).toISOString().split('T')[0] : '',
+          timeSlot: quote.preferredVisitTime || '',
+          addressId: addr ? addr._id : undefined,
+          latitude: quote.latitude,
+          longitude: quote.longitude,
+          googleMapsLink:
+            quote.googleMapsUrl ||
+            (quote.latitude && quote.longitude ? `https://www.google.com/maps?q=${quote.latitude},${quote.longitude}` : ''),
+          addressDetails: {
+            area: quote.locality || '',
+            pincode: quote.pincode || '',
+            formattedAddress: quote.address || '',
+          },
+          quoteRequestId: quote.requestId,
+          paymentId: payment._id,
+          paymentStatus: 'advance_paid',
+          advancePaid: true,
+          advancePaymentId: razorpay_payment_id || '',
+          advanceAmount: advanceAmt,
+          remainingAmount: quote.balanceAmount,
+          price: quote.finalAmount,
+          amount: quote.finalAmount,
+        });
+      } else {
+        job.paymentStatus = 'advance_paid';
+        job.advancePaid = true;
+        job.advancePaymentId = razorpay_payment_id || '';
+        job.advanceAmount = advanceAmt;
+        job.remainingAmount = quote.balanceAmount;
+        await job.save();
+      }
+
+      quote.orderId = job._id;
+      payment.jobId = job._id;
+      await payment.save();
+    } else if (paymentType === 'balance') {
+      quote.balancePaidAmount = quote.balanceAmount;
+      quote.balanceAmount = 0;
+      quote.status = 'paid';
+      quote.quotePaymentStatus = 'fully_paid';
+      quote.paidAt = new Date();
+      quote.balancePaymentDetails = {
+        razorpayOrderId: razorpay_order_id || '',
+        razorpayPaymentId: razorpay_payment_id || '',
+        razorpaySignature: razorpay_signature || '',
+        paymentId: payment._id,
+        amountPaid: paidAmount,
+        paidAt: new Date(),
+      };
+
+      if (job) {
+        job.paymentStatus = 'paid';
+        job.remainingAmount = 0;
+        await job.save();
+      }
+    }
+
     await quote.save();
 
-    // 7. Dispatch notifications
+    // 7. Socket.IO Real-time updates
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('quoteStatusUpdated', {
+        quoteId: quote._id,
+        requestId: quote.requestId,
+        status: quote.status,
+        quotePaymentStatus: quote.quotePaymentStatus,
+        paymentType,
+        amountPaid: paidAmount,
+        balanceAmount: quote.balanceAmount,
+      });
+      io.to('admin_room').emit('quoteUpdated', quote);
+      if (clientUser) {
+        io.to(clientUser._id.toString()).emit('quoteUpdated', sanitizeQuoteForCustomer(quote));
+        io.to(clientUser._id.toString()).emit('quoteStatusUpdated', sanitizeQuoteForCustomer(quote));
+        if (paymentType === 'advance') {
+          io.to(clientUser._id.toString()).emit('bookingConfirmed', job);
+        }
+      }
+    }
+
+    // 8. Dispatch notifications
     try {
+      const notifTitle = paymentType === 'balance' ? 'Quotation Balance Paid Successfully' : 'Order Confirmed! Advance Payment Received';
+      const notifMsg = paymentType === 'balance'
+        ? `Your balance payment of ₹${paidAmount} for Quotation #${quote.requestId} was verified. Quotation is fully settled.`
+        : `Your advance payment of ₹${paidAmount} was verified. Order #${orderNumber} is confirmed and assigned to engineering.`;
+
       await notificationService.createNotification(
         clientUser._id,
-        'Order Confirmed Successfully!',
-        `Your payment of ₹${quote.finalAmount} was verified. Order #${orderNumber} is being prepared.`,
-        'order_confirmed',
-        null,
-        { orderNumber, jobId: job._id }
+        notifTitle,
+        notifMsg,
+        paymentType === 'balance' ? 'payment_received' : 'order_confirmed',
+        io,
+        { orderNumber, jobId: job?._id, quoteId: quote._id, paymentType, invoiceNumber }
       );
     } catch (e) {
       console.error('Order notification error:', e.message);
@@ -1173,12 +1487,17 @@ async function verifyQuotePayment(req, res, next) {
 
     return res.status(200).json({
       success: true,
-      message: 'Order Confirmed Successfully',
+      message: paymentType === 'balance' ? 'Balance Payment Verified Successfully' : 'Advance Payment Verified & Order Confirmed',
       data: {
         orderNumber,
-        orderId: job._id,
+        invoiceNumber,
+        orderId: job?._id,
         orderDate: new Date(),
-        amountPaid: quote.finalAmount,
+        paymentType,
+        amountPaid: paidAmount,
+        advancePaidAmount: quote.advancePaidAmount,
+        balanceAmount: quote.balanceAmount,
+        paymentStatus: quote.quotePaymentStatus,
         quotationId: quote._id,
         requestId: quote.requestId,
         serviceCategory: quote.serviceCategory,
@@ -1304,7 +1623,229 @@ async function convertToBooking(req, res, next) {
     quote.orderId = existingJob._id;
     await quote.save();
 
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('newBooking', existingJob);
+      io.emit('newBooking', existingJob);
+      if (clientUser) {
+        io.to(clientUser._id.toString()).emit('bookingConfirmed', existingJob);
+      }
+    }
+
+    if (clientUser) {
+      await notificationService.createNotification(
+        clientUser._id,
+        'Booking Created from Quotation',
+        `Your quotation ${quote.requestId} has been converted into an active booking: ${existingJob.title}.`,
+        'booking_confirmed',
+        io,
+        { bookingId: existingJob._id.toString(), quoteId: quote.requestId }
+      );
+    }
+
+    // Trigger auto-dispatch in background
+    setImmediate(async () => {
+      try {
+        const dispatchService = require('../../services/dispatchService');
+        await dispatchService.autoAssignTechnician(existingJob._id, io);
+      } catch (dispatchErr) {
+        console.error('[quoteControllerV2] Auto-dispatch for converted booking failed (non-critical):', dispatchErr.message);
+      }
+    });
+
     return res.json({ success: true, data: { job: existingJob, quote } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Customer approval of quotation
+ * POST /api/v2/quotes/:id/accept
+ */
+async function acceptQuote(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body || {};
+    const mongoose = require('mongoose');
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'Quote Request not found' });
+    }
+
+    // Check ownership if authenticated customer
+    if (req.user && req.user.role === 'client' && quote.customerId && String(quote.customerId) !== String(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to accept this quotation' });
+    }
+
+    quote.status = 'quotation_accepted';
+    if (notes) {
+      quote.adminNotes = (quote.adminNotes ? quote.adminNotes + '\n' : '') + `[Customer Note on Accept]: ${notes}`;
+    }
+    await quote.save();
+
+    // Real-time broadcast to Admin room
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('quoteStatusUpdated', {
+        quoteId: quote._id,
+        requestId: quote.requestId,
+        status: quote.status,
+        customerName: quote.fullName,
+        finalAmount: quote.finalAmount,
+      });
+    }
+
+    // Notify Admins
+    const admins = await User.find({ role: 'admin', isDeleted: { $ne: true } }).select('_id');
+    await Promise.allSettled(admins.map(admin =>
+      notificationService.createNotification(
+        admin._id,
+        'Quotation Approved by Customer',
+        `Customer ${quote.fullName} has accepted quotation #${quote.requestId} (₹${(quote.finalAmount || 0).toLocaleString('en-IN')}).`,
+        'quotation_accepted',
+        io,
+        { quoteId: quote._id, requestId: quote.requestId }
+      )
+    ));
+
+    return res.json({
+      success: true,
+      message: 'Quotation accepted successfully. You can now proceed to confirm booking.',
+      data: quote,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Customer rejection of quotation
+ * POST /api/v2/quotes/:id/reject
+ */
+async function rejectQuote(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const mongoose = require('mongoose');
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'Quote Request not found' });
+    }
+
+    // Check ownership if authenticated customer
+    if (req.user && req.user.role === 'client' && quote.customerId && String(quote.customerId) !== String(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to decline this quotation' });
+    }
+
+    quote.status = 'Rejected';
+    if (reason) {
+      quote.adminNotes = (quote.adminNotes ? quote.adminNotes + '\n' : '') + `[Customer Rejection Reason]: ${reason}`;
+    }
+    await quote.save();
+
+    // Real-time broadcast to Admin room
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('quoteStatusUpdated', {
+        quoteId: quote._id,
+        requestId: quote.requestId,
+        status: quote.status,
+        customerName: quote.fullName,
+        reason,
+      });
+    }
+
+    // Notify Admins
+    const admins = await User.find({ role: 'admin', isDeleted: { $ne: true } }).select('_id');
+    await Promise.allSettled(admins.map(admin =>
+      notificationService.createNotification(
+        admin._id,
+        'Quotation Declined by Customer',
+        `Customer ${quote.fullName} has declined quotation #${quote.requestId}${reason ? `: "${reason}"` : '.'}`,
+        'quotation_rejected',
+        io,
+        { quoteId: quote._id, requestId: quote.requestId }
+      )
+    ));
+
+    return res.json({
+      success: true,
+      message: 'Quotation marked as declined',
+      data: quote,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+/**
+ * Get Invoice/Receipt for quotation payment (Advance or Balance)
+ */
+async function getQuotationInvoice(req, res, next) {
+  try {
+    const { id, paymentType = 'advance' } = req.params;
+    const mongoose = require('mongoose');
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'Quotation not found' });
+    }
+
+    const paymentDetails = paymentType === 'balance' ? quote.balancePaymentDetails : quote.advancePaymentDetails;
+    const payment = await Payment.findOne({
+      quoteId: quote._id,
+      paymentType,
+      status: { $in: ['paid', 'verified'] },
+    }).sort({ createdAt: -1 });
+
+    const invoiceData = {
+      invoiceNumber: payment?.invoiceNumber || `${paymentType === 'balance' ? 'INV-BAL' : 'INV-ADV'}-${quote.requestId}`,
+      receiptNumber: payment?.paymentReference || `RCP-${quote.requestId}`,
+      date: paymentDetails?.paidAt || payment?.createdAt || new Date(),
+      customerName: quote.fullName,
+      customerEmail: quote.email,
+      customerMobile: quote.mobile,
+      address: quote.address,
+      serviceCategory: quote.serviceCategory,
+      subcategory: quote.subcategory,
+      quotationNumber: quote.requestId,
+      orderNumber: quote.orderNumber,
+      paymentType,
+      items: quote.items,
+      pricingBreakdown: quote.pricingBreakdown,
+      subtotal: quote.subtotal,
+      gstRate: quote.gstRate,
+      gstAmount: quote.gstAmount,
+      finalAmount: quote.finalAmount,
+      advancePercentage: quote.advancePercentage,
+      advanceAmount: quote.advanceAmount,
+      amountPaid: paymentDetails?.amountPaid || (payment ? payment.amount / 100 : 0),
+      balanceAmount: quote.balanceAmount,
+      paymentMethod: 'Razorpay Online',
+      transactionId: paymentDetails?.razorpayPaymentId || payment?.razorpayPaymentId || 'N/A',
+      status: 'PAID',
+    };
+
+    return res.json({ success: true, data: invoiceData });
   } catch (err) {
     next(err);
   }
@@ -1324,5 +1865,8 @@ module.exports = {
   updateQuoteRequest,
   convertToBooking,
   downloadQuotationPdf,
+  acceptQuote,
+  rejectQuote,
+  getQuotationInvoice,
 };
 

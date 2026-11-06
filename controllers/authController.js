@@ -436,15 +436,24 @@ async function verifyOtp(req, res) {
 }
 
 async function me(req, res) {
-  if (req.authUser && req.authUser.role === 'technician') {
-    await req.authUser.populate({
+  let user = req.authUser;
+  if (!user && req.user?.id) {
+    user = await User.findById(req.user.id);
+  }
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'User not found or unauthenticated' });
+  }
+
+  if (user.role === 'technician') {
+    await user.populate({
       path: 'penalties.jobId',
       select: 'bookingNumber customerName customerPhone title serviceName status'
     });
   }
   return res.json({
     success: true,
-    data: req.authUser.toSafeObject(),
+    user: user.toSafeObject ? user.toSafeObject() : user,
+    data: user.toSafeObject ? user.toSafeObject() : user,
   });
 }
 

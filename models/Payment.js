@@ -14,6 +14,9 @@ const paymentSchema = new mongoose.Schema(
     orderNumber: { type: String, unique: true, sparse: true },
     paymentReference: { type: String, unique: true, sparse: true },
     customerId: { type: String, default: '' },
+    paymentType: { type: String, enum: ['advance', 'balance', 'full', 'other'], default: 'full' },
+    quoteId: { type: mongoose.Schema.Types.ObjectId, ref: 'QuoteRequest', default: null },
+    invoiceNumber: { type: String, default: '' },
   },
   { timestamps: true }
 );

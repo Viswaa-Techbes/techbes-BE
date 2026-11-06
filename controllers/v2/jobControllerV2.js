@@ -231,8 +231,38 @@ async function updateJobStatus(req, res, next) {
     const job = await Job.findByIdAndUpdate(id, updates, { new: true }).lean();
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
-    const io = req.app.get('io');
-    io.emit('jobStatusUpdated', { jobId: id, status, note });
+    const io = req.app.get('io') || global._socketIo;
+    const socketPayload = {
+      jobId: id.toString(),
+      bookingId: id.toString(),
+      status,
+      note: note || '',
+      updatedBy: req.user?.role || 'system',
+      updatedAt: new Date(),
+      job,
+    };
+
+    if (io) {
+      // Broadcast to admin room
+      io.to('admin_room').emit('jobStatusUpdated', socketPayload);
+      io.to('admin_room').emit('bookingStatusUpdated', socketPayload);
+
+      // Broadcast to client personal room
+      if (job.client) {
+        io.to(job.client.toString()).emit('jobStatusUpdated', socketPayload);
+        io.to(job.client.toString()).emit('bookingStatusUpdated', socketPayload);
+        io.to(job.client.toString()).emit('bookingStatusUpdate', socketPayload);
+      }
+
+      // Broadcast to assigned technician personal room
+      if (job.assignedTechnician) {
+        io.to(job.assignedTechnician.toString()).emit('jobStatusUpdated', socketPayload);
+      }
+
+      // Global broadcast
+      io.emit('jobStatusUpdated', socketPayload);
+      io.emit('bookingStatusUpdated', socketPayload);
+    }
 
     // Notify client and admin on key status changes
     const clientNotifyStatuses = ['site_visited', 'reached', 'arrived', 'travelling', 'in_progress', 'started', 'completion_requested', 'completed'];

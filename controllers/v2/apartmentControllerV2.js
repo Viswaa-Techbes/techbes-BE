@@ -1127,6 +1127,14 @@ async function createTicket(req, res, next) {
       }
     }
 
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      io.to('admin_room').emit('newSocietyTicket', ticket);
+      if (ticket.apartmentId) {
+        io.to(`apartment_${ticket.apartmentId}`).emit('newSocietyTicket', ticket);
+      }
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Complaint submitted successfully',
@@ -1332,14 +1340,55 @@ async function replyToTicket(req, res, next) {
 
     await ticket.save();
 
+    const io = req.app.get('io') || global._socketIo;
+
     // Notify customer/resident if updated by admin/association
     if ((user.role === 'admin' || user.role === 'association') && ticket.customer) {
       await notificationService.createNotification(
         ticket.customer,
         `New Message on Ticket #${ticket.ticketId}`,
         `Society support posted an update on your complaint: "${ticket.subject}"`,
-        'ticket_reply'
+        'ticket_reply',
+        io,
+        { ticketId: ticket.ticketId, id: ticket._id }
       ).catch(() => {});
+
+      if (io) {
+        io.to(ticket.customer.toString()).emit('ticketReply', { ticketId: ticket._id, sender: user.name, role: user.role, text });
+      }
+    } else if (user.role === 'resident') {
+      // Resident replied: notify association in-charges and assigned staff
+      if (ticket.apartmentId) {
+        const apt = await Apartment.findById(ticket.apartmentId);
+        if (apt && Array.isArray(apt.associationUsers)) {
+          for (const assocUserId of apt.associationUsers) {
+            await notificationService.createNotification(
+              assocUserId,
+              `Resident Reply: Flat ${ticket.flatNumber}`,
+              `Resident posted an update on Ticket #${ticket.ticketId} (${ticket.subject})`,
+              'ticket_reply',
+              io,
+              { ticketId: ticket.ticketId, id: ticket._id }
+            ).catch(() => {});
+          }
+        }
+      }
+      if (ticket.assignedStaff) {
+        await notificationService.createNotification(
+          ticket.assignedStaff,
+          `Resident Reply: Ticket #${ticket.ticketId}`,
+          `Resident replied: "${text ? text.slice(0, 60) : 'New update'}"`,
+          'ticket_reply',
+          io,
+          { ticketId: ticket.ticketId, id: ticket._id }
+        ).catch(() => {});
+      }
+      if (io) {
+        io.to('admin_room').emit('ticketReply', { ticketId: ticket._id, sender: user.name, role: 'resident', text });
+        if (ticket.apartmentId) {
+          io.to(`apartment_${ticket.apartmentId}`).emit('ticketReply', { ticketId: ticket._id, sender: user.name, role: 'resident', text });
+        }
+      }
     }
 
     const populated = await SupportTicket.findById(ticket._id)
@@ -1391,14 +1440,29 @@ async function updateTicketStatus(req, res, next) {
 
     await ticket.save();
 
+    const io = req.app.get('io') || global._socketIo;
+
     // Notify resident
     if (ticket.customer) {
       await notificationService.createNotification(
         ticket.customer,
         `Ticket #${ticket.ticketId} is now ${status}`,
         `Your complaint regarding "${ticket.subject}" has been marked as ${status}.`,
-        'ticket_status'
+        'ticket_status',
+        io,
+        { ticketId: ticket.ticketId, id: ticket._id, status }
       ).catch(() => {});
+
+      if (io) {
+        io.to(ticket.customer.toString()).emit('societyTicketStatusUpdated', { ticketId: ticket._id, status });
+      }
+    }
+
+    if (io) {
+      io.to('admin_room').emit('societyTicketStatusUpdated', { ticketId: ticket._id, status });
+      if (ticket.apartmentId) {
+        io.to(`apartment_${ticket.apartmentId}`).emit('societyTicketStatusUpdated', { ticketId: ticket._id, status });
+      }
     }
 
     return res.json({ success: true, message: `Ticket status updated to ${status}`, data: ticket });
@@ -1560,14 +1624,29 @@ async function resolveTicket(req, res, next) {
 
     await ticket.save();
 
+    const io = req.app.get('io') || global._socketIo;
+
     // Notify resident
     if (ticket.customer) {
       await notificationService.createNotification(
         ticket.customer,
         `Complaint Resolved: Ticket #${ticket.ticketId}`,
         `Your maintenance ticket for ${ticket.category} has been marked as Resolved. Please inspect and confirm.`,
-        'ticket_resolved'
+        'ticket_resolved',
+        io,
+        { ticketId: ticket.ticketId, id: ticket._id, status: 'Resolved' }
       ).catch(() => {});
+
+      if (io) {
+        io.to(ticket.customer.toString()).emit('societyTicketStatusUpdated', { ticketId: ticket._id, status: 'Resolved' });
+      }
+    }
+
+    if (io) {
+      io.to('admin_room').emit('societyTicketStatusUpdated', { ticketId: ticket._id, status: 'Resolved' });
+      if (ticket.apartmentId) {
+        io.to(`apartment_${ticket.apartmentId}`).emit('societyTicketStatusUpdated', { ticketId: ticket._id, status: 'Resolved' });
+      }
     }
 
     return res.json({ success: true, message: 'Ticket resolved successfully', data: ticket });

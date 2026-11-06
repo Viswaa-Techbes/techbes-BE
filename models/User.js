@@ -396,7 +396,7 @@ userSchema.pre('updateOne', function(next) {
 userSchema.post('save', async function(doc) {
   if (doc.role === 'client') {
     try {
-      const Customer = mongoose.model('Customer');
+      const Customer = mongoose.models.Customer || require('./Customer');
       await Customer.findOneAndUpdate(
         { userId: doc._id },
         {

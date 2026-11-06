@@ -60,6 +60,20 @@ router.get(
   quoteControllerV2.downloadQuotationPdf
 );
 
+// Customer portal: approve / accept quotation
+router.post(
+  '/:id/accept',
+  optionalAuthenticate,
+  quoteControllerV2.acceptQuote
+);
+
+// Customer portal: decline / reject quotation
+router.post(
+  '/:id/reject',
+  optionalAuthenticate,
+  quoteControllerV2.rejectQuote
+);
+
 // Customer portal: create payment order for quotation (Pay Now to Book)
 router.post(
   '/:id/create-payment-order',
@@ -72,6 +86,18 @@ router.post(
   '/:id/verify-payment',
   authenticate,
   quoteControllerV2.verifyQuotePayment
+);
+
+// Customer portal: view / download payment invoice & receipt
+router.get(
+  '/:id/invoice',
+  optionalAuthenticate,
+  quoteControllerV2.getQuotationInvoice
+);
+router.get(
+  '/:id/invoice/:paymentType',
+  optionalAuthenticate,
+  quoteControllerV2.getQuotationInvoice
 );
 
 module.exports = router;
