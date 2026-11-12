@@ -1,4 +1,24 @@
 const Material = require('../../models/Material');
+const inventoryService = require('../../services/inventoryService');
+const { InventoryError } = inventoryService;
+
+function getAuditMeta(req) {
+  return {
+    ipAddress: req.ip || '',
+    userAgent: req.get('user-agent') || '',
+  };
+}
+
+function handleError(err, res, next) {
+  if (err instanceof InventoryError || err?.name === 'InventoryError') {
+    return res.status(err.statusCode || 400).json({
+      success: false,
+      message: err.message,
+      ...(err.details ? { details: err.details } : {}),
+    });
+  }
+  return next(err);
+}
 
 /**
  * Utility function to round currency amounts to 2 decimal places
@@ -16,7 +36,7 @@ async function searchInventory(req, res, next) {
     const rawQuery = String(req.query.q || req.query.search || '').trim();
     const category = String(req.query.category || '').trim();
 
-    const filter = { status: 'active' };
+    const filter = { status: 'active', isArchived: { $ne: true } };
 
     if (category) {
       // Map category aliases if needed
@@ -100,6 +120,7 @@ async function getProductById(req, res, next) {
     // Non-admin can only see active products
     if (req.user?.role !== 'admin') {
       filter.status = 'active';
+      filter.isArchived = { $ne: true };
     }
 
     const item = await Material.findOne(filter).lean();
@@ -271,229 +292,137 @@ async function calculateGst(req, res, next) {
 }
 
 /**
- * ADMIN: List all products (with search, status & category filters)
+ * ADMIN: Inventory Dashboard Summary (metrics, alerts, recent items & transactions)
+ */
+async function getDashboardAdmin(req, res, next) {
+  try {
+    const data = await inventoryService.getDashboardSummary({
+      limit: req.query.limit || 6,
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: List all products (with search, status, stockHealth, itemType & category filters)
  */
 async function listProductsAdmin(req, res, next) {
   try {
-    const { search, status, category, brand, page = 1, limit = 100 } = req.query;
-    const filter = {};
+    const {
+      search,
+      q,
+      status,
+      category,
+      subcategory,
+      itemType,
+      stockHealth,
+      includeArchived,
+      page = 1,
+      limit = 200,
+      sortBy,
+      sortOrder,
+    } = req.query;
 
-    if (status && status !== 'all') {
-      filter.status = status;
-    }
-    if (category && category !== 'all') {
-      filter.category = { $regex: new RegExp(category, 'i') };
-    }
-    if (brand && brand !== 'all') {
-      filter.brand = { $regex: new RegExp(brand, 'i') };
-    }
-    if (search) {
-      const escaped = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const searchRegex = new RegExp(escaped, 'i');
-      filter.$or = [
-        { name: searchRegex },
-        { brand: searchRegex },
-        { modelNumber: searchRegex },
-        { sku: searchRegex },
-        { variant: searchRegex },
-        { category: searchRegex },
-      ];
-    }
-
-    const skip = (Math.max(1, parseInt(page, 10)) - 1) * Math.max(1, parseInt(limit, 10));
-    const [data, totalCount] = await Promise.all([
-      Material.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(Math.max(1, parseInt(limit, 10)))
-        .lean(),
-      Material.countDocuments(filter),
-    ]);
+    const result = await inventoryService.listInventory({
+      search: search || q || '',
+      status: status || '',
+      category: category || '',
+      subcategory: subcategory || '',
+      itemType: itemType || '',
+      stockHealth: stockHealth || '',
+      includeArchived: includeArchived === 'true' || includeArchived === true,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
 
     return res.json({
       success: true,
-      totalCount,
-      count: data.length,
-      data,
+      totalCount: result.total,
+      count: result.items.length,
+      page: result.page,
+      limit: result.limit,
+      data: result.items,
     });
   } catch (err) {
-    next(err);
+    return handleError(err, res, next);
   }
 }
 
 /**
- * ADMIN: Create new product
+ * ADMIN: Detailed product view with stock transactions & reference counts
+ */
+async function getItemDetailsAdmin(req, res, next) {
+  try {
+    const data = await inventoryService.getItemDetails(req.params.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Create new inventory item
  */
 async function createProductAdmin(req, res, next) {
   try {
-    const {
-      name,
-      brand,
-      category,
-      subcategory,
-      modelNumber,
-      sku,
-      variant,
-      specifications,
-      price,
-      basePrice,
-      gstRate,
-      isTaxInclusive,
-      stock,
-      minStock,
-      unit,
-      image,
-      description,
-      status,
-      variants,
-    } = req.body;
-
-    // 1. Validation
-    if (!name || !String(name).trim()) {
-      return res.status(400).json({ success: false, message: 'Product name is required' });
-    }
-
-    const effectivePrice = Math.max(0, Number(basePrice ?? price ?? 0));
-    const effectiveGstRate = typeof gstRate === 'number' ? Math.max(0, Math.min(100, gstRate)) : 18;
-    const effectiveStock = Math.max(0, parseInt(stock, 10) || 0);
-    const effectiveMinStock = Math.max(0, parseInt(minStock, 10) || 0);
-
-    // 2. Validate SKU uniqueness if provided
-    const cleanSku = String(sku || '').trim().toUpperCase();
-    if (cleanSku) {
-      const existingSku = await Material.findOne({ sku: cleanSku }).lean();
-      if (existingSku) {
-        return res.status(400).json({ success: false, message: `A product with SKU "${cleanSku}" already exists` });
-      }
-    }
-
-    // 3. Create product
-    const product = new Material({
-      name: String(name).trim(),
-      brand: String(brand || '').trim(),
-      category: String(category || 'General').trim(),
-      subcategory: String(subcategory || '').trim(),
-      modelNumber: String(modelNumber || '').trim(),
-      sku: cleanSku,
-      variant: String(variant || '').trim(),
-      specifications: String(specifications || '').trim(),
-      basePrice: effectivePrice,
-      price: effectivePrice,
-      gstRate: effectiveGstRate,
-      isTaxInclusive: Boolean(isTaxInclusive),
-      stock: effectiveStock,
-      minStock: effectiveMinStock,
-      unit: String(unit || 'each').trim(),
-      image: String(image || '').trim(),
-      description: String(description || '').trim(),
-      status: status === 'inactive' ? 'inactive' : 'active',
-      variants: Array.isArray(variants) ? variants : [],
-    });
-
-    await product.save();
-
+    const item = await inventoryService.createInventoryItem(
+      req.body,
+      req.authUser || req.user,
+      getAuditMeta(req)
+    );
     return res.status(201).json({
       success: true,
-      message: 'Product created successfully in inventory',
-      data: product,
+      message: 'Inventory item created successfully',
+      data: item,
     });
   } catch (err) {
-    next(err);
+    return handleError(err, res, next);
   }
 }
 
 /**
- * ADMIN: Update product
+ * ADMIN: Update inventory item
  */
 async function updateProductAdmin(req, res, next) {
   try {
-    const { id } = req.params;
-    const product = await Material.findById(id);
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
-    }
-
-    const {
-      name,
-      brand,
-      category,
-      subcategory,
-      modelNumber,
-      sku,
-      variant,
-      specifications,
-      price,
-      basePrice,
-      gstRate,
-      isTaxInclusive,
-      stock,
-      minStock,
-      unit,
-      image,
-      description,
-      status,
-      variants,
-    } = req.body;
-
-    if (name !== undefined) {
-      if (!String(name).trim()) {
-        return res.status(400).json({ success: false, message: 'Product name cannot be empty' });
-      }
-      product.name = String(name).trim();
-    }
-
-    if (brand !== undefined) product.brand = String(brand).trim();
-    if (category !== undefined) product.category = String(category).trim();
-    if (subcategory !== undefined) product.subcategory = String(subcategory).trim();
-    if (modelNumber !== undefined) product.modelNumber = String(modelNumber).trim();
-    if (variant !== undefined) product.variant = String(variant).trim();
-    if (specifications !== undefined) product.specifications = String(specifications).trim();
-    if (unit !== undefined) product.unit = String(unit).trim();
-    if (image !== undefined) product.image = String(image).trim();
-    if (description !== undefined) product.description = String(description).trim();
-    if (status !== undefined) product.status = status === 'inactive' ? 'inactive' : 'active';
-    if (isTaxInclusive !== undefined) product.isTaxInclusive = Boolean(isTaxInclusive);
-    if (Array.isArray(variants)) product.variants = variants;
-
-    if (basePrice !== undefined || price !== undefined) {
-      const p = Math.max(0, Number(basePrice ?? price ?? 0));
-      product.basePrice = p;
-      product.price = p;
-    }
-
-    if (gstRate !== undefined) {
-      product.gstRate = Math.max(0, Math.min(100, Number(gstRate) || 0));
-    }
-
-    if (stock !== undefined) {
-      product.stock = Math.max(0, parseInt(stock, 10) || 0);
-    }
-
-    if (minStock !== undefined) {
-      product.minStock = Math.max(0, parseInt(minStock, 10) || 0);
-    }
-
-    // Check SKU if modified
-    if (sku !== undefined) {
-      const cleanSku = String(sku || '').trim().toUpperCase();
-      if (cleanSku && cleanSku !== product.sku) {
-        const existing = await Material.findOne({ sku: cleanSku, _id: { $ne: id } }).lean();
-        if (existing) {
-          return res.status(400).json({ success: false, message: `A product with SKU "${cleanSku}" already exists` });
-        }
-      }
-      product.sku = cleanSku;
-    }
-
-    await product.save();
-
+    const item = await inventoryService.updateInventoryItem(
+      req.params.id,
+      req.body,
+      req.authUser || req.user,
+      getAuditMeta(req)
+    );
     return res.json({
       success: true,
-      message: 'Product updated successfully',
-      data: product,
+      message: 'Inventory item updated successfully',
+      data: item,
     });
   } catch (err) {
-    next(err);
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Dynamic Pricing update for an inventory item
+ */
+async function updatePricingAdmin(req, res, next) {
+  try {
+    const item = await inventoryService.updateItemPricing(
+      req.params.id,
+      req.body,
+      req.authUser || req.user,
+      getAuditMeta(req)
+    );
+    return res.json({
+      success: true,
+      message: 'Item pricing updated successfully',
+      data: item,
+    });
+  } catch (err) {
+    return handleError(err, res, next);
   }
 }
 
@@ -502,47 +431,261 @@ async function updateProductAdmin(req, res, next) {
  */
 async function toggleStatusAdmin(req, res, next) {
   try {
-    const { id } = req.params;
-    const product = await Material.findById(id);
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
-    }
-
-    product.status = product.status === 'active' ? 'inactive' : 'active';
-    await product.save();
-
+    const item = await inventoryService.toggleItemStatus(
+      req.params.id,
+      req.body || {},
+      req.authUser || req.user,
+      getAuditMeta(req)
+    );
     return res.json({
       success: true,
-      message: `Product is now ${product.status}`,
-      data: product,
+      message: `Inventory item is now ${item.status}`,
+      data: item,
     });
   } catch (err) {
-    next(err);
+    return handleError(err, res, next);
   }
 }
 
 /**
- * ADMIN: Safe Deactivation (Soft delete)
+ * ADMIN: Safe Delete (only when unreferenced & 0 stock) or Archive/Deactivate
  */
 async function deleteProductAdmin(req, res, next) {
   try {
-    const { id } = req.params;
-    const product = await Material.findById(id);
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
-    }
-
-    // Soft delete to protect historical orders and quotation references
-    product.status = 'inactive';
-    await product.save();
-
+    const mode = req.query.mode || req.body?.mode || 'auto';
+    const reason = req.query.reason || req.body?.reason || '';
+    const result = await inventoryService.safeDeleteOrArchiveItem(
+      req.params.id,
+      { mode, reason },
+      req.authUser || req.user,
+      getAuditMeta(req)
+    );
     return res.json({
       success: true,
-      message: 'Product has been deactivated safely',
-      data: product,
+      action: result.action,
+      message: result.reason,
+      data: result.data,
     });
   } catch (err) {
-    next(err);
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Adjust Stock with mandatory transaction log
+ */
+async function adjustStockAdmin(req, res, next) {
+  try {
+    const result = await inventoryService.adjustStock(
+      req.params.id,
+      req.body,
+      req.authUser || req.user,
+      getAuditMeta(req)
+    );
+    return res.json({
+      success: true,
+      message: 'Stock updated and transaction logged successfully',
+      data: result.item,
+      transaction: result.transaction,
+    });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Stock Movement History
+ */
+async function getStockHistoryAdmin(req, res, next) {
+  try {
+    const result = await inventoryService.getStockHistory({
+      materialId: req.query.materialId || '',
+      transactionType: req.query.transactionType || '',
+      search: req.query.search || '',
+      startDate: req.query.startDate || '',
+      endDate: req.query.endDate || '',
+      page: req.query.page || 1,
+      limit: req.query.limit || 50,
+    });
+    return res.json({
+      success: true,
+      totalCount: result.total,
+      page: result.page,
+      limit: result.limit,
+      data: result.transactions,
+    });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Low-Stock & Out-of-Stock Alerts
+ */
+async function getLowStockAlertsAdmin(req, res, next) {
+  try {
+    const includeOutOfStock = req.query.includeOutOfStock !== 'false';
+    const data = await inventoryService.getLowStockAlerts({ includeOutOfStock });
+    return res.json({ success: true, count: data.length, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Validate stock before quotation or job material allocation
+ */
+async function validateStockAdmin(req, res, next) {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const data = await inventoryService.validateStockAvailability(items);
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Allocate stock for a job or quotation with atomic transaction logging
+ */
+async function allocateStockAdmin(req, res, next) {
+  try {
+    const { referenceType = 'job', referenceId = '', referenceObjectId = null, items = [], reason = '' } =
+      req.body || {};
+    const data = await inventoryService.allocateStockForReference({
+      referenceType,
+      referenceId,
+      referenceObjectId,
+      items,
+      reason,
+      adminUser: req.user,
+    });
+    return res.json({
+      success: true,
+      message: 'Stock allocated successfully',
+      data,
+    });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Dynamic Pricing Config Rules CRUD
+ */
+async function listPricingConfigsAdmin(req, res, next) {
+  try {
+    const data = await inventoryService.listPricingConfigs({
+      serviceCategory: req.query.serviceCategory || req.query.category || '',
+      chargeType: req.query.chargeType || '',
+      status: req.query.status || 'all',
+    });
+    return res.json({ success: true, count: data.length, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+async function createPricingConfigAdmin(req, res, next) {
+  try {
+    const data = await inventoryService.createPricingConfig(
+      req.body,
+      req.user,
+      getAuditMeta(req)
+    );
+    return res.status(201).json({
+      success: true,
+      message: 'Pricing rule created successfully',
+      data,
+    });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+async function updatePricingConfigAdmin(req, res, next) {
+  try {
+    const data = await inventoryService.updatePricingConfig(
+      req.params.id,
+      req.body,
+      req.user,
+      getAuditMeta(req)
+    );
+    return res.json({
+      success: true,
+      message: 'Pricing rule updated successfully',
+      data,
+    });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+async function deletePricingConfigAdmin(req, res, next) {
+  try {
+    const data = await inventoryService.deletePricingConfig(
+      req.params.id,
+      req.user,
+      getAuditMeta(req)
+    );
+    return res.json({
+      success: true,
+      message: 'Pricing rule deleted successfully',
+      data,
+    });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * ADMIN: Backend Dynamic Quotation Price Calculator
+ */
+async function calculateDynamicQuoteAdmin(req, res, next) {
+  try {
+    const data = await inventoryService.calculateDynamicQuotePricing({
+      ...req.body,
+      allowPriceOverride: Boolean(req.body?.allowPriceOverride),
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+/**
+ * AI QUOTATION CONTROLLED TOOL ENDPOINTS
+ */
+async function aiSearchInventory(req, res, next) {
+  try {
+    const data = await inventoryService.searchForAiQuotation({
+      query: req.query.q || req.query.query || '',
+      serviceCategory: req.query.serviceCategory || req.query.category || '',
+      itemType: req.query.itemType || '',
+      onlyInStock: req.query.onlyInStock === 'true',
+      limit: req.query.limit || 15,
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+async function aiGetCompatibleMaterials(req, res, next) {
+  try {
+    const data = await inventoryService.getCompatibleMaterials(req.params.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(err, res, next);
+  }
+}
+
+async function aiPrepareQuotation(req, res, next) {
+  try {
+    const data = await inventoryService.prepareAiQuotationDraft(req.body || {});
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(err, res, next);
   }
 }
 
@@ -550,9 +693,25 @@ module.exports = {
   searchInventory,
   getProductById,
   calculateGst,
+  getDashboardAdmin,
   listProductsAdmin,
+  getItemDetailsAdmin,
   createProductAdmin,
   updateProductAdmin,
+  updatePricingAdmin,
   toggleStatusAdmin,
   deleteProductAdmin,
+  adjustStockAdmin,
+  getStockHistoryAdmin,
+  getLowStockAlertsAdmin,
+  validateStockAdmin,
+  allocateStockAdmin,
+  listPricingConfigsAdmin,
+  createPricingConfigAdmin,
+  updatePricingConfigAdmin,
+  deletePricingConfigAdmin,
+  calculateDynamicQuoteAdmin,
+  aiSearchInventory,
+  aiGetCompatibleMaterials,
+  aiPrepareQuotation,
 };

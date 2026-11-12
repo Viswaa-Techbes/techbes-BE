@@ -3,6 +3,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const QuoteRequest = require('../../models/QuoteRequest');
 const Material = require('../../models/Material');
+const inventoryService = require('../../services/inventoryService');
 const User = require('../../models/User');
 const Address = require('../../models/Address');
 const Job = require('../../models/Job');
@@ -764,23 +765,63 @@ async function priceQuotation(req, res, next) {
     }
 
     let calculatedItemsTotal = 0;
-    const updatedItems = items.map((item) => {
+    const stockCheckInputs = [];
+    const updatedItems = [];
+
+    for (const item of items) {
       const quantity = Math.max(1, parseInt(item.quantity, 10) || 1);
-      const unitPrice = Math.max(0, parseFloat(item.unitPrice) || 0);
-      const lineTotal = Math.round(quantity * unitPrice * 100) / 100;
+      let authoritativeMat = null;
+      if (item.productId && mongoose.Types.ObjectId.isValid(item.productId)) {
+        authoritativeMat = await Material.findById(item.productId).lean();
+      } else if (item.sku) {
+        authoritativeMat = await Material.findOne({
+          sku: String(item.sku).trim().toUpperCase(),
+        }).lean();
+      }
+
+      const catalogPrice = authoritativeMat
+        ? Number(authoritativeMat.basePrice ?? authoritativeMat.price ?? 0)
+        : 0;
+      const hasExplicitUnitPrice =
+        item.unitPrice !== undefined && item.unitPrice !== null && item.unitPrice !== '';
+      const unitPrice = Math.max(
+        0,
+        hasExplicitUnitPrice && !item.useCatalogPrice
+          ? parseFloat(item.unitPrice) || 0
+          : catalogPrice
+      );
+      const itemGstRate = authoritativeMat ? Number(authoritativeMat.gstRate ?? gstRate ?? 18) : Number(item.gstRate ?? gstRate ?? 18);
+      const lineSubtotal = Math.round(quantity * unitPrice * 100) / 100;
+      const itemGstAmount = Math.round(((lineSubtotal * itemGstRate) / 100) * 100) / 100;
+      const lineTotal = lineSubtotal;
       calculatedItemsTotal += lineTotal;
 
-      return {
-        productId: item.productId || null,
-        brand: item.brand || '',
-        sku: item.sku || '',
-        variant: item.variant || '',
-        productName: String(item.productName || item.name || 'Item').trim(),
+      if (authoritativeMat) {
+        stockCheckInputs.push({ productId: authoritativeMat._id, quantity });
+      }
+
+      updatedItems.push({
+        productId: authoritativeMat?._id || item.productId || null,
+        brand: item.brand || authoritativeMat?.brand || '',
+        sku: item.sku || authoritativeMat?.sku || '',
+        variant: item.variant || authoritativeMat?.variant || '',
+        productName: String(item.productName || item.name || authoritativeMat?.name || 'Item').trim(),
         quantity,
         unitPrice,
+        gstRate: itemGstRate,
+        gstAmount: itemGstAmount,
         lineTotal,
-      };
-    });
+      });
+    }
+
+    const stockValidation = await inventoryService.validateStockAvailability(stockCheckInputs);
+    if (req.body.enforceStock === true && !stockValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient stock for one or more inventory items in quotation.',
+        stockValidation,
+      });
+    }
 
     const labourCharge = Math.max(0, parseFloat(pricingBreakdown?.labourCharge ?? req.body.labourCharge) || 0);
     const serviceCharge = Math.max(0, parseFloat(pricingBreakdown?.serviceCharge ?? req.body.serviceCharge) || 0);
@@ -863,6 +904,7 @@ async function priceQuotation(req, res, next) {
       success: true,
       message: 'Quotation calculated and saved successfully',
       data: quote,
+      stockValidation,
     });
   } catch (err) {
     next(err);

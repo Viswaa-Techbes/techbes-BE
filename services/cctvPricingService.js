@@ -316,9 +316,10 @@ async function calculateCctvPrice(input = {}) {
   let cableUnitPrice = 0;
   if (installationRequired && cableLength > 0 && cableType) {
     const dbCable = await CctvCablePricing.findOne({ name: cableType, status: 'active' }).lean();
-    cableUnitPrice = dbCable ? dbCable.price : 0;
-    if (cableType === 'CAT6 Cable') {
-      cableUnitPrice = 50;
+    if (dbCable && typeof dbCable.price === 'number') {
+      cableUnitPrice = dbCable.price;
+    } else if (config.wirePricePerMeter) {
+      cableUnitPrice = Number(config.wirePricePerMeter) || 0;
     }
     cableTotal = cableLength * cableUnitPrice;
   }
