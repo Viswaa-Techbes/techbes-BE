@@ -271,6 +271,7 @@ router.get('/quotes', quoteControllerV2.getQuoteRequests);
 router.get('/quotes/:id', quoteControllerV2.getQuoteRequestDetails);
 router.get('/quotes/:id/pdf', quoteControllerV2.downloadQuotationPdf);
 router.put('/quotes/:id', quoteControllerV2.updateQuoteRequest);
+router.delete('/quotes/:id', quoteControllerV2.deleteQuoteRequest);
 router.post('/quotes/:id/price', quoteControllerV2.priceQuotation);
 router.post('/quotes/:id/send', quoteControllerV2.sendQuotation);
 router.post('/quotes/:id/convert', quoteControllerV2.convertToBooking);

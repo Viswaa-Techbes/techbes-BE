@@ -1893,6 +1893,64 @@ async function getQuotationInvoice(req, res, next) {
   }
 }
 
+async function deleteQuoteRequest(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { force } = req.query;
+    const mongoose = require('mongoose');
+
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
+
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'Quote Request not found' });
+    }
+
+    // Safeguard: Prevent accidental deletion of quotations already converted to active bookings or having verified payments
+    const isConverted = Boolean(
+      quote.orderId ||
+      ['converted_to_order', 'Converted to Booking', 'Converted'].includes(quote.status)
+    );
+    const isPaid = Boolean(
+      ['advance_paid', 'fully_paid', 'paid'].includes(quote.quotePaymentStatus) ||
+      (quote.paymentDetails && quote.paymentDetails.amountPaid > 0) ||
+      (quote.advancePaymentDetails && quote.advancePaymentDetails.amountPaid > 0)
+    );
+
+    if ((isConverted || isPaid) && force !== 'true') {
+      return res.status(400).json({
+        success: false,
+        message: `Quotation ${quote.requestId || id} cannot be deleted because it is linked to an active booking or has confirmed payments. Pass force=true to proceed with deletion if explicitly authorized.`,
+        isConverted,
+        isPaid,
+      });
+    }
+
+    const targetRequestId = quote.requestId || quote._id.toString();
+    const adminIdentity = req.user ? (req.user.email || req.user.name || req.user.id || req.user._id) : 'Admin';
+
+    await QuoteRequest.deleteOne({ _id: quote._id });
+
+    console.log(`[ADMIN ACTION] Quotation deleted: ${targetRequestId} by Admin: ${adminIdentity} at ${new Date().toISOString()}`);
+
+    return res.json({
+      success: true,
+      message: `Quote Request ${targetRequestId} was permanently deleted.`,
+      data: {
+        id: quote._id,
+        requestId: targetRequestId,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   submitQuoteRequest,
   uploadVoiceNote,
@@ -1905,6 +1963,7 @@ module.exports = {
   createPaymentOrder,
   verifyQuotePayment,
   updateQuoteRequest,
+  deleteQuoteRequest,
   convertToBooking,
   downloadQuotationPdf,
   acceptQuote,
