@@ -172,6 +172,15 @@ async function start() {
       console.error("Masterclass seeding failed at startup:", seedMcErr);
     }
 
+    if (process.env.ENABLE_INVENTORY_SEEDING === 'true') {
+      try {
+        const { ensureInventorySeeded } = require('./utils/inventoryBootstrap');
+        await ensureInventorySeeded();
+      } catch (invErr) {
+        console.error("Inventory bootstrap failed at startup:", invErr);
+      }
+    }
+
     // 4. Auxiliary Services (Fault-tolerant)
     try {
       console.log("[Startup] 4. Validating SMTP Email Configuration...");
