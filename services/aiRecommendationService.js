@@ -38,51 +38,87 @@ const PROPERTY_KEYWORDS = {
   ],
 };
 
-/**
- * Extract camera count from text (numeric digits or English/Tamil/Kannada words).
- */
-function extractCameraCount(text = '') {
-  const lower = String(text).toLowerCase();
+function normalizeKannadaDigits(text = '') {
+  const kannadaDigits = { '೦': '0', '೧': '1', '೨': '2', '೩': '3', '೪': '4', '೫': '5', '೬': '6', '೭': '7', '೮': '8', '೯': '9' };
+  return String(text).replace(/[೦-೯]/g, d => kannadaDigits[d] || d);
+}
 
-  // Explicit number before or after "camera" / "cam" / "ಕ್ಯಾಮೆರಾ"
-  const numCamRegex = /(\d+)\s*(?:camera|cameras|cam|cams|cctv|point|points|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமரா)/i;
+/**
+ * Extract camera count from text (numeric digits, Kannada numerals, or English/Tamil/Kannada words).
+ */
+function extractCameraCount(rawText = '') {
+  if (!rawText) return null;
+  const normalized = normalizeKannadaDigits(rawText);
+  const lower = normalized.toLowerCase();
+
+  // 1. Direct standalone digit (e.g. user just replies "4", "4.", "4 cameras", "4 cams")
+  const directMatch = lower.trim().match(/^([1-9]|[1-5]\d|64)\b/);
+  if (directMatch) {
+    return parseInt(directMatch[1], 10);
+  }
+
+  // 2. Explicit number before or after "camera" / "cam" / "ಕ್ಯಾಮೆರಾ"
+  const numCamRegex = /(\d+)\s*(?:camera|cameras|cam|cams|cctv|point|points|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமರಾ|கேமராக்கள்|கேமரா)/i;
   const matchNum = lower.match(numCamRegex);
   if (matchNum && matchNum[1]) {
     const n = parseInt(matchNum[1], 10);
     if (n > 0 && n <= 64) return n;
   }
 
-  // Cam before number: "camera 4", "cameras 8", "ಕ್ಯಾಮೆರಾ 4"
-  const camNumRegex = /(?:camera|cameras|cam|cams|cctv|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமரா)\s*(\d+)/i;
+  // 3. Cam before number: "camera 4", "cameras 8", "ಕ್ಯಾಮೆರಾ 4"
+  const camNumRegex = /(?:camera|cameras|cam|cams|cctv|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமರಾ|கேமரா)\s*(\d+)/i;
   const matchCamNum = lower.match(camNumRegex);
   if (matchCamNum && matchCamNum[1]) {
     const n = parseInt(matchCamNum[1], 10);
     if (n > 0 && n <= 64) return n;
   }
 
-  // Word-based numbers across English, Tamil, and Kannada
+  // 4. Word-based numbers across English, Tamil, and Kannada (including spoken & script variants)
   const wordMap = {
-    // English
-    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8,
-    'nine': 9, 'ten': 10, 'twelve': 12, 'sixteen': 16,
-    // Tamil & Tanglish
-    'oru': 1, 'rendu': 2, 'moonu': 3, 'naalu': 4, 'anju': 5, 'aaru': 6, 'yelu': 7, 'yettu': 8, 'onbathu': 9, 'pathu': 10,
-    'ஒன்று': 1, 'இரண்டு': 2, 'மூன்று': 3, 'நான்கு': 4, 'ஐந்து': 5, 'ஆறு': 6, 'எட்டு': 8, 'பத்து': 10,
-    // Kannada & Kanglish
-    'ondu': 1, 'eradu': 2, 'mooru': 3, 'naalku': 4, 'nalku': 4, 'aidu': 5, 'entu': 8, 'ombattu': 9, 'hattu': 10, 'hadinaaru': 16,
-    'ಒಂದು': 1, 'ಎರಡು': 2, 'ಮೂರು': 3, 'ನಾಲ್ಕು': 4, 'ಐದು': 5, 'ಆರು': 6, 'ಏಳು': 7, 'ಎಂಟು': 8, 'ಒಂಬತ್ತು': 9, 'ಹತ್ತು': 10, 'ಹನ್ನೆರಡು': 12, 'ಹದಿನಾರು': 16,
+    // 4 - Kannada & Kanglish (naalku, nalakku, naaku, naalkoo)
+    'ನಾಲ್ಕು': 4, 'ನಾಲಕ್ಕು': 4, 'ನಾಕು': 4, 'ನಾಲ್ಕೂ': 4, 'ನಾಲ್ಕ': 4,
+    'naalku': 4, 'nalku': 4, 'nalakku': 4, 'naaku': 4,
+    // 4 - Tamil & Tanglish
+    'நான்கு': 4, 'naalu': 4, 'naalgu': 4,
+    // 4 - English
+    'four': 4,
+
+    // 1
+    'one': 1, 'oru': 1, 'ondu': 1, 'ಒಂದು': 1, 'ஒன்று': 1,
+    // 2
+    'two': 2, 'rendu': 2, 'eradu': 2, 'ಎರಡು': 2, 'ಎರ್ಡು': 2, 'இரண்டு': 2, 'erdu': 2,
+    // 3
+    'three': 3, 'moonu': 3, 'mooru': 3, 'ಮೂರು': 3, 'ಮೂರ್': 3, 'மூன்று': 3, 'moor': 3,
+    // 5
+    'five': 5, 'anju': 5, 'aidu': 5, 'ಐದು': 5, 'ಐದ್': 5, 'ஐந்து': 5, 'aid': 5,
+    // 6
+    'six': 6, 'aaru': 6, 'ಆರು': 6, 'ஆறு': 6,
+    // 7
+    'seven': 7, 'yelu': 7, 'ಏಳು': 7, 'elu': 7,
+    // 8
+    'eight': 8, 'yettu': 8, 'ettu': 8, 'entu': 8, 'ಎಂಟು': 8, 'எಟ್ಟು': 8,
+    // 9
+    'nine': 9, 'onbathu': 9, 'ombattu': 9, 'ಒಂಬತ್ತು': 9,
+    // 10
+    'ten': 10, 'pathu': 10, 'hattu': 10, 'ಹತ್ತು': 10, 'பத்து': 10,
+    // 12
+    'twelve': 12, 'panirendu': 12, 'hanneradu': 12, 'ಹನ್ನೆರಡು': 12,
+    // 16
+    'sixteen': 16, 'hadinaaru': 16, 'ಹದಿನಾರು': 16,
+    // 32
+    'thirty two': 32, 'thirty-two': 32, 'eppattheradu': 32,
   };
 
   for (const [word, val] of Object.entries(wordMap)) {
-    const rx = new RegExp(`(?:^|\\s)${word}(?:\\s|$)(?:camera|cameras|cam|cams|point|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು)?`, 'i');
+    const rx = new RegExp(`(?:^|[\\s,.;!?])${word}(?:[\\s,.;!?]|$)(?:camera|cameras|cam|cams|point|cctv|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು)?`, 'i');
     if (rx.test(lower)) {
       return val;
     }
   }
 
-  // Standalone digits up to 32 if in context of camera request
+  // 5. Standalone digits up to 32 if in context of camera / security request
   const standalone = lower.match(/\b([1-9]|[12]\d|32)\b/);
-  if (standalone && (lower.includes('camera') || lower.includes('cam') || lower.includes('cctv') || lower.includes('point') || lower.includes('ಕ್ಯಾಮೆರಾ') || lower.includes('கேமரா'))) {
+  if (standalone && (lower.includes('camera') || lower.includes('cam') || lower.includes('cctv') || lower.includes('point') || lower.includes('ಕ್ಯಾಮೆರಾ') || lower.includes('கேமரா') || lower.includes('ಬೇಕಾಗ') || lower.includes('ಬೇಕು'))) {
     return parseInt(standalone[1], 10);
   }
 

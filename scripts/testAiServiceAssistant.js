@@ -56,6 +56,11 @@ async function runTests() {
   // Example D: "ನಾಲ್ಕು ಕ್ಯಾಮೆರಾ ಬೇಕು"
   const exD_count = extractCameraCount('ನಾಲ್ಕು ಕ್ಯಾಮೆರಾ ಬೇಕು');
   assert(exD_count === 4, 'Example D: Extracts camera count 4 from Kannada word ("ನಾಲ್ಕು")');
+  assert(extractCameraCount('ನನ್ನ ಮನೆಗೆ ಕ್ಯಾಮೆರಾ ಹಾಕಿಸಬೇಕು, ನಾಲ್ಕು ಕ್ಯಾಮೆರಾ ಬೇಕು') === 4, 'Extracts camera count 4 from sentence with "ನಾಲ್ಕು"');
+  assert(extractCameraCount('ನನಗೆ ೪ ಕ್ಯಾಮೆರಾ ಬೇಕು') === 4, 'Extracts camera count 4 from Kannada numeral ("೪")');
+  assert(extractCameraCount('೪') === 4, 'Extracts camera count 4 from standalone Kannada numeral ("೪")');
+  assert(extractCameraCount('ನಾಲಕ್ಕು ಕ್ಯಾಮೆರಾ') === 4, 'Extracts camera count 4 from spoken Kannada ("ನಾಲಕ್ಕು")');
+  assert(extractCameraCount('ನಾಕು ಕ್ಯಾಮೆರಾ ಬೇಕು') === 4, 'Extracts camera count 4 from spoken Kannada ("ನಾಕು")');
 
   const exE_count = extractCameraCount('ಎರಡು ಕ್ಯಾಮೆರಾ ಬೇಕು');
   assert(exE_count === 2, 'Extracts camera count 2 from Kannada word ("ಎರಡು")');
