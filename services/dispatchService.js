@@ -579,7 +579,7 @@ async function rejectJobRequest(jobId, technicianId, reason = '', io = null) {
 }
 
 // ─── OVERRIDE ASSIGNMENT (Admin) ──────────────────────────────────────────────
-async function adminOverrideAssignment(jobId, technicianId, adminId, io = null) {
+async function adminOverrideAssignment(jobId, technicianId, adminId, io = null, dispatchNote = '') {
   const job = await Job.findById(jobId);
   if (!job) throw new Error('Job not found');
 
@@ -588,10 +588,22 @@ async function adminOverrideAssignment(jobId, technicianId, adminId, io = null) 
 
   // Release previous technician if any
   if (job.assignedTechnician && job.assignedTechnician.toString() !== technicianId.toString()) {
+    const prevTechId = job.assignedTechnician.toString();
     await User.findByIdAndUpdate(job.assignedTechnician, {
       availabilityStatus: 'ONLINE',
       activeJobId: null,
     });
+    if (io) {
+      io.to(prevTechId).emit('bookingUnassigned', {
+        jobId: job._id.toString(),
+        message: 'Job reassigned by Admin to another technician',
+      });
+      io.to(prevTechId).emit('jobStatusUpdated', {
+        jobId: job._id.toString(),
+        status: 'unassigned',
+        note: 'Reassigned by Admin',
+      });
+    }
   }
 
   job.assignedTechnician = technicianId;
@@ -601,6 +613,13 @@ async function adminOverrideAssignment(jobId, technicianId, adminId, io = null) 
   job.dispatchStatus = 'assigned';
   job.status = 'assigned';
   job.technicianId = technicianId;
+  if (dispatchNote && typeof dispatchNote === 'string') {
+    job.dispatchNote = dispatchNote.trim();
+    job._statusNote = `Assigned by Admin: ${job.dispatchNote}`;
+  } else {
+    job._statusNote = 'Assigned by Admin';
+  }
+  job._statusChangedBy = adminId;
   await job.save();
 
   await User.findByIdAndUpdate(technicianId, {
@@ -608,23 +627,53 @@ async function adminOverrideAssignment(jobId, technicianId, adminId, io = null) 
     activeJobId: jobId,
   });
 
-  // Notify technician
+  // Notify technician via Socket
+  const notificationPayload = {
+    jobId: job._id.toString(),
+    id: job._id.toString(),
+    bookingId: job.bookingId || job.bookingNumber || job._id.toString(),
+    bookingNumber: job.bookingNumber || '',
+    customerName: job.customerName,
+    serviceName: job.serviceName || job.title,
+    assignmentMethod: 'MANUAL',
+    dispatchNote: job.dispatchNote || '',
+    date: job.bookingDate || job.date || '',
+    timeSlot: job.timeSlot || '',
+    address: job.location || job.address || '',
+  };
+
   if (io) {
-    io.to(technicianId.toString()).emit('bookingAssigned', {
-      jobId: job._id,
-      customerName: job.customerName,
-      serviceName: job.serviceName || job.title,
-      assignmentMethod: 'MANUAL',
+    io.to(technicianId.toString()).emit('bookingAssigned', notificationPayload);
+    io.to(technicianId.toString()).emit('jobStatusUpdated', {
+      jobId: job._id.toString(),
+      status: 'assigned',
+      job: job.toObject ? job.toObject() : job,
+      dispatchNote: job.dispatchNote || '',
+    });
+    // Broadcast real-time update to admin room
+    io.to('admin_room').emit('bookingStatusUpdated', {
+      jobId: job._id.toString(),
+      bookingId: job._id.toString(),
+      status: 'assigned',
+      technicianId: technicianId.toString(),
+      technicianName: tech.name,
+      dispatchNote: job.dispatchNote || '',
+      updatedBy: 'admin',
+      updatedAt: new Date(),
     });
   }
+
+  const pushBody = job.dispatchNote 
+    ? `Admin assigned you to: ${job.serviceName || job.title}. Note: ${job.dispatchNote}`
+    : `Admin assigned you to: ${job.serviceName || job.title} on ${job.bookingDate || 'TBD'}`;
 
   await notificationService.createNotification(
     technicianId,
     '📋 Job Assigned by Admin',
-    `Admin assigned you to: ${job.serviceName || job.title} on ${job.bookingDate || 'TBD'}`,
+    pushBody,
     'job_assigned_tech',
     io,
-    { jobId: jobId.toString(), serviceName: job.serviceName || job.title }
+    { jobId: jobId.toString(), serviceName: job.serviceName || job.title, dispatchNote: job.dispatchNote || '' }
   );
 
   return job;
@@ -693,9 +742,31 @@ async function technicianCancelJob(jobId, technicianId, reason = '', io = null) 
   }
 
   // Notify admin
+  if (io) {
+    io.to('admin_room').emit('technicianDeclined', {
+      jobId: jobId.toString(),
+      bookingId: jobId.toString(),
+      technicianId: technicianId.toString(),
+      reason,
+      status: 'pending',
+      requiresReassignment: true,
+      updatedAt: new Date(),
+    });
+    io.to('admin_room').emit('bookingStatusUpdated', {
+      jobId: jobId.toString(),
+      bookingId: jobId.toString(),
+      status: 'pending',
+      technicianId: null,
+      technicianName: null,
+      note: `Technician cancelled: ${reason}`,
+      updatedBy: 'technician',
+      updatedAt: new Date(),
+    });
+  }
+
   await notifyAdmins(io, '⚠️ Technician Cancelled Job',
-    `Technician cancelled job: ${job.serviceName || job.title}. ₹${PENALTY_AMOUNT} penalty applied.`,
-    'dispatch_update', { jobId: jobId.toString() }
+    `Technician cancelled job: ${job.serviceName || job.title}. Reason: ${reason || 'Not specified'}. Action needed: Reassign technician.`,
+    'dispatch_update', { jobId: jobId.toString(), requiresReassignment: true }
   );
 
   // Re-dispatch automatically

@@ -18,7 +18,7 @@ function getV2Metadata(job) {
   return job.v2Metadata;
 }
 
-function formatServiceRequest(job, { address = null, payment = null, lead = null } = {}) {
+function formatServiceRequest(job, { address = null, payment = null, lead = null, statusHistory = null, worksheet = null, expenses = null } = {}) {
   const client = job.client || {};
   const tech = job.assignedTechnician || {};
   const cctv = job.cctvDetails || {};
@@ -67,12 +67,23 @@ function formatServiceRequest(job, { address = null, payment = null, lead = null
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     status: job.status,
+    dispatchStatus: job.dispatchStatus || null,
+    assignmentMethod: job.assignmentMethod || null,
+    assignmentTime: job.assignmentTime || null,
+    dispatchNote: job.dispatchNote || '',
+    startedAt: job.startedAt || null,
+    actualStartTime: job.actualStartTime || null,
+    completedAt: job.completedAt || null,
+    acceptedAt: job.acceptedAt || null,
     technicianName: tech.name || null,
     technicianId: tech._id || job.technicianId || null,
     internalNotes: meta.internalNotes || meta.notes || cctv.notes || '',
     priority: meta.priority || lead?.priority || 'medium',
     tags: meta.tags || '',
     lead: lead ? { id: lead._id, leadId: lead.leadId, status: lead.status } : null,
+    statusHistory: statusHistory || [],
+    worksheet: worksheet || null,
+    expenses: expenses || [],
   };
 }
 
@@ -141,20 +152,34 @@ async function getServiceRequestById(req, res, next) {
   try {
     const job = await Job.findOne({ _id: req.params.id, useNewFlow: true })
       .populate('client', 'name phone email')
-      .populate('assignedTechnician', 'name email specialty')
+      .populate('assignedTechnician', 'name email specialty phone mobileNumber lat lng availabilityStatus')
       .populate('addressId')
       .lean();
 
     if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
 
-    const [payment, lead] = await Promise.all([
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    const ServiceWorksheet = mongoose.models.ServiceWorksheet || require('../../models/ServiceWorksheet');
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+
+    const [payment, lead, statusHistory, worksheet, expenses] = await Promise.all([
       Payment.findOne({ jobId: job._id }).sort({ createdAt: -1 }).lean(),
       fetchLeadForJob(job),
+      JobStatusHistory.find({ jobId: job._id }).sort({ timestamp: 1 }).populate('changedBy', 'name role').lean(),
+      ServiceWorksheet.findOne({ jobId: job._id }).lean(),
+      Expense.find({ jobId: job._id }).sort({ date: -1 }).lean(),
     ]);
 
     return res.json({
       success: true,
-      data: formatServiceRequest(job, { address: job.addressId, payment, lead }),
+      data: formatServiceRequest(job, {
+        address: job.addressId,
+        payment,
+        lead,
+        statusHistory,
+        worksheet,
+        expenses,
+      }),
     });
   } catch (err) {
     next(err);
@@ -1119,39 +1144,110 @@ async function updatePaymentRequest(req, res, next) {
   }
 }
 
+async function getAvailableTechnicians(req, res, next) {
+  try {
+    const dispatchService = require('../../services/dispatchService');
+    const technicians = await User.find({ role: 'technician', isDeleted: { $ne: true } })
+      .select('name email phone mobileNumber specialty skills rating completedJobs availabilityStatus activeJobId lat lng locationUpdatedAt serviceCategories pincodeCoverage')
+      .lean();
+
+    let targetCoords = null;
+    let targetPincode = null;
+
+    if (req.query.bookingId) {
+      const booking = await Job.findById(req.query.bookingId).populate('addressId').lean();
+      if (booking) {
+        targetCoords = await dispatchService.getJobCustomerCoords(booking);
+        targetPincode = booking.addressDetails?.pincode || booking.addressId?.pincode || booking.pincode;
+      }
+    } else if (req.query.lat && req.query.lng) {
+      targetCoords = { lat: parseFloat(req.query.lat), lng: parseFloat(req.query.lng) };
+      if (req.query.pincode) targetPincode = req.query.pincode;
+    }
+
+    const activeJobs = await Job.aggregate([
+      {
+        $match: {
+          assignedTechnician: { $in: technicians.map((t) => t._id) },
+          status: { $in: ['assigned', 'accepted', 'travelling', 'arrived', 'working', 'started', 'in_progress', 'work_uploaded', 'completion_requested'] },
+        },
+      },
+      {
+        $group: {
+          _id: '$assignedTechnician',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const activeJobMap = {};
+    activeJobs.forEach((item) => {
+      activeJobMap[String(item._id)] = item.count;
+    });
+
+    const enriched = technicians.map((t) => {
+      const activeCount = activeJobMap[String(t._id)] || (t.activeJobId ? 1 : 0);
+      let distanceKm = null;
+      if (targetCoords && t.lat && t.lng) {
+        distanceKm = Math.round(dispatchService.haversineKm(targetCoords.lat, targetCoords.lng, t.lat, t.lng) * 10) / 10;
+      }
+      const isOnline = t.availabilityStatus === 'ONLINE';
+      return {
+        id: t._id,
+        _id: t._id,
+        name: t.name,
+        phone: t.mobileNumber || t.phone || '',
+        email: t.email || '',
+        specialty: t.specialty || (Array.isArray(t.skills) && t.skills.length ? t.skills.join(', ') : 'CCTV & Network Specialist'),
+        skills: t.skills || [],
+        rating: t.rating || 5,
+        completedJobs: t.completedJobs || 0,
+        availabilityStatus: t.availabilityStatus || 'OFFLINE',
+        isOnline,
+        activeJobsCount: activeCount,
+        activeJobId: t.activeJobId || null,
+        lat: t.lat || null,
+        lng: t.lng || null,
+        locationUpdatedAt: t.locationUpdatedAt || null,
+        distanceKm,
+        pincodeMatch: targetPincode && t.pincodeCoverage ? t.pincodeCoverage.includes(String(targetPincode)) : false,
+      };
+    });
+
+    enriched.sort((a, b) => {
+      const statusScore = (s) => (s === 'ONLINE' ? 2 : s === 'BUSY' ? 1 : 0);
+      const diffScore = statusScore(b.availabilityStatus) - statusScore(a.availabilityStatus);
+      if (diffScore !== 0) return diffScore;
+
+      if (a.activeJobsCount !== b.activeJobsCount) return a.activeJobsCount - b.activeJobsCount;
+
+      if (a.distanceKm !== null && b.distanceKm !== null) return a.distanceKm - b.distanceKm;
+      if (a.distanceKm !== null) return -1;
+      if (b.distanceKm !== null) return 1;
+
+      return (b.rating || 0) - (a.rating || 0);
+    });
+
+    return res.json({ success: true, data: enriched });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function assignBooking(req, res, next) {
   try {
     const { id } = req.params;
-    const { technicianId } = req.body;
+    const { technicianId, dispatchNote } = req.body;
 
     if (!technicianId) {
       return res.status(400).json({ success: false, message: 'technicianId is required' });
     }
 
-    const job = await Job.findById(id);
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    const io = req.app.get('io') || global._socketIo;
+    const dispatchService = require('../../services/dispatchService');
+    const job = await dispatchService.adminOverrideAssignment(id, technicianId, req.user.id, io, dispatchNote);
 
-    const technician = await User.findOne({ _id: technicianId, role: 'technician' });
-    if (!technician) return res.status(404).json({ success: false, message: 'Technician not found' });
-
-    job.assignedTechnician = technicianId;
-    job.assignedManager = req.user.id;
-    job.status = 'assigned';
-    await job.save();
-
-    // Notify technician
-    const notificationService = require('../../services/notificationService');
-    const io = req.app.get('io');
-    io.to(technicianId.toString()).emit('bookingAssigned', job);
-    await notificationService.createNotification(
-      technicianId,
-      'New Job Assigned',
-      `You have a new service request: ${job.serviceName || job.title}${job.bookingDate ? ' on ' + job.bookingDate : ''} at ${job.timeSlot || 'TBD'}`,
-      'job_assigned',
-      io
-    );
-
-    return res.json({ success: true, data: job });
+    return res.json({ success: true, data: job, message: 'Technician assigned successfully' });
   } catch (err) {
     next(err);
   }
@@ -1366,6 +1462,7 @@ module.exports = {
   getServiceRequests,
   getServiceRequestById,
   assignBooking,
+  getAvailableTechnicians,
   getDashboard,
   getLeads,
   createLead,

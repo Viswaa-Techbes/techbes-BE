@@ -19,6 +19,14 @@ const jobStatusHistorySchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  lat: {
+    type: Number,
+    default: null,
+  },
+  lng: {
+    type: Number,
+    default: null,
+  },
   timestamp: {
     type: Date,
     default: Date.now,

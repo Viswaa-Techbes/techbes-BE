@@ -37,6 +37,7 @@ router.delete('/customers/:id', adminControllerV2.deleteCustomer);
 
 // Users (Technicians & Managers)
 router.get('/users', adminControllerV2.getUsers);
+router.get('/technicians/available', adminControllerV2.getAvailableTechnicians);
 router.get('/users/:id', adminControllerV2.getUserDetails);
 router.post('/users', adminControllerV2.createUser);
 router.put('/users/:id', adminControllerV2.updateUser);
@@ -55,6 +56,8 @@ router.delete('/jobs/:id', adminControllerV2.deleteJob);
 // Bookings (v2 Service Requests)
 router.get('/bookings', adminControllerV2.getBookings);
 router.put('/bookings/:id/assign', adminControllerV2.assignBooking);
+router.post('/bookings/:id/assign', adminControllerV2.assignBooking);
+router.post('/service-requests/:id/assign', adminControllerV2.assignBooking);
 router.get('/service-requests', adminControllerV2.getServiceRequests);
 router.get('/service-requests/:id', adminControllerV2.getServiceRequestById);
 router.put('/service-requests/:id', adminControllerV2.updateServiceRequest);

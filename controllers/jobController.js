@@ -217,6 +217,22 @@ async function updateJobStatus(req, res, next) {
     }
 
     job.status = status;
+    const { lat, lng, note, notes } = req.body;
+    const statusNote = note || notes || '';
+    job._statusNote = statusNote;
+    if (lat && lng) {
+      job._statusLat = Number(lat);
+      job._statusLng = Number(lng);
+      if (req.user.role === 'technician') {
+        const User = require('../models/User');
+        User.findByIdAndUpdate(req.user.id, {
+          lat: Number(lat),
+          lng: Number(lng),
+          locationUpdatedAt: new Date(),
+        }).catch(err => console.error('[updateJobStatus] Error updating technician location:', err));
+      }
+    }
+
     if (status === 'working' || status === 'started' || status === 'in_progress') {
       if (!job.startedAt) job.startedAt = new Date();
     }
@@ -231,7 +247,9 @@ async function updateJobStatus(req, res, next) {
       jobId: jobId.toString(),
       bookingId: jobId.toString(),
       status: status,
-      note: req.body.notes || req.body.note || '',
+      note: statusNote,
+      lat: (lat && !isNaN(lat)) ? Number(lat) : null,
+      lng: (lng && !isNaN(lng)) ? Number(lng) : null,
       updatedBy: req.user.role,
       updatedAt: new Date(),
       job: job.toObject ? job.toObject() : job,
