@@ -62,6 +62,22 @@ function getStockStatus(stock, minStock) {
   return 'in_stock';
 }
 
+function inferItemTier(material = {}) {
+  if (material.tier && typeof material.tier === 'string' && material.tier.trim()) {
+    return material.tier.trim().toLowerCase();
+  }
+  const text = `${material.name || ''} ${material.variant || ''} ${material.specifications || ''} ${material.subcategory || ''}`.toLowerCase();
+  const price = Number(material.basePrice || material.price || 0);
+
+  if (text.includes('4k') || text.includes('ultra') || text.includes('enterprise') || text.includes('poe') || text.includes('ip camera') || text.includes('nvr') || price >= 3500) {
+    return 'premium';
+  }
+  if (text.includes('colorvu') || text.includes('color') || text.includes('5mp') || text.includes('4mp') || text.includes('smart') || text.includes('2tb') || text.includes('8-channel') || text.includes('8ch') || price >= 2200) {
+    return 'standard';
+  }
+  return 'budget';
+}
+
 function formatInventoryItem(doc) {
   if (!doc) return null;
   const obj = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
@@ -487,6 +503,7 @@ async function createInventoryItem(payload = {}, adminUser = null, auditMeta = {
     modelNumber: String(payload.modelNumber || '').trim(),
     sku,
     variant: String(payload.variant || '').trim(),
+    tier: String(payload.tier || '').trim().toLowerCase(),
     specifications: String(payload.specifications || '').trim(),
     unit: String(payload.unit || 'Piece').trim() || 'Piece',
     itemType: payload.itemType || 'product',
@@ -572,6 +589,7 @@ async function updateInventoryItem(id, payload = {}, adminUser = null, auditMeta
     'subcategory',
     'modelNumber',
     'variant',
+    'tier',
     'specifications',
     'unit',
     'hsnSacCode',
@@ -1767,6 +1785,7 @@ async function prepareAiQuotationDraft({
 module.exports = {
   InventoryError,
   formatInventoryItem,
+  inferItemTier,
   calculateTaxLine,
   listInventory,
   getDashboardSummary,

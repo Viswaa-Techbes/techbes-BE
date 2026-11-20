@@ -44,6 +44,54 @@ function normalizeKannadaDigits(text = '') {
 }
 
 /**
+ * Strip property scale / modifiers (floors, BHK, area, currency, time) so they are
+ * never misidentified as camera counts.
+ */
+function sanitizeForCameraCount(text = '') {
+  let s = String(text).toLowerCase();
+  // Remove floor references: "2-floor", "2 floors", "g+1", "2nd floor", etc.
+  s = s.replace(/\bg\s*\+\s*\d+\b/gi, ' ');
+  s = s.replace(/(\d+)\s*(?:-|st|nd|rd|th)?\s*(?:floor|floors|storey|storeys|story|stories|maadi|mahadi|nilam|nilangal|ಮಹಡಿ|ಅಂತಸ್ತು)\b/gi, ' ');
+  // Remove BHK / bedrooms / rooms
+  s = s.replace(/(\d+)\s*(?:-|)?\s*(?:bhk|bed|bedroom|bedrooms|room|rooms|kothadi)\b/gi, ' ');
+  // Remove area / sqft / dimensions
+  s = s.replace(/(\d+)\s*(?:-|)?\s*(?:sqft|sq\.ft|square\s*feet|sqm|sq\s*meters|acre|acres|cent|cents)\b/gi, ' ');
+  // Remove currency: ₹ 15000, 15k, 20000 rs, inr 25000
+  s = s.replace(/(?:rs\.?|inr|₹)\s*\d+/gi, ' ');
+  s = s.replace(/\d+\s*(?:k|lac|lakh|lakhs|crore|crores|rs|inr|rupees)\b/gi, ' ');
+  // Remove time: 10am, 2 hours, 30 days
+  s = s.replace(/\d+\s*(?:am|pm|year|years|yr|yrs|month|months|day|days|hour|hours|hr|hrs|min|mins|minute|minutes)\b/gi, ' ');
+  return s;
+}
+
+/**
+ * Extract floors from user message (supports hyphenated 2-floor, G+1, duplex, Kannada, Tamil).
+ */
+function extractFloors(text = '') {
+  if (!text) return null;
+  const lower = normalizeKannadaDigits(String(text)).toLowerCase();
+
+  // G+1 -> 2 floors, G+2 -> 3 floors
+  const gPlusMatch = lower.match(/\bg\s*\+\s*(\d+)\b/);
+  if (gPlusMatch && gPlusMatch[1]) {
+    return parseInt(gPlusMatch[1], 10) + 1;
+  }
+  if (/\b(?:ground\s*\+\s*1|ground\s*plus\s*one)\b/.test(lower)) return 2;
+  if (/\b(?:ground\s*\+\s*2|ground\s*plus\s*two)\b/.test(lower)) return 3;
+
+  // Hyphenated or spaced floor: 2-floor, 2 floors, 2nd floor, 3 storeys, etc.
+  const floorMatch = lower.match(/(\d+)\s*(?:-|st|nd|rd|th)?\s*(?:floor|floors|storey|storeys|story|stories|nilam|nilangal|maadi|mahadi|ಮಹಡಿ|ಅಂತಸ್ತು)\b/i);
+  if (floorMatch && floorMatch[1]) {
+    return parseInt(floorMatch[1], 10);
+  }
+
+  if (lower.includes('duplex') || lower.includes('rendu maadi') || lower.includes('eradu mahadi') || lower.includes('ಎರಡು ಮಹಡಿ')) return 2;
+  if (lower.includes('triplex') || lower.includes('moonu maadi') || lower.includes('mooru mahadi') || lower.includes('ಮೂರು ಮಹಡಿ')) return 3;
+  if (lower.includes('single floor') || lower.includes('ground floor') || lower.includes('oru maadi') || lower.includes('ಒಂದು ಮಹಡಿ')) return 1;
+  return null;
+}
+
+/**
  * Extract camera count from text (numeric digits, Kannada numerals, or English/Tamil/Kannada words).
  */
 function extractCameraCount(rawText = '') {
@@ -51,29 +99,32 @@ function extractCameraCount(rawText = '') {
   const normalized = normalizeKannadaDigits(rawText);
   const lower = normalized.toLowerCase();
 
-  // 1. Direct standalone digit (e.g. user just replies "4", "4.", "4 cameras", "4 cams")
-  const directMatch = lower.trim().match(/^([1-9]|[1-5]\d|64)\b/);
-  if (directMatch) {
-    return parseInt(directMatch[1], 10);
-  }
-
-  // 2. Explicit number before or after "camera" / "cam" / "ಕ್ಯಾಮೆರಾ"
-  const numCamRegex = /(\d+)\s*(?:camera|cameras|cam|cams|cctv|point|points|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமರಾ|கேமராக்கள்|கேமரா)/i;
+  // 1. Explicit number before "camera" / "cam" / "ಕ್ಯಾಮೆರಾ"
+  const numCamRegex = /(\d+)\s*(?:camera|cameras|cam|cams|point|points|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமರಾ|கேமராக்கள்|கேமரா)\b/i;
   const matchNum = lower.match(numCamRegex);
   if (matchNum && matchNum[1]) {
     const n = parseInt(matchNum[1], 10);
     if (n > 0 && n <= 64) return n;
   }
 
-  // 3. Cam before number: "camera 4", "cameras 8", "ಕ್ಯಾಮೆರಾ 4"
-  const camNumRegex = /(?:camera|cameras|cam|cams|cctv|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமರಾ|கேமரா)\s*(\d+)/i;
+  // 2. Cam before number: "camera 4", "cameras 8", "ಕ್ಯಾಮೆರಾ 4"
+  const camNumRegex = /(?:camera|cameras|cam|cams|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು|கேமರಾ|கேಮರಾ)\s*(\d+)\b/i;
   const matchCamNum = lower.match(camNumRegex);
   if (matchCamNum && matchCamNum[1]) {
     const n = parseInt(matchCamNum[1], 10);
     if (n > 0 && n <= 64) return n;
   }
 
-  // 4. Word-based numbers across English, Tamil, and Kannada (including spoken & script variants)
+  // 3. Direct standalone digit only if message starts with digit and is not a floor/sqft
+  const directMatch = lower.trim().match(/^([1-9]|[1-5]\d|64)\b/);
+  if (directMatch) {
+    const after = lower.trim().substring(directMatch[0].length).trim();
+    if (!after.match(/^(?:-|st|nd|rd|th)?\s*(?:floor|floors|storey|storeys|bhk|bed|bedroom|sqft|sq\.ft|rs|inr|meter|mtr)\b/i)) {
+      return parseInt(directMatch[1], 10);
+    }
+  }
+
+  // 4. Word-based numbers across English, Tamil, and Kannada
   const wordMap = {
     // 4 - Kannada & Kanglish (naalku, nalakku, naaku, naalkoo)
     'ನಾಲ್ಕು': 4, 'ನಾಲಕ್ಕು': 4, 'ನಾಕು': 4, 'ನಾಲ್ಕೂ': 4, 'ನಾಲ್ಕ': 4,
@@ -96,7 +147,7 @@ function extractCameraCount(rawText = '') {
     // 7
     'seven': 7, 'yelu': 7, 'ಏಳು': 7, 'elu': 7,
     // 8
-    'eight': 8, 'yettu': 8, 'ettu': 8, 'entu': 8, 'ಎಂಟು': 8, 'எಟ್ಟು': 8,
+    'eight': 8, 'yettu': 8, 'ettu': 8, 'entu': 8, 'ಎಂಟು': 8, 'ಎಟ್ಟು': 8,
     // 9
     'nine': 9, 'onbathu': 9, 'ombattu': 9, 'ಒಂಬತ್ತು': 9,
     // 10
@@ -109,35 +160,201 @@ function extractCameraCount(rawText = '') {
     'thirty two': 32, 'thirty-two': 32, 'eppattheradu': 32,
   };
 
+  const sanitized = sanitizeForCameraCount(lower);
+
   for (const [word, val] of Object.entries(wordMap)) {
     const rx = new RegExp(`(?:^|[\\s,.;!?])${word}(?:[\\s,.;!?]|$)(?:camera|cameras|cam|cams|point|cctv|ಕ್ಯಾಮೆರಾ|ಕ್ಯಾಮರಾ|ಕ್ಯಾಮೆರಾಗಳು)?`, 'i');
-    if (rx.test(lower)) {
+    if (rx.test(sanitized)) {
       return val;
     }
   }
 
-  // 5. Standalone digits up to 32 if in context of camera / security request
-  const standalone = lower.match(/\b([1-9]|[12]\d|32)\b/);
+  // 5. Standalone digits in sanitized text if in context of camera / security request
+  const standalone = sanitized.match(/\b([1-9]|[12]\d|32)\b/);
   if (standalone && (lower.includes('camera') || lower.includes('cam') || lower.includes('cctv') || lower.includes('point') || lower.includes('ಕ್ಯಾಮೆರಾ') || lower.includes('கேமரா') || lower.includes('ಬೇಕಾಗ') || lower.includes('ಬೇಕು'))) {
-    return parseInt(standalone[1], 10);
+    const floorNum = extractFloors(rawText);
+    const candidate = parseInt(standalone[1], 10);
+    if (floorNum && floorNum === candidate) {
+      const hasOtherMention = new RegExp(`(?:camera|cam|point|cctv)\\s*${candidate}|${candidate}\\s*(?:camera|cam|point)`, 'i').test(lower);
+      if (!hasOtherMention) return null;
+    }
+    return candidate;
   }
 
   return null;
 }
 
 /**
- * Extract floors from user message.
+ * Parse multilingual budget expressions into a numeric cap (₹).
+ * Supports English, Tamil/Tanglish, Kannada/Kanglish.
+ * Examples: "20k ku ulla", "under 20k", "below 20000", "20,000 budget",
+ *           "max 15k", "around 25k", "20 ಸಾವಿರ ಒಳಗೆ", "₹20000 ku ulla kudu"
  */
-function extractFloors(text = '') {
-  const lower = String(text).toLowerCase();
-  const floorMatch = lower.match(/(\d+)\s*(?:floor|floors|nilam|maadi|nilangal|ಮಹಡಿ|ಅಂತಸ್ತು)/i);
-  if (floorMatch && floorMatch[1]) {
-    return parseInt(floorMatch[1], 10);
+function extractBudgetMax(text = '') {
+  if (!text) return null;
+  const lower = normalizeKannadaDigits(String(text)).toLowerCase();
+
+  // Normalise commas in numbers: "20,000" → "20000"
+  const cleaned = lower.replace(/(\d),(\d{3})/g, '$1$2');
+
+  // Pattern set — ordered most specific to least specific
+  const patterns = [
+    // Tamil/Tanglish: "20k ku ulla", "20k ulla", "20,000 ku ulla kudu", "15k ku kudu", "budget 20k"
+    /(?:₹|rs\.?|inr)?\s*(\d[\d,]*)\s*(?:k|thousand)?\s*(?:ku\s+)?(?:ulla|ullaye|ulladhu|ku\s*ulla|ku\s*kudu|matten|mela\s*kuda|kulla)\b/i,
+    // Kannada/Kanglish: "20 ಸಾವಿರ ಒಳಗೆ", "20k alli", "20000 alli"
+    /(\d[\d,]*)\s*(?:k|thousand|ಸಾವಿರ|saavira|savira)?\s*(?:ಒಳಗೆ|olagè|olage|alli\b|alli\s)/i,
+    // English: "under 20k", "below ₹20000", "max 15k", "within 25000", "budget of 20k"
+    /(?:under|below|max|maximum|within|upto|up\s*to|budget(?:\s*of)?|not\s*more\s*than|less\s*than)\s*(?:rs\.?|inr|₹)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?/i,
+    // "around 25k" / "approximately 20k" / "roughly 20k" — treat as soft upper bound
+    /(?:around|approx(?:imately)?|roughly|about)\s*(?:rs\.?|inr|₹)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?/i,
+    // Bare: "20k budget", "25000 budget", "budget 20000"
+    /(?:₹|rs\.?|inr)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?\s*(?:budget|only|matra|ku)/i,
+    /(?:budget)\s*(?:₹|rs\.?|inr)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?/i,
+  ];
+
+  for (const pattern of patterns) {
+    const m = cleaned.match(pattern);
+    if (m) {
+      const rawNum = m[1].replace(/,/g, '');
+      let amt = parseInt(rawNum, 10);
+      if (isNaN(amt) || amt <= 0) continue;
+
+      // Detect multiplier from full match context
+      const fullMatch = m[0].toLowerCase();
+      if (/\b(k|thousand)\b/.test(fullMatch) || (amt < 500 && !fullMatch.includes('lakh') && !fullMatch.includes('lac'))) {
+        // If the number itself is small (< 500) and no lakh keyword → treat as "k"
+        if (amt < 500) amt *= 1000;
+      } else if (/\b(lac|lakh|lakhs)\b/.test(fullMatch)) {
+        amt *= 100000;
+      }
+      // Sanity: ignore if < ₹2,000 or > ₹50,00,000
+      if (amt >= 2000 && amt <= 5000000) return amt;
+    }
   }
-  if (lower.includes('duplex') || lower.includes('2 floor') || lower.includes('rendu maadi') || lower.includes('eradu mahadi') || lower.includes('ಎರಡು ಮಹಡಿ')) return 2;
-  if (lower.includes('3 floor') || lower.includes('moonu maadi') || lower.includes('mooru mahadi') || lower.includes('ಮೂರು ಮಹಡಿ')) return 3;
-  if (lower.includes('single floor') || lower.includes('ground floor') || lower.includes('oru maadi') || lower.includes('ಒಂದು ಮಹಡಿ')) return 1;
   return null;
+}
+
+/**
+ * Identify user preferences (brand, component focus, vision, IP/PoE, 4K, audio, budget cap).
+ */
+function extractUserPreferences(text = '') {
+  const lower = String(text).toLowerCase();
+
+  // 1. Brand preference
+  let brand = null;
+  if (lower.match(/\b(hikvision|hik|hik-vision)\b/)) {
+    brand = 'Hikvision';
+  } else if (lower.match(/\b(cp\s*plus|cp-plus|cpplus)\b/)) {
+    brand = 'CP Plus';
+  } else if (lower.match(/\b(dahua)\b/)) {
+    brand = 'Dahua';
+  } else if (lower.match(/\b(secureye)\b/)) {
+    brand = 'Secureye';
+  } else if (lower.match(/\b(d-link|dlink|tp-link|tplink)\b/)) {
+    brand = 'TP-Link';
+  }
+
+  // 2. Component focus
+  let componentFocus = 'full_system'; // 'full_system' | 'camera_only' | 'recorder_only' | 'storage_only'
+  if (
+    lower.match(/\b(only\s*camera|only\s*cameras|cameras?\s*only|just\s*camera|just\s*cameras|already\s*have\s*(?:dvr|nvr|recorder)|extra\s*camera|additional\s*camera)\b/) ||
+    lower.includes('ಕೇವಲ ಕ್ಯಾಮೆರಾ') || lower.includes('ಕ್ಯಾಮೆರಾ ಮಾತ್ರ')
+  ) {
+    componentFocus = 'camera_only';
+  } else if (
+    lower.match(/\b(only\s*dvr|only\s*nvr|dvr\s*only|nvr\s*only|replace\s*dvr|recorder\s*only|new\s*dvr)\b/) ||
+    lower.includes('ಕೇವಲ dvr') || lower.includes('dvr ಮಾತ್ರ')
+  ) {
+    componentFocus = 'recorder_only';
+  } else if (
+    lower.match(/\b(only\s*hdd|only\s*hard\s*disk|hard\s*disk\s*only|hdd\s*only|upgrade\s*storage|upgrade\s*hdd|more\s*storage)\b/) ||
+    lower.includes('ಹಾರ್ಡ್ ಡಿಸ್ಕ್ ಮಾತ್ರ')
+  ) {
+    componentFocus = 'storage_only';
+  }
+
+  // 3. Vision Preference
+  let visionPreference = 'Color Night Vision';
+  if (lower.includes('color') || lower.includes('colorvu') || lower.includes('full color') || lower.includes('ಬಣ್ಣ') || lower.includes('கலர்')) {
+    visionPreference = 'Color Night Vision';
+  } else if (lower.includes('ir') || lower.includes('infrared') || lower.includes('black and white') || lower.includes('b&w') || lower.includes('ಇನ್‌ಫ್ರಾರೆಡ್')) {
+    visionPreference = 'Standard IR';
+  }
+
+  // 4. IP / PoE / 4K / Audio
+  const isIpOrPoe = lower.match(/\b(ip|poe|cat6|network camera|nvr)\b/) !== null;
+  const is4K = lower.match(/\b(4k|ultra hd|4mp|5mp|8mp)\b/) !== null;
+  const audioPreference = lower.match(/\b(audio|mic|microphone|sound|talk|voice)\b/) !== null || lower.includes('ಆಡಿಯೋ');
+
+  // 5. Budget Cap — use dedicated multilingual parser
+  const budgetCap = extractBudgetMax(text);
+
+  return {
+    brand,
+    componentFocus,
+    visionPreference,
+    isIpOrPoe,
+    is4K,
+    audioPreference,
+    budgetCap,
+  };
+}
+
+/**
+ * Decide whether a request is vague / incomplete and needs clarifying questions first.
+ * Returns true (→ Phase A) when essential sizing info is missing.
+ * Returns false (→ Phase B) when enough context is known.
+ */
+function isVagueRequest(latestMsg = '', sessionContext = {}) {
+  const lower = String(latestMsg).toLowerCase();
+
+  // Explicit "help me plan" / "not sure" phrases → always ask
+  if (lower.match(/\b(help\s*me\s*(plan|estimate|choose|decide)|not\s*sure|don'?t\s*know|not\s*know|no\s*idea|any\s*recommendation|suggest\s*me|advise\s*me)\b/) ||
+      lower.match(/\b(ethana|evvalo|yevlo|help\s*pannunga|gottilla)\b/)) {
+    return true;
+  }
+
+  // "Skip" / "just recommend" / quick-select answers → go straight to Phase B
+  if (lower.match(/\b(skip|just\s*recommend|show\s*me|give\s*me|any\s*package|show\s*packages|recommend\s*for\s*me)\b/)) {
+    return false;
+  }
+
+  // If session already has cameraCount AND propertyType → Phase B
+  const hasCount = sessionContext.cameraCount != null;
+  const hasProp = sessionContext.propertyType != null;
+  if (hasCount && hasProp) return false;
+
+  // Check if the CURRENT message itself provides both
+  const msgCount = extractCameraCount(latestMsg);
+  const msgProp = detectPropertyType(latestMsg);
+  // detectPropertyType has a default fallback — only count it if explicitly matched
+  const msgHasProp = detectPropertyTypeExplicit(latestMsg);
+
+  if (msgCount && msgHasProp) return false; // "4 cameras for my shop" → Phase B
+  if (msgCount && hasProp) return false;    // prev turn had property, now has count
+  if (msgHasProp && hasCount) return false; // prev turn had count, now has property
+
+  // Otherwise it's vague
+  return true;
+}
+
+/**
+ * Returns the property type only if explicitly matched in the text (not the default fallback).
+ */
+function detectPropertyTypeExplicit(text = '') {
+  const lower = String(text).toLowerCase();
+  for (const [propKey, keywords] of Object.entries(PROPERTY_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) {
+        if (propKey === 'home') return 'Home / Villa';
+        if (propKey === 'apartment') return 'Apartment / Flat';
+        if (propKey === 'shop') return 'Retail Shop';
+        if (propKey === 'office') return 'Commercial Office';
+        if (propKey === 'warehouse') return 'Warehouse / Godown';
+      }
+    }
+  }
+  return null; // No explicit match
 }
 
 /**
@@ -268,17 +485,17 @@ function estimateCameraCount({ propertyType, floors, text = '' }) {
 
   let estimated = 4;
   if (prop === 'Home / Villa') {
-    if (parsedFloors === 1) estimated = 3; // Front gate, Backyard/corridor, Hall
-    else if (parsedFloors === 2) estimated = 4; // Gate, Parking, 1st floor balcony, Staircase
-    else estimated = 6; // 3+ floors
+    if (parsedFloors === 1) estimated = 3;
+    else if (parsedFloors === 2) estimated = 4;
+    else estimated = 6;
   } else if (prop === 'Apartment / Flat') {
-    estimated = 2; // Main entrance door + Living/Balcony
+    estimated = 2;
   } else if (prop === 'Retail Shop') {
-    estimated = 4; // Cash counter, Entrance/Front, Billing desk, Stock/Aisle
+    estimated = 4;
   } else if (prop === 'Commercial Office') {
-    estimated = Math.max(4, parsedFloors * 3); // Reception, Workstation floor, Server room, Exit
+    estimated = Math.max(4, parsedFloors * 3);
   } else if (prop === 'Warehouse / Godown') {
-    estimated = 8; // Loading dock, Entry gate, Storage racks, Office room
+    estimated = 8;
   }
 
   return { count: estimated, isEstimated: true };
@@ -286,7 +503,8 @@ function estimateCameraCount({ propertyType, floors, text = '' }) {
 
 /**
  * Main service recommendation generation engine grounded in actual DB records.
- * Supports Kannada, Tamil, and English package descriptions while preserving inventory item IDs & SKUs.
+ * Supports dynamic live inventory querying, user brand filtering, component-only packages,
+ * clean rounding (Math.round), and multi-language presentation.
  */
 async function generateRecommendations({
   category = 'CCTV',
@@ -297,6 +515,7 @@ async function generateRecommendations({
   audioPreference = false,
   cableEstimatePerCam = 25,
   langStyle = 'english',
+  userPreferences = {},
 }) {
   if (process.env.ENABLE_INVENTORY_SEEDING === 'true') {
     await ensureInventorySeeded();
@@ -307,17 +526,18 @@ async function generateRecommendations({
   const cablePerCam = Math.max(10, Math.min(cableEstimatePerCam || 25, 100));
   const totalCableMeters = count * cablePerCam;
 
-  // Fetch actual products from MongoDB Material collection
+  // Fetch only active, non-archived materials from MongoDB Material collection
   const allMaterials = await Material.find({
     status: 'active',
     isArchived: { $ne: true },
+    $or: [{ stock: { $gt: 0 } }, { stock: { $exists: false } }],
   }).lean();
 
   const allPricing = await PricingConfig.find({
     status: 'active',
   }).lean();
 
-  // Helper to find genuine material by SKU or keyword
+  // Helper to find genuine in-stock material with fallback
   const findMat = (skuRegex, fallbackName) => {
     const found = allMaterials.find(m =>
       (m.sku && m.sku.match(skuRegex)) ||
@@ -332,18 +552,221 @@ async function generateRecommendations({
   };
 
   const packages = [];
+  const installRule = findPricingRule(/SRV-CAM-FITTING/i);
+  const dvrSetupRule = findPricingRule(/SRV-RECORDER-SETUP/i);
+  const rackMountRule = findPricingRule(/SRV-RACK-MOUNT/i);
+
+  const targetBrand = userPreferences.brand || null;
+  const componentFocus = userPreferences.componentFocus || 'full_system';
 
   if (category === 'CCTV') {
+    // ══════════════════════════════════════════════════════════════════════
+    // MODE A: COMPONENT-ONLY EXPANSION (e.g. "Only cameras", "Extra cameras")
+    // ══════════════════════════════════════════════════════════════════════
+    if (componentFocus === 'camera_only') {
+      const basicCam = (targetBrand === 'Hikvision')
+        ? (findMat(/HIK-2MP-COLORVU/i, 'ColorVu') || findMat(/HIK-4MP-COLORVU-IP/i, 'Hikvision'))
+        : (findMat(/CP-PLUS-2MP-DOME/i, 'CP Plus 2MP') || findMat(/HIK-2MP-COLORVU/i, 'Hikvision'));
+      const proCam = findMat(/HIK-2MP-COLORVU/i, 'ColorVu') || findMat(/HIK-4MP-COLORVU-IP/i, 'Hikvision') || basicCam;
+      const junctionBox = findMat(/ACC-JUNCTION-BOX/i, 'Junction Box');
+      const cable = findMat(/CABLE-3PLUS1-MTR/i, '3+1') || findMat(/CABLE-CAT6-MTR/i, 'Cat6');
+
+      // Package 1: Essential Camera Add-on
+      const opt1Items = [];
+      if (basicCam) opt1Items.push({ item: basicCam, quantity: count, role: 'camera' });
+      if (junctionBox) opt1Items.push({ item: junctionBox, quantity: count, role: 'accessory' });
+      if (cable) opt1Items.push({ item: cable, quantity: totalCableMeters, role: 'cabling' });
+
+      let opt1Calc = null;
+      try {
+        opt1Calc = await inventoryService.calculateDynamicQuotePricing({
+          serviceCategory: 'CCTV',
+          items: opt1Items.map(b => ({
+            productId: b.item._id,
+            productName: b.item.name,
+            quantity: b.quantity,
+            sku: b.item.sku,
+          })),
+          appliedRules: installRule ? [{ ruleId: installRule._id, quantity: count }] : [],
+        });
+      } catch (e) {
+        console.warn('[AI Recommendation] Camera-only opt1 pricing error:', e.message);
+      }
+
+      packages.push({
+        id: 'addon-cameras-essential',
+        tier: 'Basic',
+        badge: isKannada ? 'ಕ್ಯಾಮೆರಾ ವಿಸ್ತರಣೆ (Add-on)' : 'Camera Expansion Kit',
+        title: isKannada
+          ? `${count}-ಕ್ಯಾಮೆರಾ ಎಸೆನ್ಷಿಯಲ್ ವಿಸ್ತರಣಾ ಕಿಟ್`
+          : `${count}-Camera Essential HD Add-on Kit`,
+        tagline: isKannada
+          ? 'ಪ್ರಸ್ತುತ DVR ಸಿಸ್ಟಮ್‌ಗಾಗಿ ಜಂಕ್ಷನ್ ಬಾಕ್ಸ್ ಮತ್ತು ವೈರಿಂಗ್ ಒಳಗೊಂಡ ಅಧಿಕೃತ ಕ್ಯಾಮೆರಾಗಳು.'
+          : 'Genuine HD cameras with weatherproof junction boxes & cabling for your existing DVR.',
+        cameraCount: count,
+        cameraType: basicCam?.name || 'HD Surveillance Camera',
+        brand: basicCam?.brand || 'CP Plus',
+        recorder: isKannada ? 'ನಿಮ್ಮ ಪ್ರಸ್ತುತ DVR ಬಳಕೆ' : 'Using your existing DVR / NVR',
+        storage: isKannada ? 'ಪ್ರಸ್ತುತ ಸ್ಟೋರೇಜ್ ಬಳಕೆ' : 'Using existing hard drive storage',
+        isPopular: false,
+        items: opt1Items.map(b => ({
+          productId: b.item._id,
+          productName: b.item.name,
+          brand: b.item.brand,
+          sku: b.item.sku,
+          variant: b.item.variant,
+          unit: b.item.unit,
+          unitPrice: b.item.basePrice || b.item.price,
+          quantity: b.quantity,
+          gstRate: b.item.gstRate || 18,
+          availableStock: b.item.stock,
+          inStock: b.item.stock >= b.quantity,
+        })),
+        pricing: opt1Calc ? {
+          itemsSubtotal: Math.round(opt1Calc.pricingBreakdown.itemsSubtotal),
+          labourCharge: Math.round(opt1Calc.pricingBreakdown.labourCharge),
+          serviceCharge: Math.round(opt1Calc.pricingBreakdown.serviceCharge),
+          subtotal: Math.round(opt1Calc.subtotal),
+          gstRate: opt1Calc.gstRate,
+          gstAmount: Math.round(opt1Calc.gstAmount),
+          finalAmount: Math.round(opt1Calc.finalAmount),
+          priceDisplay: `₹${Math.round(opt1Calc.finalAmount).toLocaleString('en-IN')}`,
+          hasAuthoritativePricing: true,
+        } : {
+          finalAmount: null,
+          priceDisplay: isKannada ? 'ಕೊಟೇಶನ್ ಅಗತ್ಯವಿದೆ' : 'Quotation required',
+          hasAuthoritativePricing: false,
+        },
+        features: isKannada ? [
+          `${count}x 1080P HD ಅಧಿಕೃತ ಕ್ಯಾಮೆರಾಗಳು`,
+          'IP66 ಜಲನಿರೋಧಕ ಜಂಕ್ಷನ್ ಬಾಕ್ಸ್ ಜೋಡಣೆ',
+          'ಪ್ರಸ್ತುತ DVR ಜೊತೆ ಪೂರ್ಣ ಹೊಂದಾಣಿಕೆ',
+          'ಕ್ಯಾಮೆರಾ ಫಿಟ್ಟಿಂಗ್ ಮತ್ತು ಆಂಗಲ್ ಅಡ್ಜಸ್ಟ್‌ಮೆಂಟ್ ಒಳಗೊಂಡಿದೆ',
+        ] : [
+          `${count}x 1080P Full HD Genuine Cameras`,
+          'IP66 Weatherproof junction box mount per camera',
+          'Direct compatibility check with your existing DVR/NVR',
+          'Professional drilling, wall mounting, and angle calibration',
+        ],
+        assumptions: isKannada ? [
+          `ಪ್ರತಿ ಕ್ಯಾಮೆರಾಗೆ ${cablePerCam} ಮೀಟರ್ ಕೇಬಲ್ ಒಳಗೊಂಡಿದೆ.`,
+          'ನಿಮ್ಮ DVR ಪೋರ್ಟ್‌ಗಳು ಲಭ್ಯವಿರಬೇಕು.',
+        ] : [
+          `Includes up to ${cablePerCam}m cable per camera point.`,
+          'Assumes open channels are available on existing recorder.',
+        ],
+        warranty: isKannada
+          ? 'ಕ್ಯಾಮೆರಾಗಳಿಗೆ 2 ವರ್ಷಗಳ ಅಧಿಕೃತ ವಾರಂಟಿ + 30 ದಿನಗಳ TechBes ಸೇವಾ ಗ್ಯಾರಂಟಿ.'
+          : '2 Years Manufacturer Warranty + 30 Days TechBes Service Guarantee.',
+      });
+
+      // Package 2: ColorVu Pro Camera Add-on
+      const opt2Items = [];
+      if (proCam) opt2Items.push({ item: proCam, quantity: count, role: 'camera' });
+      if (junctionBox) opt2Items.push({ item: junctionBox, quantity: count, role: 'accessory' });
+      if (cable) opt2Items.push({ item: cable, quantity: totalCableMeters, role: 'cabling' });
+
+      let opt2Calc = null;
+      try {
+        opt2Calc = await inventoryService.calculateDynamicQuotePricing({
+          serviceCategory: 'CCTV',
+          items: opt2Items.map(b => ({
+            productId: b.item._id,
+            productName: b.item.name,
+            quantity: b.quantity,
+            sku: b.item.sku,
+          })),
+          appliedRules: installRule ? [{ ruleId: installRule._id, quantity: count }] : [],
+        });
+      } catch (e) {
+        console.warn('[AI Recommendation] Camera-only opt2 pricing error:', e.message);
+      }
+
+      packages.push({
+        id: 'addon-cameras-colorvu',
+        tier: 'Recommended',
+        badge: isKannada ? '★ 24/7 ಕಲರ್ ಅಪ್‌ಗ್ರೇಡ್' : '★ 24/7 Color Night Upgrade',
+        title: isKannada
+          ? `${count}-ಕ್ಯಾಮೆರಾ ಸ್ಮಾರ್ಟ್ ಕಲರ್‌ವು ವಿಸ್ತರಣಾ ಕಿಟ್`
+          : `${count}-Camera ColorVu Pro Add-on Kit`,
+        tagline: isKannada
+          ? 'ರಾತ್ರಿಯಲ್ಲೂ ಪೂರ್ಣ ಬಣ್ಣದ ದೃಶ್ಯ ನೀಡುವ F1.0 ಸೂಪರ್ ಅಪರ್ಚರ್ ಕ್ಯಾಮೆರಾಗಳು.'
+          : 'Full-time color night vision cameras with F1.0 super aperture for night clarity.',
+        cameraCount: count,
+        cameraType: proCam?.name || 'Hikvision ColorVu Camera',
+        brand: proCam?.brand || 'Hikvision',
+        recorder: isKannada ? 'ನಿಮ್ಮ ಪ್ರಸ್ತುತ DVR ಬಳಕೆ' : 'Using your existing DVR / NVR',
+        storage: isKannada ? 'ಪ್ರಸ್ತುತ ಸ್ಟೋರೇಜ್ ಬಳಕೆ' : 'Using existing hard drive storage',
+        isPopular: true,
+        items: opt2Items.map(b => ({
+          productId: b.item._id,
+          productName: b.item.name,
+          brand: b.item.brand,
+          sku: b.item.sku,
+          variant: b.item.variant,
+          unit: b.item.unit,
+          unitPrice: b.item.basePrice || b.item.price,
+          quantity: b.quantity,
+          gstRate: b.item.gstRate || 18,
+          availableStock: b.item.stock,
+          inStock: b.item.stock >= b.quantity,
+        })),
+        pricing: opt2Calc ? {
+          itemsSubtotal: Math.round(opt2Calc.pricingBreakdown.itemsSubtotal),
+          labourCharge: Math.round(opt2Calc.pricingBreakdown.labourCharge),
+          serviceCharge: Math.round(opt2Calc.pricingBreakdown.serviceCharge),
+          subtotal: Math.round(opt2Calc.subtotal),
+          gstRate: opt2Calc.gstRate,
+          gstAmount: Math.round(opt2Calc.gstAmount),
+          finalAmount: Math.round(opt2Calc.finalAmount),
+          priceDisplay: `₹${Math.round(opt2Calc.finalAmount).toLocaleString('en-IN')}`,
+          hasAuthoritativePricing: true,
+        } : {
+          finalAmount: null,
+          priceDisplay: isKannada ? 'ಕೊಟೇಶನ್ ಅಗತ್ಯವಿದೆ' : 'Quotation required',
+          hasAuthoritativePricing: false,
+        },
+        features: isKannada ? [
+          '24/7 ಪೂರ್ಣ ಬಣ್ಣದ ನೈಟ್ ವಿಷನ್ (ಕತ್ತಲಲ್ಲೂ ಬಣ್ಣದ ರೆಕಾರ್ಡಿಂಗ್)',
+          'F1.0 ವಾರ್ಮ್ ವೈಟ್ ಲೈಟ್ ಅಸಿಸ್ಟ್',
+          'IP66 ಜಲನಿರೋಧಕ ಬಾಹ್ಯ ಕವಚ',
+          'ಪ್ರಸ್ತುತ DVR ಜೊತೆ ಸುಲಭ ಹೊಂದಾಣಿಕೆ',
+        ] : [
+          '24/7 Full Color Day & Night Vision (no B&W darkness)',
+          'F1.0 Super Aperture Lens with Warm White LED assist',
+          'IP66 Weatherproof outdoor construction',
+          'Seamless connection to existing surveillance DVR',
+        ],
+        assumptions: isKannada ? [
+          `ಪ್ರತಿ ಕ್ಯಾಮೆರಾಗೆ ${cablePerCam} ಮೀಟರ್ ಕೇಬಲ್ ಮತ್ತು ಫಿಟ್ಟಿಂಗ್ ಒಳಗೊಂಡಿದೆ.`,
+        ] : [
+          `Includes up to ${cablePerCam}m solid copper cable per camera point and mountings.`,
+        ],
+        warranty: isKannada
+          ? 'ಕ್ಯಾಮೆರಾಗಳಿಗೆ 2 ವರ್ಷಗಳ ವಾರಂಟಿ + 30 ದಿನಗಳ TechBes ಸೇವಾ ಖಾತರಿ.'
+          : '2 Years Manufacturer Warranty + 30 Days TechBes Workmanship Guarantee.',
+      });
+
+      return packages;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // MODE B: FULL CCTV INSTALLATION PACKAGES (TIER 1, TIER 2, TIER 3)
+    // ══════════════════════════════════════════════════════════════════════
+
     // ────────── TIER 1: BASIC / ESSENTIAL HD PACKAGE ──────────
-    const basicCam = findMat(/CP-PLUS-2MP-DOME/i, 'CP Plus 2MP');
-    const basicDvr = count > 4 ? findMat(/CP-PLUS-DVR-8CH/i, 'DVR') : findMat(/CP-PLUS-DVR-4CH/i, 'DVR');
+    const basicCam = (targetBrand === 'Hikvision')
+      ? (findMat(/HIK-2MP-COLORVU/i, 'ColorVu') || findMat(/HIK-4MP-COLORVU-IP/i, 'Hikvision'))
+      : (findMat(/CP-PLUS-2MP-DOME/i, 'CP Plus 2MP') || findMat(/HIK-2MP-COLORVU/i, 'Hikvision'));
+
+    const basicDvr = (targetBrand === 'Hikvision')
+      ? (count > 4 ? (findMat(/HIK-NVR-8CH-POE/i, 'NVR') || findMat(/CP-PLUS-DVR-8CH/i, 'DVR')) : (findMat(/HIK-NVR-4CH-POE/i, 'NVR') || findMat(/CP-PLUS-DVR-4CH/i, 'DVR')))
+      : (count > 4 ? findMat(/CP-PLUS-DVR-8CH/i, 'DVR') : findMat(/CP-PLUS-DVR-4CH/i, 'DVR'));
+
     const basicHdd = findMat(/HDD-SURV-1TB/i, '1TB');
     const basicCable = findMat(/CABLE-3PLUS1-MTR/i, '3+1');
     const junctionBox = findMat(/ACC-JUNCTION-BOX/i, 'Junction Box');
     const smps = count > 4 ? findMat(/SMPS-12V-10A/i, 'Power Supply') : findMat(/SMPS-12V-5A/i, 'Power Supply');
-
-    const installRule = findPricingRule(/SRV-CAM-FITTING/i);
-    const dvrSetupRule = findPricingRule(/SRV-RECORDER-SETUP/i);
 
     const basicItems = [];
     if (basicCam) basicItems.push({ item: basicCam, quantity: count, role: 'camera' });
@@ -384,10 +807,10 @@ async function generateRecommendations({
         : 'Budget-friendly, high-definition 1080p surveillance for everyday home & shop security.',
       cameraCount: count,
       cameraType: isKannada
-        ? 'CP Plus 2MP Full HD ಡೋಮ್ / ಬುಲೆಟ್'
-        : 'CP Plus 2MP Full HD Dome / Bullet',
-      brand: 'CP Plus',
-      recorder: count > 4 ? 'CP Plus 8-Channel HD DVR' : 'CP Plus 4-Channel HD DVR',
+        ? `${basicCam?.brand || 'CP Plus'} 2MP Full HD ಡೋಮ್ / ಬುಲೆಟ್`
+        : `${basicCam?.brand || 'CP Plus'} 2MP Full HD Dome / Bullet`,
+      brand: basicCam?.brand || 'CP Plus',
+      recorder: count > 4 ? `${basicDvr?.brand || 'CP Plus'} 8-Channel HD DVR` : `${basicDvr?.brand || 'CP Plus'} 4-Channel HD DVR`,
       storage: isKannada
         ? '1TB SkyHawk ಕಣ್ಗಾವಲು ಹಾರ್ಡ್ ಡಿಸ್ಕ್ (~12-15 ದಿನಗಳ ರೆಕಾರ್ಡಿಂಗ್)'
         : '1TB SkyHawk Surveillance Hard Drive (~12-15 Days Recording)',
@@ -406,14 +829,14 @@ async function generateRecommendations({
         inStock: b.item.stock >= b.quantity,
       })),
       pricing: basicCalc ? {
-        itemsSubtotal: basicCalc.pricingBreakdown.itemsSubtotal,
-        labourCharge: basicCalc.pricingBreakdown.labourCharge,
-        serviceCharge: basicCalc.pricingBreakdown.serviceCharge,
-        subtotal: basicCalc.subtotal,
+        itemsSubtotal: Math.round(basicCalc.pricingBreakdown.itemsSubtotal),
+        labourCharge: Math.round(basicCalc.pricingBreakdown.labourCharge),
+        serviceCharge: Math.round(basicCalc.pricingBreakdown.serviceCharge),
+        subtotal: Math.round(basicCalc.subtotal),
         gstRate: basicCalc.gstRate,
-        gstAmount: basicCalc.gstAmount,
-        finalAmount: basicCalc.finalAmount,
-        priceDisplay: `₹${basicCalc.finalAmount.toLocaleString('en-IN')}`,
+        gstAmount: Math.round(basicCalc.gstAmount),
+        finalAmount: Math.round(basicCalc.finalAmount),
+        priceDisplay: `₹${Math.round(basicCalc.finalAmount).toLocaleString('en-IN')}`,
         hasAuthoritativePricing: true,
       } : {
         finalAmount: null,
@@ -423,13 +846,13 @@ async function generateRecommendations({
       features: isKannada ? [
         '1080P Full HD ಸ್ಪಷ್ಟ ವೀಡಿಯೊ ರೆಕಾರ್ಡಿಂಗ್',
         '20 ಮೀಟರ್ ಸ್ಮಾರ್ಟ್ ಇನ್‌ಫ್ರಾರೆಡ್ ನೈಟ್ ವಿಷನ್',
-        'ಮೊಬೈಲ್ ಲೈವ್ ವೀಕ್ಷಣೆ (CP Plus gCMOB App - Android & iOS)',
+        'ಮೊಬೈಲ್ ಲೈವ್ ವೀಕ್ಷಣೆ (Android & iOS App)',
         'ಚಲನೆ ಪತ್ತೆ (Motion Detection) ಮತ್ತು ಮೊಬೈಲ್ ಎಚ್ಚರಿಕೆಗಳು',
         'IP66 ಜಲನಿರೋಧಕ (Weatherproof) ಬಾಹ್ಯ ಕವಚ',
       ] : [
         '1080P Full HD Video Clarity',
         '20-meter Smart Infrared Night Vision',
-        'Mobile Live Viewing via CP Plus gCMOB App (iOS & Android)',
+        'Mobile Live Viewing via Mobile App (iOS & Android)',
         'Motion Detection Alerts & Playback Search',
         'Sealed IP66 Weatherproof Outdoor Casing',
       ],
@@ -449,7 +872,9 @@ async function generateRecommendations({
 
     // ────────── TIER 2: RECOMMENDED / SMART COLOR PRO ──────────
     const proCam = findMat(/HIK-2MP-COLORVU/i, 'ColorVu') || findMat(/HIK-4MP-COLORVU-IP/i, 'Hikvision');
-    const proDvr = count > 4 ? findMat(/CP-PLUS-DVR-8CH/i, 'DVR') : findMat(/CP-PLUS-DVR-4CH/i, 'DVR');
+    const proDvr = (targetBrand === 'Hikvision')
+      ? (count > 4 ? (findMat(/HIK-NVR-8CH-POE/i, 'NVR') || findMat(/CP-PLUS-DVR-8CH/i, 'DVR')) : (findMat(/HIK-NVR-4CH-POE/i, 'NVR') || findMat(/CP-PLUS-DVR-4CH/i, 'DVR')))
+      : (count > 4 ? findMat(/CP-PLUS-DVR-8CH/i, 'DVR') : findMat(/CP-PLUS-DVR-4CH/i, 'DVR'));
     const proHdd = findMat(/HDD-SURV-2TB/i, '2TB') || findMat(/HDD-SURV-1TB/i, '1TB');
     const proCable = findMat(/CABLE-3PLUS1-MTR/i, '3+1');
     const proRack = findMat(/RACK-4U-WALL/i, 'Rack');
@@ -476,7 +901,7 @@ async function generateRecommendations({
         appliedRules: [
           ...(installRule ? [{ ruleId: installRule._id, quantity: count }] : []),
           ...(dvrSetupRule ? [{ ruleId: dvrSetupRule._id, quantity: 1 }] : []),
-          ...(findPricingRule(/SRV-RACK-MOUNT/i) ? [{ ruleId: findPricingRule(/SRV-RACK-MOUNT/i)._id, quantity: 1 }] : []),
+          ...(rackMountRule ? [{ ruleId: rackMountRule._id, quantity: 1 }] : []),
         ],
       });
     } catch (e) {
@@ -517,14 +942,14 @@ async function generateRecommendations({
         inStock: b.item.stock >= b.quantity,
       })),
       pricing: proCalc ? {
-        itemsSubtotal: proCalc.pricingBreakdown.itemsSubtotal,
-        labourCharge: proCalc.pricingBreakdown.labourCharge,
-        serviceCharge: proCalc.pricingBreakdown.serviceCharge,
-        subtotal: proCalc.subtotal,
+        itemsSubtotal: Math.round(proCalc.pricingBreakdown.itemsSubtotal),
+        labourCharge: Math.round(proCalc.pricingBreakdown.labourCharge),
+        serviceCharge: Math.round(proCalc.pricingBreakdown.serviceCharge),
+        subtotal: Math.round(proCalc.subtotal),
         gstRate: proCalc.gstRate,
-        gstAmount: proCalc.gstAmount,
-        finalAmount: proCalc.finalAmount,
-        priceDisplay: `₹${proCalc.finalAmount.toLocaleString('en-IN')}`,
+        gstAmount: Math.round(proCalc.gstAmount),
+        finalAmount: Math.round(proCalc.finalAmount),
+        priceDisplay: `₹${Math.round(proCalc.finalAmount).toLocaleString('en-IN')}`,
         hasAuthoritativePricing: true,
       } : {
         finalAmount: null,
@@ -542,7 +967,7 @@ async function generateRecommendations({
         'F1.0 Super Aperture Lens with Warm White Assist Light',
         '2TB Extended Archive (25 to 30 continuous recording days)',
         '4U Locked Wall Rack protects DVR & Router from tampering',
-        'Instant Motion Alerts & WhatsApp Alert Integration Support',
+        'Instant Motion Alerts & Mobile Live Streaming',
       ],
       assumptions: isKannada ? [
         `ಪ್ರತಿ ಕ್ಯಾಮೆರಾಗೆ ${cablePerCam} ಮೀಟರ್‌ವರೆಗೆ ಉತ್ತಮ ಗುಣಮಟ್ಟದ 3+1 ತಾಮ್ರದ ಕೇಬಲ್ ಒಳಗೊಂಡಿದೆ.`,
@@ -585,7 +1010,7 @@ async function generateRecommendations({
         appliedRules: [
           ...(installRule ? [{ ruleId: installRule._id, quantity: count }] : []),
           ...(dvrSetupRule ? [{ ruleId: dvrSetupRule._id, quantity: 1 }] : []),
-          ...(findPricingRule(/SRV-RACK-MOUNT/i) ? [{ ruleId: findPricingRule(/SRV-RACK-MOUNT/i)._id, quantity: 1 }] : []),
+          ...(rackMountRule ? [{ ruleId: rackMountRule._id, quantity: 1 }] : []),
         ],
       });
     } catch (e) {
@@ -606,7 +1031,7 @@ async function generateRecommendations({
       cameraType: isKannada
         ? 'Hikvision / Secureye 4MP / 5MP AI ನೆಟ್‌ವರ್ಕ್ IP ಕ್ಯಾಮೆರಾಗಳು'
         : 'Hikvision / Secureye 4MP / 5MP AI Network IP Cameras',
-      brand: 'Hikvision',
+      brand: premCam?.brand || 'Hikvision',
       recorder: count > 4 ? 'Hikvision 8-Channel 4K PoE NVR' : 'Hikvision 4-Channel 4K PoE NVR',
       storage: isKannada
         ? '2TB / 4TB ಅಲ್ಟ್ರಾ ಕಣ್ಗಾವಲು ಸ್ಟೋರೇಜ್ ಮತ್ತು ಸ್ಮಾರ್ಟ್ ಸರ್ಚ್'
@@ -626,14 +1051,14 @@ async function generateRecommendations({
         inStock: b.item.stock >= b.quantity,
       })),
       pricing: premCalc ? {
-        itemsSubtotal: premCalc.pricingBreakdown.itemsSubtotal,
-        labourCharge: premCalc.pricingBreakdown.labourCharge,
-        serviceCharge: premCalc.pricingBreakdown.serviceCharge,
-        subtotal: premCalc.subtotal,
+        itemsSubtotal: Math.round(premCalc.pricingBreakdown.itemsSubtotal),
+        labourCharge: Math.round(premCalc.pricingBreakdown.labourCharge),
+        serviceCharge: Math.round(premCalc.pricingBreakdown.serviceCharge),
+        subtotal: Math.round(premCalc.subtotal),
         gstRate: premCalc.gstRate,
-        gstAmount: premCalc.gstAmount,
-        finalAmount: premCalc.finalAmount,
-        priceDisplay: `₹${premCalc.finalAmount.toLocaleString('en-IN')}`,
+        gstAmount: Math.round(premCalc.gstAmount),
+        finalAmount: Math.round(premCalc.finalAmount),
+        priceDisplay: `₹${Math.round(premCalc.finalAmount).toLocaleString('en-IN')}`,
         hasAuthoritativePricing: true,
       } : {
         finalAmount: null,
@@ -650,7 +1075,7 @@ async function generateRecommendations({
         '4MP 2K+ / 4K Ultra High Definition Optical Clarity',
         'Single-Cable PoE Setup (Power and Gigabit Data over Cat6 cable)',
         'Built-in Microphone for Synchronized Audio Recording',
-        'AI Human and Vehicle Motion Classification (Filters out rain/leaves)',
+        'AI Human and Vehicle Motion Classification (Filters out false alarms)',
         'Encrypted Cloud Remote Access with Multi-User Permissions',
       ],
       assumptions: isKannada ? [
@@ -726,14 +1151,14 @@ async function generateRecommendations({
         inStock: b.item.stock >= b.quantity,
       })),
       pricing: netCalc1 ? {
-        itemsSubtotal: netCalc1.pricingBreakdown.itemsSubtotal,
-        labourCharge: netCalc1.pricingBreakdown.labourCharge,
-        serviceCharge: netCalc1.pricingBreakdown.serviceCharge,
-        subtotal: netCalc1.subtotal,
+        itemsSubtotal: Math.round(netCalc1.pricingBreakdown.itemsSubtotal),
+        labourCharge: Math.round(netCalc1.pricingBreakdown.labourCharge),
+        serviceCharge: Math.round(netCalc1.pricingBreakdown.serviceCharge),
+        subtotal: Math.round(netCalc1.subtotal),
         gstRate: netCalc1.gstRate,
-        gstAmount: netCalc1.gstAmount,
-        finalAmount: netCalc1.finalAmount,
-        priceDisplay: `₹${netCalc1.finalAmount.toLocaleString('en-IN')}`,
+        gstAmount: Math.round(netCalc1.gstAmount),
+        finalAmount: Math.round(netCalc1.finalAmount),
+        priceDisplay: `₹${Math.round(netCalc1.finalAmount).toLocaleString('en-IN')}`,
         hasAuthoritativePricing: true,
       } : {
         finalAmount: null,
@@ -765,6 +1190,96 @@ async function generateRecommendations({
   }
 
   return packages;
+}
+
+/**
+ * Filter packages by budgetMax. If the requested cameraCount produces all packages
+ * over budget, automatically try with reduced camera counts (count-1, count-2…)
+ * and explain the adjustment in a budgetNote.
+ *
+ * Returns: { filteredPackages, budgetNote, adjustedCameraCount }
+ */
+async function applyBudgetFilter({ packages, budgetMax, cameraCount, langStyle, generateRecsCallback }) {
+  if (!budgetMax || !packages || packages.length === 0) {
+    return { filteredPackages: packages, budgetNote: null, adjustedCameraCount: cameraCount };
+  }
+
+  const isKannada = langStyle === 'kannada' || langStyle === 'kanglish';
+  const isTamil = langStyle === 'tanglish' || langStyle === 'tamil';
+
+  // Try with original count first
+  const inBudget = packages.filter(pkg =>
+    pkg.pricing && pkg.pricing.finalAmount && pkg.pricing.finalAmount <= budgetMax
+  );
+
+  if (inBudget.length > 0) {
+    return { filteredPackages: inBudget, budgetNote: null, adjustedCameraCount: cameraCount };
+  }
+
+  // All packages exceed budget — find the cheapest package price to explain the gap
+  const cheapest = packages.reduce((min, pkg) =>
+    (pkg.pricing?.finalAmount || Infinity) < (min.pricing?.finalAmount || Infinity) ? pkg : min
+  , packages[0]);
+  const cheapestPrice = cheapest?.pricing?.finalAmount || 0;
+
+  // Try reducing camera count to find what fits
+  for (let tryCount = cameraCount - 1; tryCount >= 1; tryCount--) {
+    const altPackages = await generateRecsCallback(tryCount);
+    const altInBudget = altPackages.filter(pkg =>
+      pkg.pricing && pkg.pricing.finalAmount && pkg.pricing.finalAmount <= budgetMax
+    );
+    if (altInBudget.length > 0) {
+      const budgetFmt = `₹${budgetMax.toLocaleString('en-IN')}`;
+      const origFmt = `₹${cheapestPrice.toLocaleString('en-IN')}`;
+      let budgetNote;
+      if (isKannada) {
+        budgetNote = `ನಿಮ್ಮ ₹${budgetMax.toLocaleString('en-IN')} ಬಜೆಟ್‌ಗೆ ${cameraCount} ಕ್ಯಾಮೆರಾ ಸಿಸ್ಟಮ್ ಲಭ್ಯವಿಲ್ಲ (ಕನಿಷ್ಟ ${origFmt} ಬೇಕಾಗಿದೆ). ನಿಮ್ಮ ಬಜೆಟ್‌ಗೆ ಸರಿಹೊಂದುವ ${tryCount} ಕ್ಯಾಮೆರಾ ಆಯ್ಕೆಗಳನ್ನು ತೋರಿಸುತ್ತಿದ್ದೇನೆ.`;
+      } else if (isTamil) {
+        budgetNote = `Ungal ${budgetFmt} budget-la ${cameraCount} camera complete system possible illa (minimum ${origFmt} aagum). ${tryCount} camera setup-ai ${budgetFmt} budget-la ready pannirken.`;
+      } else {
+        budgetNote = `A ${cameraCount}-camera complete system starts at ${origFmt} with current stock — just above your ${budgetFmt} budget. Here are the best complete setups strictly within your budget (or customize camera count / storage below).`;
+      }
+      return { filteredPackages: altInBudget, budgetNote, adjustedCameraCount: tryCount };
+    }
+  }
+
+  // Nothing fits at all — return cheapest 1 package as "closest" with a note
+  const budgetFmt = `₹${budgetMax.toLocaleString('en-IN')}`;
+  const origFmt = `₹${cheapestPrice.toLocaleString('en-IN')}`;
+  let budgetNote;
+  if (isKannada) {
+    budgetNote = `ನಿಮ್ಮ ${budgetFmt} ಬಜೆಟ್‌ನಲ್ಲಿ ಸಂಪೂರ್ಣ ಸಿಸ್ಟಮ್ ಸಾಧ್ಯವಿಲ್ಲ. ಕನಿಷ್ಟ ಆಯ್ಕೆ ${origFmt} ನಿಂದ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ. ಇಲ್ಲಿ ಲಭ್ಯವಿರುವ ಹತ್ತಿರದ ಆಯ್ಕೆ ತೋರಿಸಲಾಗಿದೆ.`;
+  } else if (isTamil) {
+    budgetNote = `Ungal ${budgetFmt} budget-la complete system possible illa. Minimum ${origFmt} theva. Closest option kaatukiren.`;
+  } else {
+    budgetNote = `No complete system fits within ${budgetFmt} budget — the closest option starts at ${origFmt}. Consider increasing your budget or requesting a site survey for a customized scope.`;
+  }
+  return { filteredPackages: [cheapest], budgetNote, adjustedCameraCount: 1 };
+}
+
+/**
+ * Generate gathering-phase reply when requirements are incomplete.
+ */
+function generateGatheringReply({ langStyle, sessionContext = {} }) {
+  const isKannada = langStyle === 'kannada' || langStyle === 'kanglish';
+  const isTamil = langStyle === 'tanglish' || langStyle === 'tamil';
+
+  if (isKannada) {
+    return (
+      `ನಮಸ್ಕಾರ! 🙏 ನಾನು ನಿಮ್ಮ **TechBes AI ಸೇವಾ ಸಹಾಯಕ**.\n\n` +
+      `ನಿಮಗೆ ಸೂಕ್ತವಾದ CCTV ಪ್ಯಾಕೇಜ್ ತಯಾರಿಸಲು ಕೆಲವು ಪ್ರಶ್ನೆಗಳಿವೆ. ಕೆಳಗೆ ಆಯ್ಕೆ ಮಾಡಿ ಅಥವಾ ನೇರವಾಗಿ ಟೈಪ್ ಮಾಡಿ 👇`
+    );
+  }
+  if (isTamil) {
+    return (
+      `Vanakkam! 🙏 Naan unga **TechBes AI Service Advisor**.\n\n` +
+      `Ungalukku correct CCTV package suggest panna, sila questions kekkanum. Keezhae select pannunga illa type pannunga 👇`
+    );
+  }
+  return (
+    `Hello! 🙏 I'm your **TechBes AI Service Advisor**.\n\n` +
+    `To suggest the perfect package for you, I need a few quick details. Tap an answer below or type freely 👇`
+  );
 }
 
 /**
@@ -897,8 +1412,13 @@ function generateAssistantReply({
   cameraCount = 4,
   isEstimated = false,
   recommendations = [],
+  userPreferences = {},
+  budgetNote = null,
 }) {
   const bestPackage = recommendations.find(r => r.isPopular) || recommendations[0];
+  const targetBrand = userPreferences.brand || null;
+  const isComponentOnly = userPreferences.componentFocus === 'camera_only';
+  const notePrefix = budgetNote ? `${budgetNote}\n\n` : '';
 
   // Kannada & Kanglish
   if (langStyle === 'kannada' || langStyle === 'kanglish') {
@@ -913,8 +1433,11 @@ function generateAssistantReply({
       propertyType === 'Commercial Office' ? 'ಆಫೀಸ್' :
       propertyType === 'Apartment / Flat' ? 'ಅಪಾರ್ಟ್‌ಮೆಂಟ್' : propertyType;
 
+    const brandNote = targetBrand ? ` (${targetBrand} ಅಧಿಕೃತ ಸಿಸ್ಟಮ್)` : '';
+
     return (
-      `ನಮಸ್ಕಾರ! ನಿಮ್ಮ **${propLabel}**-ಗೆ ಸೂಕ್ತವಾದ **${countStr}** CCTV ಸಿಸ್ಟಮ್‌ಗಾಗಿ ನಾನು 2–3 ಪ್ಯಾಕೇಜ್ ಆಯ್ಕೆಗಳನ್ನು ಸಿದ್ಧಪಡಿಸಿದ್ದೇನೆ.\n\n` +
+      notePrefix +
+      `ನಮಸ್ಕಾರ! ನಿಮ್ಮ **${propLabel}**-ಗೆ ಸೂಕ್ತವಾದ **${countStr}** CCTV ಸಿಸ್ಟಮ್‌ಗಾಗಿ${brandNote} ನಾನು 2–3 ಪ್ಯಾಕೇಜ್ ಆಯ್ಕೆಗಳನ್ನು ಸಿದ್ಧಪಡಿಸಿದ್ದೇನೆ.\n\n` +
       `💡 **ಶಿಫಾರಸು ಮಾಡಲಾದ ಅತ್ಯುತ್ತಮ ಆಯ್ಕೆ**: **${bestPackage?.title || 'Smart Color Pro'}** (${priceSnippet}). ಇದರಲ್ಲಿ 24/7 ಕಲರ್ ನೈಟ್ ವಿಷನ್, ಮೊಬೈಲ್ ಲೈವ್ ವೀಕ್ಷಣೆ, ಅಧಿಕೃತ CP Plus / Hikvision ಹಾರ್ಡ್‌ವೇರ್ ಮತ್ತು 2 ವರ್ಷಗಳ ವಾರಂಟಿ ಒಳಗೊಂಡಿರುತ್ತದೆ.\n\n` +
       `📌 *ಗಮನಿಸಿ*: ಅಂತಿಮ ಕೇಬಲ್ ಉದ್ದ ಮತ್ತು ಕ್ಯಾಮೆರಾ ಸ್ಥಾನಗಳನ್ನು ನಮ್ಮ ಉಚಿತ ಸೈಟ್ ಭೇಟಿಯ ಸಮಯದಲ್ಲಿ ಅಂತಿಮಗೊಳಿಸಲಾಗುತ್ತದೆ. ನೀವು ಕೆಳಗಿನ ಪ್ಯಾಕೇಜ್ ಆರಿಸಿ ನೇರವಾಗಿ ಕೊಟೇಶನ್ ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಬಹುದು!`
     );
@@ -928,20 +1451,26 @@ function generateAssistantReply({
       : 'with itemized quotation';
 
     return (
+      notePrefix +
       `Vanakkam! Ungaloda **${propertyType}**-ku thevayana **${countStr}** CCTV setup-ku naan 2–3 suitable configurations ready pannirken.\n\n` +
-      `💡 **Recommended Choice**: **${bestPackage?.title || 'Smart Color Pro'}** (${priceSnippet}). Idhula 24/7 Color Night Vision, mobile live viewing, genuine CP Plus / Hikvision hardware, and 2-year warranty include aagum.\n\n` +
+      `💡 **Recommended Choice**: **${bestPackage?.title || 'Smart Color Pro'}** (${priceSnippet}). Idhula 24/7 Color Night Vision, mobile live viewing, genuine hardware, and 2-year warranty include aagum.\n\n` +
       `📌 *Note*: Final cable length and exact camera positions will be confirmed during our free on-site survey. Nee-nga package choose panni direct-ah quotation request submit pannalam!`
     );
   }
 
   // English
-  const countStr = `${cameraCount} camera${cameraCount > 1 ? 's' : ''}`;
+  const countStr = isComponentOnly
+    ? `${cameraCount} camera expansion kit${cameraCount > 1 ? 's' : ''}`
+    : `${cameraCount} camera${cameraCount > 1 ? 's' : ''}`;
   const priceSnippet = bestPackage && bestPackage.pricing?.priceDisplay
     ? `starting from **${bestPackage.pricing.priceDisplay}**`
     : 'with itemized quotation';
 
+  const brandIntro = targetBrand ? ` featuring genuine **${targetBrand}** hardware` : '';
+
   return (
-    `Hello! Based on your requirement for **${propertyType}**, I have configured **${countStr}** with 2–3 tailored package tiers below.\n\n` +
+    notePrefix +
+    `Hello! Based on your requirement for **${propertyType}**, I have configured **${countStr}**${brandIntro} with 2–3 tailored package tiers below.\n\n` +
     `⭐ **Most Popular Option**: **${bestPackage?.title || 'Smart Color Pro'}** (${priceSnippet}). It includes 24/7 color night vision, mobile app streaming, hard drive storage, and complete professional installation.\n\n` +
     `🔍 *Next Steps*: Select a package below to inspect the genuine item breakdown, customize cameras or storage, or request an official quotation with one click!`
   );
@@ -949,10 +1478,31 @@ function generateAssistantReply({
 
 /**
  * Controller handler for POST /api/v2/ai/recommend-services
+ *
+ * Request body:
+ *   messages: Array<{role, content}>   — full conversation history
+ *   customerLocale: string             — 'en-IN' | 'kn-IN' | 'ta-IN'
+ *   serviceCategory: string | null     — optional pre-set category
+ *   sessionContext: object | null      — accumulated slot values from prior turns
+ *     { propertyType, cameraCount, budgetMax, brand, componentFocus, visionPreference }
+ *
+ * Response data:
+ *   stage: 'gathering_requirements' | 'recommendations'
+ *   sessionContext: updated accumulated context
+ *   reply: string
+ *   clarificationQuestions: []
+ *   recommendations: []
+ *   appliedFilters: []
+ *   budgetNote: string | null
  */
 async function processServiceRecommendation(req, res, next) {
   try {
-    const { messages = [], customerLocale = 'en-IN', serviceCategory = null } = req.body;
+    const {
+      messages = [],
+      customerLocale = 'en-IN',
+      serviceCategory = null,
+      sessionContext: incomingContext = {},
+    } = req.body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({
@@ -961,45 +1511,160 @@ async function processServiceRecommendation(req, res, next) {
       });
     }
 
-    const latestUserMsg = messages[messages.length - 1]?.content || '';
+    const latestUserMsg = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
     const fullTranscript = messages.map(m => m.content).join(' ');
 
     const langStyle = detectLanguageStyle(latestUserMsg, customerLocale);
     const { category, subcategory } = detectServiceCategory(fullTranscript, serviceCategory);
-    const propertyType = detectPropertyType(fullTranscript);
+
+    // ── SLOT FILLING: Merge incoming session context with new message extractions ──
+    // Rules: existing session values are overridden only when the NEW message
+    // explicitly provides a fresh value (not when it's the same default).
+    const session = { ...(incomingContext || {}) };
+
+    // Property type — only override if explicitly in the latest message
+    const latestProp = detectPropertyTypeExplicit(latestUserMsg);
+    if (latestProp) session.propertyType = latestProp;
+    else if (!session.propertyType) {
+      // Fallback: scan full transcript for property type
+      const transcriptProp = detectPropertyTypeExplicit(fullTranscript);
+      if (transcriptProp) session.propertyType = transcriptProp;
+    }
+
+    // Camera count — latest message wins
+    const latestCount = extractCameraCount(latestUserMsg);
+    if (latestCount) session.cameraCount = latestCount;
+    else if (!session.cameraCount) {
+      const transcriptCount = extractCameraCount(fullTranscript);
+      if (transcriptCount) session.cameraCount = transcriptCount;
+    }
+
+    // Budget max — latest message wins (multilingual parser)
+    const latestBudget = extractBudgetMax(latestUserMsg);
+    if (latestBudget) session.budgetMax = latestBudget;
+    else if (!session.budgetMax) {
+      const transcriptBudget = extractBudgetMax(fullTranscript);
+      if (transcriptBudget) session.budgetMax = transcriptBudget;
+    }
+
+    // User preferences (brand, componentFocus, visionPreference, etc.)
+    const latestPrefs = extractUserPreferences(latestUserMsg);
+    if (latestPrefs.brand) session.brand = latestPrefs.brand;
+    if (latestPrefs.componentFocus && latestPrefs.componentFocus !== 'full_system') {
+      session.componentFocus = latestPrefs.componentFocus;
+    }
+    if (latestPrefs.visionPreference) session.visionPreference = latestPrefs.visionPreference;
+
+    // Merge budgetCap from preferences parser (older regex) if multilingual parser missed it
+    if (!session.budgetMax && latestPrefs.budgetCap) {
+      session.budgetMax = latestPrefs.budgetCap;
+    }
+
+    // ── PHASE DETECTION ──
+    const vague = isVagueRequest(latestUserMsg, session);
+
+    // ── PHASE A: GATHERING REQUIREMENTS ──
+    if (vague) {
+      const clarificationQuestions = generateClarificationQuestions(
+        { category, propertyType: session.propertyType, cameraCount: session.cameraCount },
+        langStyle
+      );
+      const reply = generateGatheringReply({ langStyle, sessionContext: session });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          stage: 'gathering_requirements',
+          sessionContext: session,
+          reply,
+          languageStyle: langStyle,
+          detectedCategory: category,
+          detectedSubcategory: subcategory,
+          clarificationQuestions,
+          recommendations: [],
+          appliedFilters: [],
+          budgetNote: null,
+          estimatedCameraCount: session.cameraCount || null,
+          isEstimatedCount: false,
+          detectedPropertyType: session.propertyType || null,
+        },
+      });
+    }
+
+    // ── PHASE B: TAILORED RECOMMENDATIONS ──
     const floors = extractFloors(fullTranscript);
-    const { count: cameraCount, isEstimated } = estimateCameraCount({
-      propertyType,
+    const { count: estimatedCount, isEstimated } = estimateCameraCount({
+      propertyType: session.propertyType || 'Home / Villa',
       floors,
       text: fullTranscript,
     });
 
-    const visionPreference = fullTranscript.toLowerCase().includes('color') || fullTranscript.includes('ಬಣ್ಣ')
-      ? 'Color Night Vision'
-      : fullTranscript.toLowerCase().includes('ir') || fullTranscript.includes('ಇನ್‌ಫ್ರಾರೆಡ್')
-      ? 'Standard IR'
-      : 'Color Night Vision';
+    const cameraCount = session.cameraCount || estimatedCount;
+    const propertyType = session.propertyType || 'Home / Villa';
 
-    const audioPreference = fullTranscript.toLowerCase().includes('audio') || fullTranscript.includes('ಆಡಿಯೋ') || fullTranscript.toLowerCase().includes('sound');
+    const userPreferences = {
+      brand: session.brand || null,
+      componentFocus: session.componentFocus || 'full_system',
+      visionPreference: session.visionPreference || 'Color Night Vision',
+      budgetCap: session.budgetMax || null,
+    };
 
-    // Generate grounded packages with Kannada / Tamil / English text
-    const recommendations = await generateRecommendations({
+    // Helper to generate packages for a given camera count (used by budget filter)
+    const generateRecsForCount = (count) => generateRecommendations({
       category,
       subcategory,
       propertyType,
-      cameraCount,
-      visionPreference,
-      audioPreference,
+      cameraCount: count,
+      visionPreference: userPreferences.visionPreference,
+      audioPreference: false,
       cableEstimatePerCam: 25,
       langStyle,
+      userPreferences,
     });
 
-    const clarificationQuestions = generateClarificationQuestions(
-      {
-        category,
-        propertyType,
+    // Generate base packages
+    let recommendations = await generateRecsForCount(cameraCount);
+
+    // Apply budget filter
+    let budgetNote = null;
+    let adjustedCameraCount = cameraCount;
+    if (session.budgetMax) {
+      const result = await applyBudgetFilter({
+        packages: recommendations,
+        budgetMax: session.budgetMax,
         cameraCount,
-      },
+        langStyle,
+        generateRecsCallback: generateRecsForCount,
+      });
+      recommendations = result.filteredPackages;
+      budgetNote = result.budgetNote;
+      adjustedCameraCount = result.adjustedCameraCount;
+    }
+
+    // Build applied filters array for the UI
+    const appliedFilters = [];
+    if (propertyType) {
+      const propIcons = {
+        'Home / Villa': '🏠',
+        'Apartment / Flat': '🏢',
+        'Retail Shop': '🛍️',
+        'Commercial Office': '💼',
+        'Warehouse / Godown': '🏭',
+      };
+      appliedFilters.push({ key: 'propertyType', label: `${propIcons[propertyType] || '📍'} ${propertyType}`, value: propertyType });
+    }
+    if (session.cameraCount || adjustedCameraCount) {
+      appliedFilters.push({ key: 'cameraCount', label: `📷 ${adjustedCameraCount} Camera${adjustedCameraCount !== 1 ? 's' : ''}`, value: adjustedCameraCount });
+    }
+    if (session.budgetMax) {
+      appliedFilters.push({ key: 'budget', label: `💰 Under ₹${session.budgetMax.toLocaleString('en-IN')}`, value: session.budgetMax });
+    }
+    if (userPreferences.brand) {
+      appliedFilters.push({ key: 'brand', label: `🏷️ ${userPreferences.brand}`, value: userPreferences.brand });
+    }
+
+    const clarificationQuestions = generateClarificationQuestions(
+      { category, propertyType, cameraCount: adjustedCameraCount },
       langStyle
     );
 
@@ -1007,23 +1672,33 @@ async function processServiceRecommendation(req, res, next) {
       langStyle,
       category,
       propertyType,
-      cameraCount,
-      isEstimated,
+      cameraCount: adjustedCameraCount,
+      isEstimated: session.cameraCount ? false : isEstimated,
       recommendations,
+      userPreferences,
+      budgetNote,
     });
+
+    // Update session with final resolved values
+    session.cameraCount = session.cameraCount || adjustedCameraCount;
+    session.propertyType = propertyType;
 
     return res.status(200).json({
       success: true,
       data: {
+        stage: 'recommendations',
+        sessionContext: session,
         reply,
         languageStyle: langStyle,
         detectedCategory: category,
         detectedSubcategory: subcategory,
         detectedPropertyType: propertyType,
-        estimatedCameraCount: cameraCount,
-        isEstimatedCount: isEstimated,
+        estimatedCameraCount: adjustedCameraCount,
+        isEstimatedCount: session.cameraCount ? false : isEstimated,
         clarificationQuestions,
         recommendations,
+        appliedFilters,
+        budgetNote,
       },
     });
   } catch (err) {
@@ -1040,11 +1715,17 @@ module.exports = {
   detectLanguageStyle,
   detectServiceCategory,
   detectPropertyType,
+  detectPropertyTypeExplicit,
   extractCameraCount,
   extractFloors,
+  extractBudgetMax,
   estimateCameraCount,
+  extractUserPreferences,
+  isVagueRequest,
   generateRecommendations,
+  applyBudgetFilter,
   generateClarificationQuestions,
+  generateGatheringReply,
   generateAssistantReply,
   processServiceRecommendation,
 };

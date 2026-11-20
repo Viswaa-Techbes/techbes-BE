@@ -11,6 +11,7 @@ const materialSchema = new mongoose.Schema(
     modelNumber: { type: String, default: '', trim: true },
     sku: { type: String, default: '', trim: true, uppercase: true },
     variant: { type: String, default: '', trim: true }, // e.g. "2MP", "4MP", "8-Port Gigabit"
+    tier: { type: String, enum: ['budget', 'standard', 'premium', 'enterprise', ''], default: '', trim: true },
     specifications: { type: String, default: '', trim: true },
     unit: { type: String, default: 'each', trim: true },
     price: { type: Number, required: true, min: 0, default: 0 },
