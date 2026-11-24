@@ -796,6 +796,18 @@ async function getUserDetails(req, res, next) {
   }
 }
 
+function normalizePhoneNumber(phone) {
+  if (!phone) return '';
+  const cleaned = String(phone).trim().replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('91')) {
+    return cleaned.slice(2);
+  }
+  if (cleaned.length === 11 && cleaned.startsWith('0')) {
+    return cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 /**
  * User Management
  */
@@ -812,21 +824,167 @@ async function createUser(req, res, next) {
   try {
     const { password, role, email, mobileNumber, name } = req.body;
 
+    const rawMobile = mobileNumber || req.body.phone;
+    if (!rawMobile) {
+      return res.status(400).json({ success: false, message: 'Mobile number is required' });
+    }
+
+    const normalizedMobile = normalizePhoneNumber(rawMobile);
+    if (!/^\d{10}$/.test(normalizedMobile)) {
+      return res.status(400).json({ success: false, message: 'Valid 10-digit mobile number is required' });
+    }
+
     if (password) {
-      const passwordCheck = validatePasswordStrength(password);
-      if (!passwordCheck.valid) {
-        return res.status(400).json({ success: false, message: passwordCheck.message });
+      if (typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
       }
     }
 
     const allowedRoles = ['admin', 'manager', 'technician', 'client'];
     const safeRole = allowedRoles.includes(role) ? role : 'technician';
 
-    const user = await User.create({
+    const normalizedEmail = (typeof email === 'string' && email.trim() !== '') ? email.trim().toLowerCase() : undefined;
+
+    // Check for existing user by mobileNumber variants
+    const mobileVariants = [
+      normalizedMobile,
+      `+91${normalizedMobile}`,
+      `91${normalizedMobile}`,
+      `0${normalizedMobile}`,
+    ];
+
+    const existingUser = await User.findOne({
+      $or: [
+        { mobileNumber: { $in: mobileVariants } },
+        { phone: { $in: mobileVariants } },
+      ],
+    }).select('+password');
+
+    if (existingUser) {
+      const isStaff = ['technician', 'manager', 'admin'].includes(existingUser.role);
+      const isActiveStaff = isStaff && existingUser.isDeleted !== true && existingUser.employeeStatus !== 'Inactive';
+
+      if (isActiveStaff) {
+        return res.status(400).json({
+          success: false,
+          message: 'MobileNumber already registered or in use.',
+        });
+      }
+
+      // Check if email conflicts with another user
+      if (normalizedEmail) {
+        const existingEmailUser = await User.findOne({
+          _id: { $ne: existingUser._id },
+          email: normalizedEmail,
+          isDeleted: { $ne: true },
+        });
+        if (existingEmailUser) {
+          return res.status(400).json({ success: false, message: 'Email already registered' });
+        }
+      }
+
+      // Reactivate soft-deleted employee or promote customer account
+      existingUser.isDeleted = false;
+      existingUser.employeeStatus = req.body.employeeStatus || 'Active';
+      existingUser.status = 'available';
+      existingUser.availabilityStatus = 'ONLINE';
+      existingUser.role = safeRole;
+      existingUser.userType = 'member';
+      existingUser.mobileNumber = normalizedMobile;
+      existingUser.phone = normalizedMobile;
+
+      if (name) existingUser.name = name.trim();
+      if (normalizedEmail) existingUser.email = normalizedEmail;
+      if (password) {
+        existingUser.password = password; // Will be hashed by pre-save hook
+      }
+
+      if (req.body.specialty !== undefined) existingUser.specialty = req.body.specialty;
+      if (req.body.specialty) {
+        existingUser.serviceCategories = [req.body.specialty];
+      } else if (req.body.serviceCategories !== undefined) {
+        existingUser.serviceCategories = req.body.serviceCategories;
+      }
+      if (req.body.address !== undefined) existingUser.address = req.body.address;
+      if (req.body.pincode !== undefined) existingUser.pincode = req.body.pincode;
+      if (req.body.skills !== undefined) {
+        existingUser.skills = Array.isArray(req.body.skills)
+          ? req.body.skills
+          : String(req.body.skills).split(',').map((s) => s.trim()).filter(Boolean);
+      }
+      if (req.body.joiningDate) existingUser.joiningDate = new Date(req.body.joiningDate);
+
+      // Ensure employeeId and employeeCode exist for staff roles
+      if (['technician', 'manager', 'admin'].includes(safeRole)) {
+        if (!existingUser.employeeId) {
+          const ts = Math.floor(Date.now() / 1000);
+          const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+          existingUser.employeeId = `EMP-${ts}-${rand}`;
+        }
+        if (!existingUser.employeeCode) {
+          const randNum = Math.floor(1000 + Math.random() * 9000);
+          existingUser.employeeCode = `TECH-${randNum}`;
+        }
+      }
+
+      await existingUser.save();
+
+      console.log(`[ADMIN ACTION] Re-activated/promoted user ${existingUser._id} to ${safeRole} with mobile ${normalizedMobile} by ${req.user?.id || 'admin'}`);
+
+      await recordAudit({
+        actorId: req.user?.id,
+        actorEmail: req.user?.email,
+        actorRole: req.user?.role,
+        action: isStaff ? 'reactivate_employee_v2' : 'promote_customer_to_employee_v2',
+        entityType: 'user',
+        entityId: existingUser._id.toString(),
+        ip: req.ip || '',
+        userAgent: req.headers['user-agent'] || '',
+        details: {
+          email: existingUser.email,
+          role: existingUser.role,
+          name: existingUser.name,
+          mobileNumber: normalizedMobile,
+        },
+      });
+
+      return res.status(200).json({ success: true, data: existingUser.toSafeObject() });
+    }
+
+    // New user registration
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Password is required' });
+    }
+
+    if (normalizedEmail) {
+      const existingEmailUser = await User.findOne({
+        email: normalizedEmail,
+        isDeleted: { $ne: true },
+      });
+      if (existingEmailUser) {
+        return res.status(400).json({ success: false, message: 'Email already registered' });
+      }
+    }
+
+    const userData = {
       ...req.body,
+      mobileNumber: normalizedMobile,
+      phone: normalizedMobile,
+      email: normalizedEmail,
       role: safeRole,
       userType: 'member',
-    });
+      employeeStatus: req.body.employeeStatus || 'Active',
+      isDeleted: false,
+    };
+
+    if (userData.specialty && (!userData.serviceCategories || userData.serviceCategories.length === 0)) {
+      userData.serviceCategories = [userData.specialty];
+    }
+    if (typeof userData.skills === 'string') {
+      userData.skills = userData.skills.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    const user = await User.create(userData);
 
     await recordAudit({
       actorId: req.user?.id,
@@ -837,7 +995,7 @@ async function createUser(req, res, next) {
       entityId: user._id.toString(),
       ip: req.ip || '',
       userAgent: req.headers['user-agent'] || '',
-      details: { email: user.email, role: user.role, name: user.name },
+      details: { email: user.email, role: user.role, name: user.name, mobileNumber: user.mobileNumber },
     });
 
     const safeUser = user.toSafeObject();
@@ -849,9 +1007,89 @@ async function createUser(req, res, next) {
 
 async function updateUser(req, res, next) {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true }).select('-password');
+    const user = await User.findById(req.params.id).select('+password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    return res.json({ success: true, data: user });
+
+    const updateData = { ...req.body };
+
+    // Normalize mobileNumber if provided
+    if (updateData.mobileNumber || updateData.phone) {
+      const normalizedMobile = normalizePhoneNumber(updateData.mobileNumber || updateData.phone);
+      if (!/^\d{10}$/.test(normalizedMobile)) {
+        return res.status(400).json({ success: false, message: 'Valid 10-digit mobile number is required' });
+      }
+      updateData.mobileNumber = normalizedMobile;
+      updateData.phone = normalizedMobile;
+
+      const existingUser = await User.findOne({
+        _id: { $ne: user._id },
+        $or: [
+          { mobileNumber: { $in: [normalizedMobile, `+91${normalizedMobile}`, `91${normalizedMobile}`, `0${normalizedMobile}`] } },
+          { phone: { $in: [normalizedMobile, `+91${normalizedMobile}`, `91${normalizedMobile}`, `0${normalizedMobile}`] } },
+        ],
+        isDeleted: { $ne: true },
+      });
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'MobileNumber already registered or in use.' });
+      }
+    }
+
+    // Optional password update (from Edit Employee Account form or direct update)
+    if (updateData.password !== undefined && String(updateData.password).trim() !== '') {
+      const newPass = String(updateData.password).trim();
+      if (newPass.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+      }
+      user.password = newPass; // will be hashed by pre-save hook
+      user.sessionActive = false;
+      console.log(`[ADMIN ACTION] Password updated via edit user for ${user._id} by ${req.user?.id || 'admin'}`);
+    }
+    delete updateData.password;
+
+    if (typeof updateData.email === 'string') {
+      const normEmail = updateData.email.trim().toLowerCase();
+      if (normEmail) {
+        const existingEmail = await User.findOne({
+          _id: { $ne: user._id },
+          email: normEmail,
+          isDeleted: { $ne: true },
+        });
+        if (existingEmail) {
+          return res.status(400).json({ success: false, message: 'Email already registered' });
+        }
+        user.email = normEmail;
+      } else {
+        user.email = undefined;
+      }
+      delete updateData.email;
+    }
+
+    if (updateData.specialty && (!updateData.serviceCategories || updateData.serviceCategories.length === 0)) {
+      updateData.serviceCategories = [updateData.specialty];
+    }
+    if (typeof updateData.skills === 'string') {
+      updateData.skills = updateData.skills.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    Object.keys(updateData).forEach((key) => {
+      user[key] = updateData[key];
+    });
+
+    await user.save();
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'update_user_v2',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      details: { email: user.email, role: user.role, name: user.name, mobileNumber: user.mobileNumber },
+    });
+
+    return res.json({ success: true, data: user.toSafeObject() });
   } catch (err) {
     next(err);
   }
@@ -859,8 +1097,34 @@ async function updateUser(req, res, next) {
 
 async function deleteUser(req, res, next) {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { isDeleted: true }, { new: true });
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        isDeleted: true,
+        employeeStatus: 'Inactive',
+        availabilityStatus: 'OFFLINE',
+        isOnline: false,
+        sessionActive: false,
+        status: 'offline',
+      },
+      { new: true }
+    );
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    console.log(`[ADMIN ACTION] Employee ${user._id} deleted/deactivated by ${req.user?.id || 'admin'}`);
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'delete_user_v2',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      details: { email: user.email, role: user.role, name: user.name, mobileNumber: user.mobileNumber },
+    });
+
     return res.json({ success: true, message: 'User deleted successfully' });
   } catch (err) {
     next(err);
@@ -1383,7 +1647,7 @@ async function deleteServiceRequest(req, res, next) {
 }
 
 /**
- * Change User Password (Admin action)
+ * Change / Reset User/Employee Password (Admin action)
  */
 async function changeUserPassword(req, res, next) {
   try {
@@ -1391,18 +1655,17 @@ async function changeUserPassword(req, res, next) {
     const { newPassword, password } = req.body;
     const targetPassword = newPassword || password;
 
-    if (!targetPassword) {
+    if (!targetPassword || typeof targetPassword !== 'string') {
       return res.status(400).json({
         success: false,
         message: 'New password is required',
       });
     }
 
-    const passwordCheck = validatePasswordStrength(targetPassword);
-    if (!passwordCheck.valid) {
+    if (targetPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message: passwordCheck.message,
+        message: 'Password must be at least 6 characters long',
       });
     }
 
@@ -1411,25 +1674,32 @@ async function changeUserPassword(req, res, next) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    user.password = targetPassword; // Will be hashed by pre-save hook
+    user.password = targetPassword; // Will be hashed by pre-save hook using bcrypt
     user.sessionActive = false; // Invalidate current session for security
     await user.save();
+
+    console.log(`[ADMIN ACTION] Password reset for employee ${user._id} by ${req.user?.id || 'admin'}`);
 
     await recordAudit({
       actorId: req.user?.id,
       actorEmail: req.user?.email,
       actorRole: req.user?.role,
-      action: 'admin_change_user_password',
+      action: 'admin_reset_employee_password',
       entityType: 'user',
       entityId: user._id.toString(),
       ip: req.ip || '',
       userAgent: req.headers['user-agent'] || '',
-      details: { targetUserEmail: user.email },
+      details: {
+        targetUserEmail: user.email,
+        targetUserRole: user.role,
+        targetUserMobile: user.mobileNumber,
+        targetUserName: user.name,
+      },
     });
 
     return res.json({
       success: true,
-      message: `Password changed successfully for ${user.name || 'user'}`,
+      message: `Password reset successfully for ${user.name || 'employee'}`,
     });
   } catch (err) {
     next(err);

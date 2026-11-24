@@ -43,6 +43,19 @@ router.post('/users', adminControllerV2.createUser);
 router.put('/users/:id', adminControllerV2.updateUser);
 router.delete('/users/:id', adminControllerV2.deleteUser);
 router.put('/users/:id/password', adminControllerV2.changeUserPassword);
+router.patch('/users/:id/reset-password', adminControllerV2.changeUserPassword);
+router.post('/users/:id/reset-password', adminControllerV2.changeUserPassword);
+
+// Employee route aliases
+router.get('/employees', adminControllerV2.getUsers);
+router.get('/employees/:id', adminControllerV2.getUserDetails);
+router.post('/employees', adminControllerV2.createUser);
+router.put('/employees/:id', adminControllerV2.updateUser);
+router.delete('/employees/:id', adminControllerV2.deleteUser);
+router.patch('/employees/:id/reset-password', adminControllerV2.changeUserPassword);
+router.post('/employees/:id/reset-password', adminControllerV2.changeUserPassword);
+router.put('/employees/:id/reset-password', adminControllerV2.changeUserPassword);
+router.put('/employees/:id/password', adminControllerV2.changeUserPassword);
 
 // Legacy aliases or specific routes if needed
 router.post('/create-user', adminControllerV2.createUser); // Alias for compatibility
