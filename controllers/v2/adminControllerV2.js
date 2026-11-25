@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../../models/User');
 const Lead = require('../../models/Lead');
 const Job = require('../../models/Job');
