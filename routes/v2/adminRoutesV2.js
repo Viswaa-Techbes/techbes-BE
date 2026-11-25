@@ -68,6 +68,7 @@ router.delete('/jobs/:id', adminControllerV2.deleteJob);
 
 // Bookings (v2 Service Requests)
 router.get('/bookings', adminControllerV2.getBookings);
+router.post('/bookings', adminControllerV2.createServiceRequest);
 router.put('/bookings/:id/assign', adminControllerV2.assignBooking);
 router.post('/bookings/:id/assign', adminControllerV2.assignBooking);
 router.post('/service-requests/:id/assign', adminControllerV2.assignBooking);
@@ -80,6 +81,7 @@ router.patch('/bookings/:id/verify', adminControllerV2.verifyJobWork);
 router.post('/service-requests/:id/verify', adminControllerV2.verifyJobWork);
 router.patch('/service-requests/:id/verify', adminControllerV2.verifyJobWork);
 router.get('/service-requests', adminControllerV2.getServiceRequests);
+router.post('/service-requests', adminControllerV2.createServiceRequest);
 router.get('/service-requests/:id', adminControllerV2.getServiceRequestById);
 router.put('/service-requests/:id', adminControllerV2.updateServiceRequest);
 router.patch('/service-requests/:id', adminControllerV2.updateServiceRequest);
@@ -202,6 +204,13 @@ router.put('/payment-requests/:id', adminControllerV2.updatePaymentRequest);
 
 // Tracking & Reports
 router.get('/tracking', adminControllerV2.getTracking);
+
+// Technician Expenses
+router.get('/expenses', adminControllerV2.getExpenses);
+router.patch('/expenses/:id/approve', adminControllerV2.approveExpense);
+router.post('/expenses/:id/approve', adminControllerV2.approveExpense);
+router.patch('/expenses/:id/reject', adminControllerV2.rejectExpense);
+router.post('/expenses/:id/reject', adminControllerV2.rejectExpense);
 router.get('/reviews', adminControllerV2.getReviews);
 router.get('/attendance', adminControllerV2.getAttendance);
 router.get('/addresses', adminControllerV2.getAddresses);

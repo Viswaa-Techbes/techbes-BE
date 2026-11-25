@@ -126,6 +126,155 @@ async function getBookings(req, res, next) {
 }
 
 /**
+ * Create a new Service Request / Work Order from Admin Panel
+ */
+async function createServiceRequest(req, res, next) {
+  try {
+    const {
+      customerName,
+      customerPhone,
+      customerEmail,
+      address,
+      location,
+      pincode,
+      serviceCategory,
+      subcategory,
+      equipmentSummary,
+      description,
+      title,
+      totalAmount,
+      amount,
+      paymentStatus,
+      preferredDate,
+      timeSlot,
+      scheduledTime,
+      priority,
+      technicianId,
+      dispatchNote,
+    } = req.body;
+
+    if (!customerName || !customerPhone) {
+      return res.status(400).json({ success: false, message: 'Customer name and mobile number are required' });
+    }
+
+    const normalizedPhone = String(customerPhone).replace(/\D/g, '').slice(-10);
+    if (normalizedPhone.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Valid 10-digit customer mobile number is required' });
+    }
+
+    const finalAddress = (address || location || '').trim();
+    if (!finalAddress) {
+      return res.status(400).json({ success: false, message: 'Site address is required' });
+    }
+
+    const cat = (serviceCategory || 'CCTV').trim();
+    const subcat = (subcategory || 'New Installation').trim();
+    const jobTitle = (title || `${cat} - ${subcat}`).trim();
+    const jobDesc = (equipmentSummary || description || '').trim();
+    const numAmount = Number(totalAmount ?? amount ?? 0) || 0;
+
+    let normalizedPaymentStatus = String(paymentStatus || 'pending').toLowerCase();
+    if (normalizedPaymentStatus === 'partial') normalizedPaymentStatus = 'advance_paid';
+    const validPaymentStatuses = ['pending', 'advance_paid', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected', 'FREE', 'NOT_REQUIRED'];
+    if (!validPaymentStatuses.includes(normalizedPaymentStatus)) {
+      normalizedPaymentStatus = 'pending';
+    }
+
+    let normalizedPriority = String(priority || 'medium').toLowerCase();
+    if (normalizedPriority === 'normal') normalizedPriority = 'medium';
+    if (normalizedPriority === 'urgent') normalizedPriority = 'high';
+    if (!['low', 'medium', 'high'].includes(normalizedPriority)) normalizedPriority = 'medium';
+
+    const year = new Date().getFullYear();
+    const randomSeq = String(Math.floor(10000 + Math.random() * 90000));
+    const bookingNumber = `ORD-${year}-${randomSeq}`;
+
+    const serviceTypeMap = {
+      'New Installation': 'installation',
+      'Repair / Troubleshooting': 'repair',
+      'Upgrade': 'other',
+      'AMC Visit': 'other',
+    };
+    const serviceType = serviceTypeMap[subcat] || 'other';
+
+    const startOtp = String(Math.floor(1000 + Math.random() * 9000));
+    const completionOtp = String(Math.floor(1000 + Math.random() * 9000));
+
+    const v2Metadata = new Map();
+    v2Metadata.set('serviceCategory', cat);
+    v2Metadata.set('subcategory', subcat);
+    if (pincode) v2Metadata.set('pincode', String(pincode).trim());
+    if (customerEmail) v2Metadata.set('customerEmail', String(customerEmail).trim());
+    if (preferredDate) v2Metadata.set('preferredDate', String(preferredDate).trim());
+    if (timeSlot) v2Metadata.set('timeSlot', String(timeSlot).trim());
+
+    const job = await Job.create({
+      bookingNumber,
+      bookingId: bookingNumber,
+      title: jobTitle,
+      serviceName: jobTitle,
+      description: jobDesc,
+      serviceType,
+      customerName: customerName.trim(),
+      customerPhone: normalizedPhone,
+      location: finalAddress,
+      address: finalAddress,
+      pincode: pincode ? String(pincode).trim() : '',
+      amount: numAmount,
+      price: numAmount,
+      paymentStatus: normalizedPaymentStatus,
+      scheduledTime: scheduledTime || (preferredDate ? `${preferredDate}${timeSlot ? ' ' + timeSlot : ''}` : 'ASAP'),
+      priority: normalizedPriority,
+      status: 'pending',
+      dispatchStatus: 'pending_dispatch',
+      dispatchNote: (dispatchNote || '').trim(),
+      startOtp,
+      completionOtp,
+      useNewFlow: true,
+      v2Metadata,
+    });
+
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    await JobStatusHistory.create({
+      jobId: job._id.toString(),
+      bookingId: bookingNumber,
+      status: 'pending',
+      note: `Work Order created by Admin${dispatchNote ? ': ' + dispatchNote.trim() : ''}`,
+      changedBy: req.user?.id || null,
+      role: req.user?.role || 'admin',
+      timestamp: new Date(),
+    });
+
+    const io = req.app.get('io') || global._socketIo;
+    if (technicianId) {
+      const dispatchService = require('../../services/dispatchService');
+      await dispatchService.adminOverrideAssignment(job._id, technicianId, req.user.id, io, dispatchNote || '');
+    } else if (io) {
+      io.to('admin_room').emit('newBooking', {
+        jobId: job._id.toString(),
+        bookingNumber,
+        customerName: job.customerName,
+        title: job.title,
+      });
+    }
+
+    const populatedJob = await Job.findById(job._id)
+      .populate('client', 'name phone email')
+      .populate('assignedTechnician', 'name email specialty')
+      .populate('addressId')
+      .lean();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Work Order created successfully',
+      data: formatServiceRequest(populatedJob),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * Service Requests — list with populated related data
  */
 async function getServiceRequests(req, res, next) {
@@ -1277,7 +1426,12 @@ async function getReviews(req, res, next) {
  */
 async function getTracking(req, res, next) {
   try {
-    const techs = await User.find({ role: 'technician', isDeleted: { $ne: true } })
+    const techs = await User.find({
+      role: 'technician',
+      isDeleted: { $ne: true },
+      employeeStatus: { $ne: 'Inactive' },
+      status: { $ne: 'Inactive' }
+    })
       .select('name lat lng isOnline status updatedAt specialty');
     return res.json({
       success: true,
@@ -1909,9 +2063,149 @@ async function updateApplicationStatus(req, res, next) {
   }
 }
 
+/**
+ * Technician Field Expenses (Admin Review)
+ */
+async function getExpenses(req, res, next) {
+  try {
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+    const { status } = req.query;
+    const query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    const expenses = await Expense.find(query)
+      .sort({ createdAt: -1 })
+      .populate('technicianId', 'name mobileNumber email')
+      .populate('jobId', 'bookingNumber title customerName')
+      .lean();
+
+    return res.json({
+      success: true,
+      data: expenses.map((e) => ({
+        _id: e._id,
+        id: e._id,
+        description: e.description,
+        category: e.category || 'General',
+        amount: e.amount,
+        status: e.status,
+        receiptUrl: e.receiptUrl || '',
+        rejectionReason: e.rejectionReason || '',
+        date: e.date || e.createdAt,
+        createdAt: e.createdAt,
+        technicianId: e.technicianId?._id || e.technicianId,
+        technicianName: e.technicianId?.name || 'Unknown Tech',
+        technicianPhone: e.technicianId?.mobileNumber || '',
+        jobId: e.jobId?._id || e.jobId || null,
+        bookingNumber: e.jobId?.bookingNumber || '',
+        jobTitle: e.jobId?.title || '',
+        customerName: e.jobId?.customerName || '',
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function approveExpense(req, res, next) {
+  try {
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+    const { id } = req.params;
+    const expense = await Expense.findByIdAndUpdate(
+      id,
+      {
+        status: 'approved',
+        rejectionReason: '',
+        reviewedBy: req.user?.id || null,
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    )
+      .populate('technicianId', 'name mobileNumber')
+      .populate('jobId', 'bookingNumber title customerName');
+
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Expense not found' });
+    }
+
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const techId = expense.technicianId?._id?.toString() || expense.technicianId?.toString();
+      if (techId) {
+        io.to(techId).emit('expenseStatusUpdated', {
+          expenseId: expense._id.toString(),
+          status: 'approved',
+          amount: expense.amount,
+        });
+      }
+      io.to('admin_room').emit('expenseStatusUpdated', {
+        expenseId: expense._id.toString(),
+        status: 'approved',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Expense approved successfully',
+      data: expense,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function rejectExpense(req, res, next) {
+  try {
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+    const { id } = req.params;
+    const reason = (req.body?.reason || req.body?.rejectionReason || req.body?.note || '').trim();
+    const expense = await Expense.findByIdAndUpdate(
+      id,
+      {
+        status: 'rejected',
+        rejectionReason: reason,
+        reviewedBy: req.user?.id || null,
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    )
+      .populate('technicianId', 'name mobileNumber')
+      .populate('jobId', 'bookingNumber title customerName');
+
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Expense not found' });
+    }
+
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const techId = expense.technicianId?._id?.toString() || expense.technicianId?.toString();
+      if (techId) {
+        io.to(techId).emit('expenseStatusUpdated', {
+          expenseId: expense._id.toString(),
+          status: 'rejected',
+          reason,
+        });
+      }
+      io.to('admin_room').emit('expenseStatusUpdated', {
+        expenseId: expense._id.toString(),
+        status: 'rejected',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Expense rejected',
+      data: expense,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getBookings,
   getServiceRequests,
+  createServiceRequest,
   getServiceRequestById,
   assignBooking,
   getAvailableTechnicians,
@@ -1949,4 +2243,7 @@ module.exports = {
   changeUserPassword,
   getApplications,
   updateApplicationStatus,
+  getExpenses,
+  approveExpense,
+  rejectExpense,
 };

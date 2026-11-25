@@ -30,6 +30,25 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    category: {
+      type: String,
+      default: 'General',
+      trim: true,
+    },
+    rejectionReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
     date: {
       type: Date,
       default: Date.now,
