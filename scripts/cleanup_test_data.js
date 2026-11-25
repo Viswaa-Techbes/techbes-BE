@@ -9,6 +9,8 @@ require('dotenv').config({ path: '/var/www/techbes-BE/.env' });
 const Job = require('../models/Job');
 const User = require('../models/User');
 const Expense = require('../models/Expense');
+const QuoteRequest = require('../models/QuoteRequest');
+const Review = require('../models/Review');
 const ServiceWorksheet = require('../models/ServiceWorksheet');
 const JobStatusHistory = require('../models/JobStatusHistory');
 
@@ -22,7 +24,7 @@ async function run() {
   const dummyJobs = await Job.find({
     $or: [
       { bookingNumber: { $in: ['ORD-2026-00001', 'ORD-2026-00003'] } },
-      { customerName: { $regex: /E2E Test Customer|E2E Test Resident|QA Automated Verification Client|Arun Kumar/i } },
+      { customerName: { $regex: /E2E Test Customer|E2E Test Resident|QA Automated Verification Client|Arun Kumar|Vikram Nair/i } },
     ],
   }).lean();
 
@@ -67,6 +69,21 @@ async function run() {
     const userIds = dummyUsers.map((u) => u._id);
     const userDel = await User.deleteMany({ _id: { $in: userIds } });
     console.log(`Deleted ${userDel.deletedCount} dummy staff user(s).`);
+  }
+
+  // 3. Remove any demo QuoteRequests, Reviews, or Demo Client Users (Vikram Nair)
+  const quoteDel = await QuoteRequest.deleteMany({
+    $or: [{ fullName: /Vikram Nair/i }, { mobile: '9840111222' }],
+  });
+  const revDel = await Review.deleteMany({
+    clientName: /Vikram Nair/i,
+  });
+  const demoClientDel = await User.deleteMany({
+    mobileNumber: '9840111222',
+    role: 'client',
+  });
+  if (quoteDel.deletedCount || revDel.deletedCount || demoClientDel.deletedCount) {
+    console.log(`Deleted demo lifecycle records: ${quoteDel.deletedCount} Quote(s), ${revDel.deletedCount} Review(s), ${demoClientDel.deletedCount} Demo Client(s).`);
   }
 
   console.log('\nCleanup complete.');
