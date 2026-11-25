@@ -270,6 +270,29 @@ router.put('/job/:jobId', authenticate, async (req, res, next) => {
     }
 
     await worksheet.save();
+
+    // Mirror photos to Job and broadcast real-time update to Admin
+    const jobPhotoUpdate = {};
+    if (worksheet.beforePhotos && worksheet.beforePhotos.length) jobPhotoUpdate.beforePhotos = worksheet.beforePhotos;
+    if (worksheet.afterPhotos && worksheet.afterPhotos.length) jobPhotoUpdate.afterPhotos = worksheet.afterPhotos;
+    if (Object.keys(jobPhotoUpdate).length) {
+      await Job.findByIdAndUpdate(jobId, jobPhotoUpdate).catch(err => console.error('[WorksheetUpdate] Job photo sync error:', err));
+    }
+
+    const ioUpdate = getIo(req);
+    if (ioUpdate) {
+      const socketPayload = {
+        jobId: jobId.toString(),
+        bookingId: (worksheet.bookingId || jobId).toString(),
+        beforePhotos: worksheet.beforePhotos || [],
+        afterPhotos: worksheet.afterPhotos || [],
+        worksheetStatus: worksheet.status,
+        updatedAt: new Date().toISOString(),
+      };
+      ioUpdate.to('admin_room').emit('worksheetUpdated', socketPayload);
+      ioUpdate.to('admin_room').emit('bookingStatusUpdated', socketPayload);
+    }
+
     return res.json({ success: true, data: worksheet });
   } catch (err) {
     next(err);

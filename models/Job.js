@@ -423,6 +423,37 @@ const jobSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    beforePhotos: {
+      type: [String],
+      default: [],
+    },
+    afterPhotos: {
+      type: [String],
+      default: [],
+    },
+    adminVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rework_requested'],
+      default: 'pending',
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationNote: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     dispatchAttempts: {
       type: Number,
       default: 0,

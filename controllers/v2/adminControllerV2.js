@@ -84,6 +84,17 @@ function formatServiceRequest(job, { address = null, payment = null, lead = null
     statusHistory: statusHistory || [],
     worksheet: worksheet || null,
     expenses: expenses || [],
+    beforePhotos: (worksheet?.beforePhotos && worksheet.beforePhotos.length) ? worksheet.beforePhotos : (job.beforePhotos || []),
+    afterPhotos: (worksheet?.afterPhotos && worksheet.afterPhotos.length) ? worksheet.afterPhotos : (job.afterPhotos || []),
+    duringPhotos: worksheet?.duringPhotos || [],
+    customerSignature: worksheet?.customerSignatureUrl || job.customerSignature || '',
+    technicianSignature: worksheet?.technicianSignatureUrl || job.technicianSignature || '',
+    technicianObservations: worksheet?.technicianObservations || '',
+    adminVerified: Boolean(job.adminVerified),
+    verificationStatus: job.verificationStatus || (job.adminVerified ? 'verified' : 'pending'),
+    verifiedBy: job.verifiedBy || null,
+    verifiedAt: job.verifiedAt || null,
+    verificationNote: job.verificationNote || '',
   };
 }
 
@@ -1097,6 +1108,13 @@ async function updateUser(req, res, next) {
 
 async function deleteUser(req, res, next) {
   try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (targetUser.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin accounts cannot be deleted or deactivated.' });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       {
@@ -1517,6 +1535,169 @@ async function assignBooking(req, res, next) {
   }
 }
 
+async function updateJobInstruction(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { instruction, dispatchNote, note } = req.body;
+    const finalInstruction = (instruction || dispatchNote || note || '').trim();
+    if (!finalInstruction) {
+      return res.status(400).json({ success: false, message: 'Instruction or note is required' });
+    }
+
+    const job = await Job.findById(id);
+    if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
+
+    job.dispatchNote = finalInstruction;
+    await job.save();
+
+    // Log in JobStatusHistory
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    await JobStatusHistory.create({
+      jobId: job._id.toString(),
+      bookingId: (job.bookingNumber || job._id).toString(),
+      status: job.status,
+      note: `Admin Instruction: ${finalInstruction}`,
+      updatedBy: req.user?.role || 'admin',
+      updatedAt: new Date(),
+    }).catch(err => console.error('[updateJobInstruction] History log error:', err));
+
+    // Real-time socket broadcast
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const payload = {
+        jobId: job._id.toString(),
+        bookingId: (job.bookingNumber || job._id).toString(),
+        dispatchNote: finalInstruction,
+        status: job.status,
+        updatedAt: new Date().toISOString(),
+      };
+      if (job.assignedTechnician) {
+        io.to(job.assignedTechnician.toString()).emit('jobInstructionUpdated', payload);
+        io.to(job.assignedTechnician.toString()).emit('bookingStatusUpdated', payload);
+      }
+      io.to('admin_room').emit('jobInstructionUpdated', payload);
+      io.to('admin_room').emit('bookingStatusUpdated', payload);
+    }
+
+    // FCM Push Notification to technician
+    if (job.assignedTechnician) {
+      const notificationService = require('../../services/notificationService');
+      await notificationService.createNotification(
+        job.assignedTechnician,
+        'Admin Instruction Update',
+        `Admin note: ${finalInstruction}`,
+        'instruction_updated',
+        io,
+        { jobId: job._id.toString(), dispatchNote: finalInstruction }
+      ).catch(err => console.error('[updateJobInstruction] Notification error:', err));
+    }
+
+    return res.json({
+      success: true,
+      message: 'Instruction dispatched to technician successfully',
+      data: {
+        id: job._id,
+        dispatchNote: job.dispatchNote,
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function verifyJobWork(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { status = 'verified', verificationNote, note } = req.body;
+    const finalNote = (verificationNote || note || '').trim();
+
+    const job = await Job.findById(id);
+    if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
+
+    const isVerified = status === 'verified';
+    job.adminVerified = isVerified;
+    job.verificationStatus = isVerified ? 'verified' : 'rework_requested';
+    job.verifiedBy = req.user?.id || null;
+    job.verifiedAt = new Date();
+    job.verificationNote = finalNote;
+
+    if (isVerified) {
+      const ServiceWorksheet = mongoose.models.ServiceWorksheet || require('../../models/ServiceWorksheet');
+      await ServiceWorksheet.findOneAndUpdate(
+        { jobId: job._id },
+        { status: 'approved', approvedAt: new Date() }
+      ).catch(err => console.error('[verifyJobWork] Worksheet approve error:', err));
+    }
+
+    await job.save();
+
+    // Log in JobStatusHistory
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    await JobStatusHistory.create({
+      jobId: job._id.toString(),
+      bookingId: (job.bookingNumber || job._id).toString(),
+      status: job.status,
+      note: isVerified
+        ? `Work Verified & Approved by Admin${finalNote ? ': ' + finalNote : ''}`
+        : `Admin Requested Rework / Query: ${finalNote}`,
+      updatedBy: req.user?.role || 'admin',
+      updatedAt: new Date(),
+    }).catch(err => console.error('[verifyJobWork] History log error:', err));
+
+    // Real-time socket broadcast
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const payload = {
+        jobId: job._id.toString(),
+        bookingId: (job.bookingNumber || job._id).toString(),
+        adminVerified: job.adminVerified,
+        verificationStatus: job.verificationStatus,
+        verificationNote: job.verificationNote,
+        verifiedAt: job.verifiedAt,
+        status: job.status,
+      };
+      if (job.assignedTechnician) {
+        io.to(job.assignedTechnician.toString()).emit('jobVerified', payload);
+        io.to(job.assignedTechnician.toString()).emit('bookingStatusUpdated', payload);
+      }
+      io.to('admin_room').emit('jobVerified', payload);
+      io.to('admin_room').emit('bookingStatusUpdated', payload);
+    }
+
+    // FCM Push Notification to technician
+    if (job.assignedTechnician) {
+      const notificationService = require('../../services/notificationService');
+      const title = isVerified ? 'Work Approved by Admin ✓' : 'Admin Feedback / Rework Query ⚠️';
+      const body = isVerified
+        ? (finalNote || 'Your completed service has been verified and approved by Admin.')
+        : `Action Required: ${finalNote || 'Please review Admin query on your worksheet.'}`;
+
+      await notificationService.createNotification(
+        job.assignedTechnician,
+        title,
+        body,
+        isVerified ? 'job_verified' : 'rework_requested',
+        io,
+        { jobId: job._id.toString(), verificationStatus: job.verificationStatus, note: finalNote }
+      ).catch(err => console.error('[verifyJobWork] Notification error:', err));
+    }
+
+    return res.json({
+      success: true,
+      message: isVerified ? 'Job work verified and approved successfully' : 'Rework query sent to technician',
+      data: {
+        id: job._id,
+        adminVerified: job.adminVerified,
+        verificationStatus: job.verificationStatus,
+        verificationNote: job.verificationNote,
+        verifiedAt: job.verifiedAt,
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function updateServiceRequest(req, res, next) {
   try {
     const { id } = req.params;
@@ -1762,6 +1943,8 @@ module.exports = {
   updatePaymentRequest,
   updateServiceRequest,
   deleteServiceRequest,
+  updateJobInstruction,
+  verifyJobWork,
   changeUserPassword,
   getApplications,
   updateApplicationStatus,
