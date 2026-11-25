@@ -145,7 +145,11 @@ async function run() {
   const expenseId = expRes.body.data._id;
   console.log(`7. ✓ Field Expense submitted (ID: ${expenseId}, ₹350)`);
 
-  // 8. Upload Worksheet Proof
+  // 8. Fetch/Initialize Worksheet & Upload Before/After Proof
+  await request(`${API_BASE}/api/v2/worksheets/job/${jobId}`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${techToken}` },
+  });
   const wsRes = await request(`${API_BASE}/api/v2/worksheets/job/${jobId}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${techToken}` },
@@ -153,22 +157,30 @@ async function run() {
     observationNotes: 'All 4 cameras mounted cleanly and DVR recording verified.',
     beforePhotos: ['https://res.cloudinary.com/demo/image/upload/sample.jpg'],
     afterPhotos: ['https://res.cloudinary.com/demo/image/upload/sample.jpg'],
-    status: 'submitted',
+    status: 'in_progress',
   });
   if (wsRes.status < 200 || wsRes.status >= 300) {
     throw new Error(`Worksheet upload failed: ${wsRes.status} ${JSON.stringify(wsRes.body)}`);
   }
   console.log('8. ✓ Worksheet & before/after photo proof uploaded');
 
-  // 9. Complete job
-  const compRes = await request(`${API_BASE}/jobs/${jobId}/status`, {
-    method: 'PATCH',
+  // 9. Complete job via Completion OTP
+  const genOtpRes = await request(`${API_BASE}/api/v2/otp/complete/${jobId}`, {
+    method: 'POST',
     headers: { Authorization: `Bearer ${techToken}` },
-  }, { status: 'completed', note: 'Work completed by QA Tech' });
+  });
+  const otpCode = genOtpRes.body?.otp;
+  if (!otpCode) {
+    throw new Error(`Generate completion OTP failed: ${genOtpRes.status} ${JSON.stringify(genOtpRes.body)}`);
+  }
+  const compRes = await request(`${API_BASE}/api/v2/otp/complete/${jobId}/verify`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${techToken}` },
+  }, { otp: String(otpCode) });
   if (compRes.status !== 200) {
     throw new Error(`Complete job failed: ${compRes.status} ${JSON.stringify(compRes.body)}`);
   }
-  console.log('9. ✓ Job marked completed');
+  console.log('9. ✓ Job marked completed via Customer Completion OTP');
 
   // 10. Admin lists & approves Expense
   const listExpRes = await request(`${API_BASE}/api/v2/admin/expenses`, {

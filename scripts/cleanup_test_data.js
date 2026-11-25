@@ -22,7 +22,7 @@ async function run() {
   const dummyJobs = await Job.find({
     $or: [
       { bookingNumber: { $in: ['ORD-2026-00001', 'ORD-2026-00003'] } },
-      { customerName: { $regex: /E2E Test Customer|E2E Test Resident/i } },
+      { customerName: { $regex: /E2E Test Customer|E2E Test Resident|QA Automated Verification Client/i } },
     ],
   }).lean();
 
@@ -41,6 +41,14 @@ async function run() {
     const jobDel = await Job.deleteMany({ _id: { $in: jobIds } });
 
     console.log(`Deleted: ${jobDel.deletedCount} Jobs, ${wsDel.deletedCount} Worksheets, ${histDel.deletedCount} History, ${expDel.deletedCount} Expenses.`);
+  }
+
+  // Also remove any orphaned QA E2E expenses whose job was already deleted via API
+  const qaExpDel = await Expense.deleteMany({
+    description: { $regex: /QA E2E/i },
+  });
+  if (qaExpDel.deletedCount > 0) {
+    console.log(`Deleted ${qaExpDel.deletedCount} orphaned QA E2E expense(s).`);
   }
 
   // 2. Find dummy staff accounts (dhanshekar rasagulla paka, viswaa E) - exclude protected accounts
