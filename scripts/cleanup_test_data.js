@@ -22,7 +22,7 @@ async function run() {
   const dummyJobs = await Job.find({
     $or: [
       { bookingNumber: { $in: ['ORD-2026-00001', 'ORD-2026-00003'] } },
-      { customerName: { $regex: /E2E Test Customer|E2E Test Resident|QA Automated Verification Client/i } },
+      { customerName: { $regex: /E2E Test Customer|E2E Test Resident|QA Automated Verification Client|Arun Kumar/i } },
     ],
   }).lean();
 
@@ -43,9 +43,9 @@ async function run() {
     console.log(`Deleted: ${jobDel.deletedCount} Jobs, ${wsDel.deletedCount} Worksheets, ${histDel.deletedCount} History, ${expDel.deletedCount} Expenses.`);
   }
 
-  // Also remove any orphaned QA E2E expenses whose job was already deleted via API
+  // Also remove any orphaned QA E2E / demo expenses whose job was already deleted via API
   const qaExpDel = await Expense.deleteMany({
-    description: { $regex: /QA E2E/i },
+    description: { $regex: /QA E2E|Cat6 Patch Cords/i },
   });
   if (qaExpDel.deletedCount > 0) {
     console.log(`Deleted ${qaExpDel.deletedCount} orphaned QA E2E expense(s).`);
