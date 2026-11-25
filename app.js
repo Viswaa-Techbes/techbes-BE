@@ -174,6 +174,7 @@ app.use('/technician', technicianRoutes); // Alias
 app.use('/jobs', jobRoutes);
 app.use('/expenses', expenseRoutes);
 app.use('/reviews', reviewRoutes);
+app.use('/api/v2/reviews', reviewRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/leads', leadRoutes);
 app.use('/', paymentRoutes);

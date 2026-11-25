@@ -1730,6 +1730,67 @@ async function acceptQuote(req, res, next) {
     if (notes) {
       quote.adminNotes = (quote.adminNotes ? quote.adminNotes + '\n' : '') + `[Customer Note on Accept]: ${notes}`;
     }
+
+    // Automatically convert approved quotation into an active Work Order (Job) if not yet linked
+    let createdJob = null;
+    if (!quote.jobId) {
+      const Job = require('../../models/Job');
+      const JobStatusHistory = mongoose.model('JobStatusHistory');
+      const year = new Date().getFullYear();
+      const bookingNumber = `ORD-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
+      const startOtp = String(Math.floor(1000 + Math.random() * 9000));
+      const completionOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+      const meta = new Map();
+      meta.set('quoteRequestId', quote._id.toString());
+      meta.set('requestId', quote.requestId || '');
+      if (Array.isArray(quote.items) && quote.items.length > 0) {
+        meta.set('quotedItems', JSON.stringify(quote.items));
+      }
+      if (quote.adminNotes) meta.set('adminNotes', quote.adminNotes);
+
+      const scopeSummary = Array.isArray(quote.items) && quote.items.length > 0
+        ? quote.items.map((it) => `${it.qty || 1}x ${it.name || it.description || 'Item'} (₹${it.price || it.unitPrice || 0})`).join(', ')
+        : (quote.notes || quote.equipmentRequirements || '');
+
+      createdJob = await Job.create({
+        bookingNumber,
+        bookingId: bookingNumber,
+        title: `${quote.serviceType || 'CCTV'} - Approved Quote #${quote.requestId || ''}`.trim(),
+        serviceName: quote.serviceType || 'Service Quotation',
+        description: scopeSummary,
+        serviceType: 'installation',
+        client: quote.customerId || req.user?.id || null,
+        customerName: quote.fullName || 'Customer',
+        customerPhone: quote.mobile || '',
+        location: quote.address || '',
+        address: quote.address || '',
+        pincode: quote.pincode || '',
+        amount: Number(quote.finalAmount || 0),
+        price: Number(quote.finalAmount || 0),
+        paymentStatus: 'pending',
+        quoteRequestId: quote._id.toString(),
+        status: 'pending',
+        dispatchStatus: 'pending_dispatch',
+        startOtp,
+        completionOtp,
+        useNewFlow: true,
+        v2Metadata: meta,
+      });
+
+      quote.jobId = createdJob._id;
+
+      await JobStatusHistory.create({
+        jobId: createdJob._id.toString(),
+        bookingId: bookingNumber,
+        status: 'pending',
+        note: `Work Order auto-created from Customer Approved Quote #${quote.requestId}`,
+        changedBy: req.user?.id || null,
+        role: req.user?.role || 'client',
+        timestamp: new Date(),
+      });
+    }
+
     await quote.save();
 
     // Real-time broadcast to Admin room
@@ -1741,7 +1802,16 @@ async function acceptQuote(req, res, next) {
         status: quote.status,
         customerName: quote.fullName,
         finalAmount: quote.finalAmount,
+        jobId: quote.jobId,
       });
+      if (createdJob) {
+        io.to('admin_room').emit('newBooking', {
+          jobId: createdJob._id.toString(),
+          bookingNumber: createdJob.bookingNumber,
+          customerName: createdJob.customerName,
+          title: createdJob.title,
+        });
+      }
     }
 
     // Notify Admins

@@ -435,6 +435,11 @@ async function getBookingDetails(req, res, next) {
       return res.status(403).json({ success: false, message: 'Not authorized to view this booking' });
     }
 
+    const Review = require('../../models/Review');
+    const review = await Review.findOne({ $or: [{ jobId: job._id }, { booking: job._id }] }).lean();
+    job.review = review || null;
+    job.hasReview = Boolean(review);
+
     res.json({ success: true, data: job });
   } catch (err) {
     next(err);

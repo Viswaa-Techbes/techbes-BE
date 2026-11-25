@@ -276,6 +276,12 @@ router.post('/complete/:jobId', verifyToken, async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[OTP Complete] Generated COMPLETE JOB OTP for Job ${jobId}: ${otp}`);
 
+    job.completionOtp = otp;
+    await job.save();
+
+    job.completionOtp = otp;
+    await job.save();
+
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
     const otpHash = await bcrypt.hash(otp, 12);
 
