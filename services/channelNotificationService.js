@@ -51,8 +51,29 @@ function getTwilioClient() {
 
 // ─── Individual Channel Senders ────────────────────────────────────────────────
 
+const recentEmailCache = new Map();
+const EMAIL_DEDUP_WINDOW_MS = 60 * 1000;
+
+function isDuplicateEmail(to, subject, text) {
+  const now = Date.now();
+  for (const [k, ts] of recentEmailCache.entries()) {
+    if (now - ts > EMAIL_DEDUP_WINDOW_MS) {
+      recentEmailCache.delete(k);
+    }
+  }
+  const key = `${String(to).trim().toLowerCase()}::${subject || ''}::${text || ''}`;
+  if (recentEmailCache.has(key)) {
+    return true;
+  }
+  recentEmailCache.set(key, now);
+  return false;
+}
+
 async function sendEmail({ to, subject, html, text }) {
   if (!process.env.SMTP_USER || !to) return { success: false, reason: 'No SMTP config or email address' };
+  if (isDuplicateEmail(to, subject, text)) {
+    return { success: true, deduplicated: true };
+  }
   try {
     const transport = getEmailTransport();
     const rawFrom = process.env.SMTP_FROM || `"TechBes" <${process.env.SMTP_USER}>`;

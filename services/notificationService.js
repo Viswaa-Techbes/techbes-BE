@@ -76,13 +76,18 @@ async function createNotification(userId, title, message, type = 'general', io =
       try {
         const user = await User.findById(userId).select('name email phone mobileNumber role').lean();
         if (user) {
+          const isAdminRole = user.role === 'admin' || user.role === 'manager';
+          const targetEmail = isAdminRole && process.env.ADMIN_EMAIL
+            ? process.env.ADMIN_EMAIL.trim()
+            : user.email;
+
           await channelService.dispatch({
             type,
             data: { ...extraData, customerName: user.name, title, message },
             recipient: {
               userId: userId.toString(),
               name: user.name,
-              email: user.email,
+              email: targetEmail,
               phone: user.phone || user.mobileNumber,
               role: user.role,
             },
